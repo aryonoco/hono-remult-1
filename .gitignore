@@ -1,0 +1,454 @@
+# =============================================================================
+# Hono Remult Nx Monorepo .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Build & Compiled Output
+# -----------------------------------------------------------------------------
+dist/
+tmp/
+out-tsc/
+bazel-out/
+
+# TypeScript
+*.tsbuildinfo
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+node_modules/
+bower_components/
+jspm_packages/
+web_modules/
+
+# Using Bun — ignore other lock files
+package-lock.json
+yarn.lock
+
+# Bun binary lockfile (legacy format, text bun.lock is committed)
+*.lockb
+
+# -----------------------------------------------------------------------------
+# Nx
+# -----------------------------------------------------------------------------
+.nx/cache
+.nx/workspace-data
+
+# -----------------------------------------------------------------------------
+# Angular
+# -----------------------------------------------------------------------------
+.angular/cache
+
+# -----------------------------------------------------------------------------
+# Package Manager Logs
+# -----------------------------------------------------------------------------
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+debug.log
+
+# npm
+.npm
+
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.yarn-integrity
+
+# Package files
+*.tgz
+
+# -----------------------------------------------------------------------------
+# Testing & Coverage
+# -----------------------------------------------------------------------------
+coverage/
+.nyc_output/
+testem.log
+__screenshots__/
+
+# Vitest
+.vitest/
+
+# Jest (if used)
+.jest/
+
+# Test results
+test-results/
+test-report.xml
+junit.xml
+
+# -----------------------------------------------------------------------------
+# Linting & Formatting Caches
+# -----------------------------------------------------------------------------
+.eslintcache
+.stylelintcache
+.biome/
+
+# Rollup/TypeScript caches
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# -----------------------------------------------------------------------------
+# Bundler & Framework Caches
+# -----------------------------------------------------------------------------
+.parcel-cache
+.next/
+.nuxt/
+.vuepress/dist
+.docusaurus/
+.gatsby-cache/
+.cache/
+
+# Vite
+.vite/
+
+# Webpack
+.webpack/
+
+# Turbopack / Turborepo
+.turbo/
+
+# Tailwind
+.tailwindcss/
+
+# PostCSS
+.postcss-cache/
+
+# -----------------------------------------------------------------------------
+# Deployment & Hosting
+# -----------------------------------------------------------------------------
+.vercel/
+.netlify/
+.serverless/
+.firebase/
+.firebaserc
+
+# -----------------------------------------------------------------------------
+# Docker
+# -----------------------------------------------------------------------------
+.docker/
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# -----------------------------------------------------------------------------
+# Operating System Files
+# -----------------------------------------------------------------------------
+
+### macOS ###
+.DS_Store
+**/.DS_Store
+._*
+**/._*
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+*.icloud
+
+### Windows ###
+Thumbs.db
+**/Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+**/Desktop.ini
+[Dd]esktop.ini
+$RECYCLE.BIN/
+**/$RECYCLE.BIN/
+*.stackdump
+*.lnk
+
+### Linux ###
+.directory
+**/.directory
+.Trash-*
+**/.Trash-*
+.nfs*
+**/.nfs*
+.fuse_hidden*
+**/.fuse_hidden*
+
+# -----------------------------------------------------------------------------
+# IDEs & Editors
+# -----------------------------------------------------------------------------
+
+### Visual Studio Code ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+!.vscode/*.code-snippets
+.history/*
+*.vsix
+
+### JetBrains IDEs ###
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+cmake-build-*/
+out/
+
+### Vim/Neovim ###
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+!*.svg
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+tags
+[._]*.un~
+
+### Emacs ###
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+.org-id-locations
+*_archive
+*_flymake.*
+/eshell/history
+/eshell/lastdir
+/elpa/
+*.rel
+/auto/
+.cask/
+flycheck_*.el
+.projectile
+.dir-locals.el
+/network-security.data
+
+### Sublime Text ###
+*.sublime-workspace
+*.sublime-project
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+
+# -----------------------------------------------------------------------------
+# Version Control Artifacts
+# -----------------------------------------------------------------------------
+*.orig
+*.BACKUP.*
+*.BASE.*
+*.LOCAL.*
+*.REMOTE.*
+*_BACKUP_*.txt
+*_BASE_*.txt
+*_LOCAL_*.txt
+*_REMOTE_*.txt
+
+.svn/
+
+.hg/
+.hgignore
+.hgsigs
+.hgsub
+.hgsubstate
+.hgtags
+
+# -----------------------------------------------------------------------------
+# Environment & Configuration
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.template
+.env.local
+.env.*.local
+*.env.local
+
+# Local configuration
+config.local.js
+config.local.json
+config.local.ts
+settings.local.json
+local.settings.json
+
+# -----------------------------------------------------------------------------
+# Security & Credentials
+# -----------------------------------------------------------------------------
+# Keys & certificates
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.cer
+private_key*
+api_key*
+auth_token*
+access_token*
+credentials.json
+service-account.json
+.credentials/
+.secrets/
+
+# SSH keys
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
+!example.pem
+!example.key
+
+# Tokens & sessions
+.token
+.session
+session_store/
+sessions/
+
+# Password files
+passwords.txt
+passwords.json
+.htpasswd
+
+# Cloud provider directories
+.aws/
+.azure/
+.gcloud/
+
+# -----------------------------------------------------------------------------
+# AI/LLM Development Tools
+# -----------------------------------------------------------------------------
+# Anthropic/Claude
+.claude/
+.anthropic/
+
+# OpenAI
+.openai/
+.gpt*
+.chatgpt/
+
+# GitHub Copilot
+.copilot/
+
+# Code assistants
+.aider*
+.cursor/
+.continue/
+.codeium*
+.tabnine*
+.kite/
+.sourcegraph/
+
+# AI conversations & history
+.chat/
+chat-history*
+conversation-*
+.conversations/
+
+# -----------------------------------------------------------------------------
+# Databases
+# -----------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+*.db-journal
+
+# -----------------------------------------------------------------------------
+# Logs & Temporary Files
+# -----------------------------------------------------------------------------
+*.log
+*.log.*
+logs/
+log/
+*.out
+*.err
+nohup.out
+
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+.*.swp
+*.pid
+*.seed
+*.pid.lock
+
+# Backups
+*.bak
+*.backup
+*.old
+*.orig
+*.original
+*_backup
+*_bak
+backup/
+backups/
+
+# Caches
+.cache/
+*.cache
+cache/
+
+# Node REPL history
+.node_repl_history
+
+# -----------------------------------------------------------------------------
+# Archives
+# -----------------------------------------------------------------------------
+*.7z
+*.dmg
+*.gz
+*.iso
+*.rar
+*.tar
+*.zip
+*.tgz
+*.bz2
+*.xz
+
+# -----------------------------------------------------------------------------
+# Obsidian
+# -----------------------------------------------------------------------------
+**/.obsidian/
+**/.obsidian.vimrc
+**/.obsidian-sync.json
+**/.obsidian-sync-conflict-*
+**/.trash/
+**/*sync-conflict-*
+
+# Re-ignore OS-specific files even in allowed directories
+**/.DS_Store
+**/Thumbs.db
+**/Desktop.ini
+**/.directory
+**/._*
