@@ -5,7 +5,7 @@ import { Entity, Fields } from 'remult';
 })
 export class Task {
   @Fields.id()
-  id!: string;
+  id = '';
 
   @Fields.string()
   title = '';
@@ -14,5 +14,5 @@ export class Task {
   completed = false;
 
   @Fields.createdAt()
-  createdAt!: Date;
+  createdAt?: Date;
 }
