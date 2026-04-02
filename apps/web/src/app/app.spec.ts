@@ -1,5 +1,6 @@
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { DEV_USERS } from '@workspace/shared-domain';
 import { InMemoryDataProvider, remult } from 'remult';
 import { App } from './app';
 import { provideRemult } from './core/remult.provider';
@@ -7,6 +8,7 @@ import { provideRemult } from './core/remult.provider';
 describe('App', () => {
   beforeEach(async () => {
     remult.dataProvider = new InMemoryDataProvider();
+    remult.user = DEV_USERS[0];
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [provideRemult(), provideHttpClientTesting()],

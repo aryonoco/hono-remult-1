@@ -1,10 +1,12 @@
-import { Component, type OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, type OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
 import { Task } from '@workspace/shared-domain';
 import { ResultAsync } from 'neverthrow';
 import type { Repository } from 'remult';
 import { remult } from 'remult';
+
+import { DevUserSwitcherComponent } from './shared/components/dev-user-switcher';
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -15,15 +17,25 @@ function toErrorMessage(error: unknown): string {
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, FormsModule],
+  imports: [RouterOutlet, FormsModule, DevUserSwitcherComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly taskRepo: Repository<Task> = remult.repo(Task);
   protected readonly tasks = signal<Task[]>([]);
   protected readonly error = signal<string | null>(null);
   protected newTaskTitle = '';
+
+  constructor() {
+    const unsubscribe = remult.subscribeAuth(() => {
+      this.loadTasks().catch((err: unknown) => {
+        this.error.set(toErrorMessage(err));
+      });
+    });
+    this.destroyRef.onDestroy(unsubscribe);
+  }
 
   async ngOnInit(): Promise<void> {
     await this.loadTasks();
