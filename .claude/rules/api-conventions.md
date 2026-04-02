@@ -1,5 +1,5 @@
 ---
-globs: "apps/api/**/*.ts"
+paths: ["apps/api/**/*.ts"]
 ---
 
 # API Conventions
@@ -21,7 +21,7 @@ Hono uses an onion model — first registered middleware runs first (pre-next), 
 4. Remult — `app.route('/', api)` last
 
 ## Non-Remult Routes
-Only for things Remult cannot handle: OAuth callbacks, webhooks, file uploads.
+Only for things Remult cannot handle such as OAuth callbacks, webhooks, file uploads.
 - Place in `apps/api/src/routes/` as separate files
 - Export `new Hono()` sub-router, mount with `app.route('/path', router)`
 - Use `api.withRemult(c, async () => { ... })` when the route needs Remult context

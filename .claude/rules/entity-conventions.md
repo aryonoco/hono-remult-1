@@ -1,5 +1,5 @@
 ---
-globs: "libs/shared/domain/**/*.ts"
+paths: ["libs/shared/domain/**/*.ts"]
 ---
 
 # Entity Conventions

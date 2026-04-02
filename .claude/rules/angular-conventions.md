@@ -1,5 +1,5 @@
 ---
-globs: "apps/web/**/*.ts"
+paths: ["apps/web/**/*.ts"]
 ---
 
 # Angular Conventions

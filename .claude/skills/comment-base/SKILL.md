@@ -1,7 +1,7 @@
 ---
 name: comment-base
 description: "Universal code commenting principles — comment 'why' not 'what', eliminate AI anti-patterns, enforce British English. Shared foundation referenced by all language-specific commenting skills."
-user-invokable: false
+user-invocable: false
 ---
 
 # Universal Commenting Principles
