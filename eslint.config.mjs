@@ -1,4 +1,5 @@
 import neverthrowPlugin from '@bufferings/eslint-plugin-neverthrow';
+import nxPlugin from '@nx/eslint-plugin';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -8,6 +9,7 @@ export default tseslint.config(
   {
     files: ['apps/api/src/**/*.ts', 'apps/web/src/**/*.ts', 'libs/shared/domain/src/**/*.ts'],
     plugins: {
+      '@nx': nxPlugin,
       neverthrow: neverthrowPlugin,
     },
     languageOptions: {
@@ -19,6 +21,28 @@ export default tseslint.config(
     },
     rules: {
       'neverthrow/must-use-result': 'error',
+      '@nx/enforce-module-boundaries': [
+        'error',
+        {
+          enforceBuildableLibDependency: true,
+          allow: [],
+          depConstraints: [
+            {
+              sourceTag: 'scope:shared',
+              onlyDependOnLibsWithTags: ['scope:shared'],
+              bannedExternalImports: ['@angular/*', 'hono', 'hono/*'],
+            },
+            {
+              sourceTag: 'scope:web',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:web'],
+            },
+            {
+              sourceTag: 'scope:api',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:api'],
+            },
+          ],
+        },
+      ],
     },
   },
 );
