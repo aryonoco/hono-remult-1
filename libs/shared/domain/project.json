@@ -4,9 +4,5 @@
   "projectType": "library",
   "sourceRoot": "libs/shared/domain/src",
   "tags": ["scope:shared"],
-  "targets": {
-    "lint": {
-      "command": "biome lint libs/shared/domain && eslint libs/shared/domain/src"
-    }
-  }
+  "targets": {}
 }

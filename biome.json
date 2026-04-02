@@ -86,6 +86,7 @@
       "includes": ["**/*.spec.ts"],
       "javascript": {
         "globals": [
+          "Bun",
           "describe",
           "it",
           "expect",

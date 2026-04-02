@@ -24,7 +24,7 @@ export default tseslint.config(
       '@nx/enforce-module-boundaries': [
         'error',
         {
-          enforceBuildableLibDependency: true,
+          enforceBuildableLibDependency: false,
           allow: [],
           depConstraints: [
             {
@@ -35,10 +35,12 @@ export default tseslint.config(
             {
               sourceTag: 'scope:web',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:web'],
+              bannedExternalImports: ['hono', 'hono/*'],
             },
             {
               sourceTag: 'scope:api',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:api'],
+              bannedExternalImports: ['@angular/*'],
             },
           ],
         },

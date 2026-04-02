@@ -151,7 +151,8 @@ This is the heart of the architecture. Every entity lives here.
 - Environment configuration
 - Platform-specific code
 
-**Organization pattern:** Group by domain, not by type. All task-related entities live in `tasks/`, all project-related entities in `projects/`. This keeps related code together and makes it easy to find things.
+**Organization pattern:** Group by domain aggregate, not by technical type (DDD-style). Task-related entities live in tasks/,
+project-related entities in projects/.
 
 ### Layer 2: API Application (apps/api)
 
@@ -252,8 +253,10 @@ Configure NX to enforce architectural rules:
 - `scope:web` can depend on `scope:shared` and `scope:web`
 - `scope:api` can depend on `scope:shared` and `scope:api`
 - `scope:shared` cannot import from `@angular/*`, `hono`, or Node APIs
+- `scope:web` cannot import from `hono` or `hono/*`
+- `scope:api` cannot import from `@angular/*`
 
-This prevents entities from accidentally importing platform-specific code, which would break the shared model.
+This prevents platform-specific code from leaking across boundaries — entities stay isomorphic, and frontend/backend cannot accidentally depend on each other's frameworks.
 
 ---
 

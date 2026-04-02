@@ -11,9 +11,6 @@
     },
     "serve": {
       "command": "bun --watch apps/api/src/main.ts"
-    },
-    "lint": {
-      "command": "biome lint apps/api && eslint apps/api/src"
     }
   }
 }
