@@ -346,7 +346,8 @@ passwords.json
 # AI/LLM Development Tools
 # -----------------------------------------------------------------------------
 # Anthropic/Claude
-.claude/
+# .claude/ — tracked intentionally (skills, rules, LLM docs are shared)
+.claude/settings.local.json
 .anthropic/
 
 # OpenAI
