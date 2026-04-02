@@ -1,9 +1,18 @@
-import { type ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import {
+  type ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
+  provideZonelessChangeDetection,
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { provideRemult } from './core/remult.provider';
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideBrowserGlobalErrorListeners(), provideRouter(routes), provideRemult()],
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+    provideZonelessChangeDetection(),
+    provideRouter(routes),
+    provideRemult(),
+  ],
 };
