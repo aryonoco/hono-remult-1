@@ -57,6 +57,12 @@
   },
   "overrides": [
     {
+      "includes": ["apps/api/**/*.ts"],
+      "javascript": {
+        "globals": ["Bun"]
+      }
+    },
+    {
       "includes": ["**/*.spec.ts"],
       "javascript": {
         "globals": [

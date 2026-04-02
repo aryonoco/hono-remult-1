@@ -1,0 +1,19 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "api",
+  "projectType": "application",
+  "sourceRoot": "apps/api/src",
+  "tags": ["scope:api"],
+  "targets": {
+    "build": {
+      "command": "bun build apps/api/src/main.ts --outdir dist/apps/api --target bun --minify",
+      "outputs": ["{workspaceRoot}/dist/apps/api"]
+    },
+    "serve": {
+      "command": "bun --watch apps/api/src/main.ts"
+    },
+    "lint": {
+      "command": "biome lint apps/api"
+    }
+  }
+}
