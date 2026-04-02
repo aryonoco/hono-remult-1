@@ -13,7 +13,7 @@
       "command": "bun --watch apps/api/src/main.ts"
     },
     "lint": {
-      "command": "biome lint apps/api"
+      "command": "biome lint apps/api && eslint apps/api/src"
     }
   }
 }

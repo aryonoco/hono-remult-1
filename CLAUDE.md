@@ -20,10 +20,15 @@ TypeScript 5.9 strict mode plus: `exactOptionalPropertyTypes`, `noUncheckedIndex
 - All Biome and typescript compiler rules are enforced as errors — fix them, do not suppress them. If a rule cannot be satisfied, restructure the code or ask the user for guidance
 
 
+## Error Handling
+
+Rust/OCaml-style: use `neverthrow` `Result<T, E>` / `ResultAsync<T, E>` for expected errors — never throw. The `must-use-result` ESLint rule enforces all Results are handled. Only throw for bugs or unrecoverable failures.
+
 ## Rules
 
 - Run `bun run check:ci` before committing — it must pass clean
-- **Biome ** — primary linter and formatter for TS, CSS, JSON. All rule categories set to `error`
+- **Biome** — primary linter and formatter for TS, CSS, JSON. All rule categories set to `error`
+- **ESLint** — scoped to `neverthrow/must-use-result` only (`@bufferings/eslint-plugin-neverthrow`). Runs as part of the unified `lint` target alongside Biome
 - **Prettier** — HTML templates only (`bun run format:html`). Biome excludes `*.html`
 - Import organisation handled by Biome assist (`organizeImports`)
 - Test files (`*.spec.ts`) relax `noExplicitAny` and `noNonNullAssertion` only

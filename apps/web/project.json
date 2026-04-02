@@ -64,7 +64,7 @@
       "executor": "@angular/build:unit-test"
     },
     "lint": {
-      "command": "biome lint apps/web"
+      "command": "biome lint apps/web && eslint apps/web/src"
     }
   }
 }

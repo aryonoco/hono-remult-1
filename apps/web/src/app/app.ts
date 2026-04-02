@@ -2,8 +2,16 @@ import { Component, type OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
 import { Task } from '@workspace/shared-domain';
+import { ResultAsync } from 'neverthrow';
 import type { Repository } from 'remult';
 import { remult } from 'remult';
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'An unexpected error occurred';
+}
 
 @Component({
   selector: 'app-root',
@@ -14,6 +22,7 @@ import { remult } from 'remult';
 export class App implements OnInit {
   private readonly taskRepo: Repository<Task> = remult.repo(Task);
   protected readonly tasks = signal<Task[]>([]);
+  protected readonly error = signal<string | null>(null);
   protected newTaskTitle = '';
 
   async ngOnInit(): Promise<void> {
@@ -24,25 +33,49 @@ export class App implements OnInit {
     if (!this.newTaskTitle.trim()) {
       return;
     }
-    await this.taskRepo.insert({ title: this.newTaskTitle.trim() });
+    const result = await ResultAsync.fromPromise(
+      this.taskRepo.insert({ title: this.newTaskTitle.trim() }),
+      toErrorMessage,
+    );
+    if (result.isErr()) {
+      this.error.set(result.error);
+      return;
+    }
     this.newTaskTitle = '';
     await this.loadTasks();
   }
 
   protected async toggleCompleted(task: Task): Promise<void> {
-    await this.taskRepo.update(task.id, { completed: !task.completed });
+    const result = await ResultAsync.fromPromise(
+      this.taskRepo.update(task.id, { completed: !task.completed }),
+      toErrorMessage,
+    );
+    if (result.isErr()) {
+      this.error.set(result.error);
+      return;
+    }
     await this.loadTasks();
   }
 
   protected async deleteTask(task: Task): Promise<void> {
-    await this.taskRepo.delete(task.id);
+    const result = await ResultAsync.fromPromise(this.taskRepo.delete(task.id), toErrorMessage);
+    if (result.isErr()) {
+      this.error.set(result.error);
+      return;
+    }
     await this.loadTasks();
   }
 
   private async loadTasks(): Promise<void> {
-    const result: Task[] = await this.taskRepo.find({
-      orderBy: { createdAt: 'desc' },
-    });
-    this.tasks.set(result);
+    const result = await ResultAsync.fromPromise(
+      this.taskRepo.find({ orderBy: { createdAt: 'desc' } }),
+      toErrorMessage,
+    );
+    if (result.isErr()) {
+      this.error.set(result.error);
+      return;
+    }
+    this.error.set(null);
+    this.tasks.set(result.value);
   }
 }

@@ -19,7 +19,14 @@
       "cache": true
     },
     "lint": {
-      "inputs": ["default", "{workspaceRoot}/biome.json"],
+      "inputs": [
+        "default",
+        "{workspaceRoot}/biome.json",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tsconfig.base.json",
+        "{projectRoot}/tsconfig.json",
+        "{projectRoot}/tsconfig.*.json"
+      ],
       "cache": true
     }
   }

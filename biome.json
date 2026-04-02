@@ -73,6 +73,16 @@
       }
     },
     {
+      "includes": ["*.config.mjs"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/*.spec.ts"],
       "javascript": {
         "globals": [

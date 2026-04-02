@@ -6,7 +6,7 @@
   "tags": ["scope:shared"],
   "targets": {
     "lint": {
-      "command": "biome lint libs/shared/domain"
+      "command": "biome lint libs/shared/domain && eslint libs/shared/domain/src"
     }
   }
 }
