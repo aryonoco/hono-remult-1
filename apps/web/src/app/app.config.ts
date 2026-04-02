@@ -2,7 +2,8 @@ import { type ApplicationConfig, provideBrowserGlobalErrorListeners } from '@ang
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
+import { provideRemult } from './core/remult.provider';
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideBrowserGlobalErrorListeners(), provideRouter(routes)],
+  providers: [provideBrowserGlobalErrorListeners(), provideRouter(routes), provideRemult()],
 };

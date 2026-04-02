@@ -1,1 +1,1 @@
-export {};
+export { Task } from './tasks/task';

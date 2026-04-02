@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [{ "path": "apps/web" }, { "path": "apps/api" }, { "path": "libs/shared/domain" }]
+}
