@@ -74,7 +74,14 @@ Full architecture guide: `docs/00-foundation1.md`. Implementation plan: `docs/00
 - Lazy-loaded feature routes
 
 
-- 
+## Skills & Rules
+
+Entity conventions: `.claude/rules/entity-conventions.md`
+Angular conventions: `.claude/rules/angular-conventions.md`
+API conventions: `.claude/rules/api-conventions.md`
+
+When creating new entities, follow `.claude/rules/entity-conventions.md` (rules load on Read, not Write — reference the rule when creating files).
+
 ## Project Layout
 
 ```
