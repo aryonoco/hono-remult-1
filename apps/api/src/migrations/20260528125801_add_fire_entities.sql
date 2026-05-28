@@ -1,0 +1,8 @@
+-- Create "districts" table
+CREATE TABLE "districts" ("id" integer NOT NULL DEFAULT 0, "name" character varying NOT NULL DEFAULT '', "regionId" integer NOT NULL DEFAULT 0, "regionName" character varying NOT NULL DEFAULT '', "isActive" boolean NOT NULL DEFAULT false, PRIMARY KEY ("id"), CONSTRAINT "districts_name_key" UNIQUE ("name"));
+-- Create "finalReports" table
+CREATE TABLE "finalReports" ("id" character varying NOT NULL DEFAULT '', "fireIncidentId" character varying NOT NULL DEFAULT '', "districtId" integer NOT NULL DEFAULT 0, "isParentDeleted" boolean NOT NULL DEFAULT false, "isSignedOff" boolean NOT NULL DEFAULT false, "signedOffAt" timestamptz NULL, "signedOffBy" character varying NOT NULL DEFAULT '', "signOffRemovedAt" timestamptz NULL, "signOffRemovedBy" character varying NOT NULL DEFAULT '', "createdBy" character varying NOT NULL DEFAULT '', "createdAt" timestamptz NULL, "updatedAt" timestamptz NULL, PRIMARY KEY ("id"), CONSTRAINT "finalReports_fireIncidentId_key" UNIQUE ("fireIncidentId"));
+-- Create "fireIncidents" table
+CREATE TABLE "fireIncidents" ("id" character varying NOT NULL DEFAULT '', "districtId" integer NOT NULL DEFAULT 0, "createdBy" character varying NOT NULL DEFAULT '', "createdAt" timestamptz NULL, "updatedAt" timestamptz NULL, PRIMARY KEY ("id"));
+-- Create "situationReports" table
+CREATE TABLE "situationReports" ("id" character varying NOT NULL DEFAULT '', "fireIncidentId" character varying NOT NULL DEFAULT '', "reportNumber" integer NOT NULL DEFAULT 0, "districtId" integer NOT NULL DEFAULT 0, "isParentDeleted" boolean NOT NULL DEFAULT false, "submittedBy" character varying NOT NULL DEFAULT '', "submittedAt" timestamptz NULL, "createdAt" timestamptz NULL, PRIMARY KEY ("id"));

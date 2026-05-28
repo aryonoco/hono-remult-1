@@ -1,4 +1,4 @@
-import { DEV_USERS, Roles } from '@workspace/shared-domain';
+import { type CurrentUser, DEV_USERS, Roles } from '@workspace/shared-domain';
 import { type Context, Hono } from 'hono';
 import { logger } from 'hono/logger';
 import type { SqlDatabase, UserInfo } from 'remult';
@@ -27,7 +27,7 @@ const api: RemultHonoServer = remultApi({
     if (!userId) {
       return Promise.resolve(undefined);
     }
-    return Promise.resolve(DEV_USERS.find((u: UserInfo) => u.id === userId));
+    return Promise.resolve(DEV_USERS.find((u: CurrentUser) => u.id === userId));
   },
 });
 

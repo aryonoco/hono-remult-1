@@ -22,7 +22,7 @@ Zoneless Angular 21 — standalone components, signals, `inject()`, built-in con
 
 ### Shared domain library
 
-`libs/shared/domain/` is the source of truth for entities. Currently holds one example entity (`Task`) that exercises the full decorator surface end-to-end: granular CRUD permissions, owner-or-admin row-level update, admin-only delete, `apiPrefilter` for row visibility, a `saving` lifecycle hook for audit population, and field-level read-only protection. Real domain content lands with the fire showcase.
+`libs/shared/domain/` is the source of truth for entities. Holds the `Task` example entity that exercises the full decorator surface end-to-end (granular CRUD permissions, owner-or-admin row-level update, admin-only delete, `apiPrefilter` for row visibility, a `saving` lifecycle hook for audit population, field-level read-only protection), the `District` fire-showcase entity in its target form, and three identity-only stubs (`FireIncident`, `SituationReport`, `FinalReport`) that Phase 2 of the fire showcase widens to their full field schemas, role-based permissions, lifecycle hooks, and relations. The `Task` entity is removed in Phase 4 of the showcase when the root `App` component becomes a routed shell.
 
 ### Error handling convention
 
@@ -30,9 +30,9 @@ All expected failures flow through `neverthrow` `Result` / `ResultAsync`. The `m
 
 ### Dev authentication
 
-Header-based scaffold that provides real permission enforcement without standing up an IDAM integration. Three preset users (Admin, User, Viewer) plus anonymous, swappable via a floating switcher and persisted to localStorage. The browser sends `X-Dev-User`; the API maps it to a user record; `remult.subscribeAuth` reloads scoped data on switch.
+Header-based scaffold that provides real permission enforcement without standing up an IDAM integration. Eight preset users — global admin, global stateOfficer, and an incidentEditor + viewer pair for each of three staffed districts (Otway, Latrobe, Mallee) — plus anonymous, swappable via a floating switcher and persisted to localStorage. The `CurrentUser` type extends Remult's `UserInfo` with `districtId: number | null`; the switcher renders role and district name on every option and on the active-user detail line. The browser sends `X-Dev-User`; the API maps it to a `CurrentUser` record; `remult.subscribeAuth` reloads scoped data on switch.
 
-This entire layer is transitional. When real authentication lands, the roles constants, dev users array, dev-auth service, interceptor, switcher component, and the `getUser` body all go. Entity permissions stay untouched.
+This entire layer is transitional. When real authentication lands, the roles constants, dev users array, `CurrentUser` type, dev-auth service, interceptor, switcher component, and the `getUser` body all go. Entity permissions stay untouched.
 
 ### Persistence and schema management
 
@@ -40,9 +40,11 @@ Postgres 18.4 runs as a sidecar in the devcontainer (`hono_remult_dev` database,
 
 **DDL is owned by Atlas (community edition, pinned via `mise`)**, schema-as-code style. Migrations live in `apps/api/src/migrations/*.sql`, committed to the repo and reviewed as part of normal PRs. `apps/api/src/db/sync-to-desired.ts` populates a scratch DB (`atlas_desired`) with the current Remult entity schema; `atlas migrate diff` generates SQL diffs from it; `atlas migrate apply` applies them. `atlas migrate lint` flags destructive changes before merge.
 
-**Two-role least-privilege** at the Postgres level is now active: the API connects as `hrm_runtime` (DML only); Atlas connects as `hrm_app` (full DDL). A compromised API process cannot mutate the schema.
+**Two-role least-privilege** at the Postgres level: the API connects as `hrm_runtime` (DML only); Atlas connects as `hrm_app` (full DDL). A compromised API process cannot mutate the schema.
 
 The setup is intentionally portable: when GitHub Actions, Terraform, and Azure Postgres Flexible Server land, only an `env "azure"` block in `atlas.hcl` and a workflow file get added — local files and developer commands stay identical.
+
+Remult by design does not express DB-level constraints (UNIQUE, INDEX, CHECK) in entity decorators. The project's convention is per-entity `SchemaExtras` arrays: each entity that needs additional DDL exports a `readonly string[]` of raw SQL fragments alongside the class; `apps/api/src/db/sync-to-desired.ts` collates and applies them to the scratch DB after `ensureSchema`, so Atlas sees the constraints in the desired state and auto-generates them in the next migration diff. Established with the fire showcase in Phase 1.
 
 ---
 
@@ -50,9 +52,7 @@ The setup is intentionally portable: when GitHub Actions, Terraform, and Azure P
 
 ### Fire incident showcase
 
-The first real domain, fully specified in `02-fire-showcase-overview.md`: four entities (`FireIncident`, `SituationReport`, `FinalReport`, `District`), eleven enums, four roles with a 15-row permission matrix, district-scoped row filtering, and business rules covering fire numbering, next-report-due cadence, status transitions, and sign-off lifecycle. Four backend operations: `getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`. Frontend: incident list, detail with sitrep timeline, incident form, sitrep form. Closes with the "add one field, two files, no codegen" demo — the headline argument for the stack.
-
-The four-role permission story requires extending the dev users array to eight identities (three districts × {incidentEditor, viewer} plus global admin and stateOfficer) so row filtering can be exercised.
+Specified in detail in `02-fire-showcase-overview.md`. The Phase 1 platform-level groundwork (four roles, eight dev users with `CurrentUser` district carriage, the `District` entity, identity stubs for the other three fire entities, the per-entity `SchemaExtras` convention, the schema and seed migrations) is reflected in the *In Place* sections above. Phases 2–5 remain: business columns and lifecycle hooks on the three stubbed entities, the eleven enums plus the `helpers.ts` computation module, role-based permission predicates and district-scoped `apiPrefilter`, four BackendMethods (`getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`), the lazy-loaded Angular feature (list, detail with sitrep timeline, incident form, sitrep form), and the closing "add one field, two files, no codegen" demo — the headline argument for the stack. See `02-fire-showcase-overview.md` *Implementation Phases* for per-phase scope.
 
 ### Angular feature structure
 

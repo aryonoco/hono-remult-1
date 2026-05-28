@@ -12,7 +12,7 @@ import type { SqlDatabase } from 'remult';
 import { remult } from 'remult';
 import { createPostgresDataProvider } from 'remult/postgres';
 
-import { entities, SCHEMA } from '../config';
+import { entities, SCHEMA, schemaExtras } from '../config';
 import { ATLAS_DESIRED_URL } from '../env';
 
 const client: Client = new Client({ connectionString: ATLAS_DESIRED_URL });
@@ -37,6 +37,17 @@ if (!lifecycle.ensureSchema) {
   throw new Error('Postgres data provider is missing ensureSchema');
 }
 await lifecycle.ensureSchema(entities.map((e) => remult.repo(e).metadata));
+
+if (schemaExtras.length > 0) {
+  const extraClient: Client = new Client({ connectionString: ATLAS_DESIRED_URL });
+  await extraClient.connect();
+  try {
+    await extraClient.query(`SET search_path TO ${SCHEMA}`);
+    await Promise.all(schemaExtras.map((ddl) => extraClient.query(ddl)));
+  } finally {
+    await extraClient.end();
+  }
+}
 
 if (lifecycle.end) {
   await lifecycle.end();
