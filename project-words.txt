@@ -36,6 +36,10 @@ hrm_runtime
 Saanvi
 Sarah
 Ali
+Priya
+Kenji
+Mateo
+Aroha
 
 # Dev tooling
 antidote
@@ -71,9 +75,14 @@ skidder
 Barbeque
 Tarnook
 offs
+Barwon
+Gippsland
+Dedjtr
+Dept
 
 # Software / codebase terms
 codegen
+subpanel
 Formly
 Prefilter
 bufferings

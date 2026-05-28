@@ -50,9 +50,9 @@ The setup is intentionally portable: when GitHub Actions, Terraform, and Azure P
 
 ### Fire incident showcase
 
-The first real domain, fully specified in `02-fire-showcase-overview.md`: two entities (`FireIncident`, `SituationReport`), seven enums, four roles with a 15-row permission matrix, district-scoped row filtering, and business rules covering fire numbering, next-report-due cadence, status transitions, and sign-off lifecycle. Four backend operations: `getNextFireNumber`, `escalate`, `softDelete`, `submitForFire`. Frontend: incident list, detail with sitrep timeline, incident form, sitrep form. Closes with the "add one field, two files, no codegen" demo — the headline argument for the stack.
+The first real domain, fully specified in `02-fire-showcase-overview.md`: four entities (`FireIncident`, `SituationReport`, `FinalReport`, `District`), eleven enums, four roles with a 15-row permission matrix, district-scoped row filtering, and business rules covering fire numbering, next-report-due cadence, status transitions, and sign-off lifecycle. Four backend operations: `getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`. Frontend: incident list, detail with sitrep timeline, incident form, sitrep form. Closes with the "add one field, two files, no codegen" demo — the headline argument for the stack.
 
-The four-role permission story requires extending the dev users array with one user per role per district so row filtering can be exercised.
+The four-role permission story requires extending the dev users array to eight identities (three districts × {incidentEditor, viewer} plus global admin and stateOfficer) so row filtering can be exercised.
 
 ### Angular feature structure
 
