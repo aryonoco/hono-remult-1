@@ -4,6 +4,7 @@ node = "24.16.0"
 just = "1.51.0"
 pre-commit = "4.6.0"
 "npm:cspell" = "10.0.0"
+atlas-community = "1.2.0"
 
 [env]
 PRECOMMIT_HOOKS_VERSION = "v6.0.0"
@@ -11,3 +12,9 @@ POSTGRES_VERSION = "18.4"
 NX_DAEMON = "true"
 NG_CLI_ANALYTICS = "false"
 DO_NOT_TRACK = "1"
+# Load DB connection strings from .env into the shell environment so
+# tools that don't auto-load .env (atlas, psql, ad-hoc shell commands)
+# see them. Bun also loads .env for its own runtime but does NOT
+# propagate it to `bun run <script>` subprocesses, so mise is what makes
+# atlas work uniformly via `bun run migrate:*` and `just migrate-*`.
+_.file = ".env"

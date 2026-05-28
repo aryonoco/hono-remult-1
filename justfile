@@ -69,6 +69,24 @@ db-reset:
       -c "DROP DATABASE IF EXISTS hono_remult_dev WITH (FORCE);" \
       -c "CREATE DATABASE hono_remult_dev OWNER hrm_app;"
 
+# Schema migrations (Atlas owns DDL; main.ts has ensureSchema:false)
+migrate-generate name:
+    bun run migrate:generate {{name}}
+migrate-plan:
+    bun run migrate:plan
+migrate-apply:
+    bun run migrate:apply
+migrate-lint:
+    bun run migrate:lint
+migrate-status:
+    bun run migrate:status
+migrate-validate:
+    bun run migrate:validate
+migrate-hash:
+    bun run migrate:hash
+schema-inspect:
+    bun run schema:inspect
+
 # Nx affected
 affected:
     bunx nx affected -t lint test build

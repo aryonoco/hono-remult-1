@@ -22,6 +22,10 @@ PGDATA
 initdb
 psql
 scram
+rolname
+sslmode
+vars
+getenv
 
 # Project roles / users
 hrm

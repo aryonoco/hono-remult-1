@@ -13,7 +13,15 @@
     "format:check": "biome format .",
     "check": "biome check --write .",
     "check:ci": "biome ci . && eslint .",
-    "format:html": "prettier --write \"**/*.html\""
+    "format:html": "prettier --write \"**/*.html\"",
+    "migrate:generate": "bun apps/api/src/db/migrate-generate.ts",
+    "migrate:plan": "atlas migrate apply --env local --dry-run",
+    "migrate:apply": "atlas migrate apply --env local",
+    "migrate:lint": "atlas migrate lint --env local --latest 1",
+    "migrate:status": "atlas migrate status --env local",
+    "migrate:validate": "atlas migrate validate --env local",
+    "migrate:hash": "atlas migrate hash --env local",
+    "schema:inspect": "atlas schema inspect --env local --format '{{ sql . }}'"
   },
   "dependencies": {
     "@angular/common": "^21.2.0",
@@ -24,6 +32,7 @@
     "@angular/router": "^21.2.0",
     "hono": "^4.12.9",
     "neverthrow": "^8.2.0",
+    "pg": "^8.21.0",
     "remult": "^3.3.6",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
@@ -37,6 +46,7 @@
     "@nx/eslint-plugin": "^22.6.4",
     "@tailwindcss/postcss": "^4.1.12",
     "@types/bun": "^1.3.14",
+    "@types/pg": "^8.20.0",
     "@typescript-eslint/parser": "^8.58.0",
     "eslint": "~9.39.4",
     "jsdom": "^29.0.1",

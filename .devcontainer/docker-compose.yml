@@ -22,7 +22,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://hrm_app:hrm_dev_password@postgres:5432/hono_remult_dev
+      # DB connection strings live in .env (single source of truth, also
+      # consumed outside the dev container). docker-compose intentionally
+      # does not set DATABASE_URL — shell env would otherwise override .env.
       - TZ=UTC
     command: sleep infinity
 

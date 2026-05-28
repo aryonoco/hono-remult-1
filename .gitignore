@@ -384,6 +384,8 @@ conversation-*
 
 # Remult JSON file storage (dev)
 db/
+# But the Atlas migration scripts live in apps/api/src/db/ — track them
+!apps/api/src/db/
 
 # -----------------------------------------------------------------------------
 # Logs & Temporary Files

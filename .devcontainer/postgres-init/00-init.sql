@@ -32,3 +32,21 @@ ALTER ROLE hrm_runtime SET search_path = app, public;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
 ALTER DATABASE hono_remult_dev SET timezone TO 'UTC';
+
+-- Scratch databases used by Atlas's schema diff engine. atlas_desired
+-- holds the desired state (populated by Remult's ensureSchema before
+-- each diff); atlas_dev is the throwaway DB Atlas uses to replay the
+-- migration history and compute the current state. Both are local-only
+-- — production / CI will use ephemeral containers instead.
+CREATE DATABASE atlas_desired OWNER hrm_app;
+CREATE DATABASE atlas_dev     OWNER hrm_app;
+
+-- Both scratch DBs need the app schema pre-created. atlas_desired is
+-- repopulated by sync-to-desired.ts before each diff. atlas_dev must
+-- have the schema exist (but empty) so Atlas can take a clean snapshot
+-- before replaying the migrations directory.
+\connect atlas_desired
+CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION hrm_app;
+
+\connect atlas_dev
+CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION hrm_app;

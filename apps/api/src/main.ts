@@ -1,13 +1,27 @@
-import { DEV_USERS, Roles, Task } from '@workspace/shared-domain';
+import { DEV_USERS, Roles } from '@workspace/shared-domain';
 import { type Context, Hono } from 'hono';
 import { logger } from 'hono/logger';
-import type { UserInfo } from 'remult';
+import type { SqlDatabase, UserInfo } from 'remult';
 import { remult } from 'remult';
+import { createPostgresDataProvider } from 'remult/postgres';
 import { type RemultHonoServer, remultApi } from 'remult/remult-hono';
 
+import { entities, SCHEMA } from './config';
+import { DATABASE_URL } from './env';
+
+// Connects as the DML-only role (hrm_runtime in dev). DDL runs through
+// Atlas using DATABASE_URL_MIGRATIONS; ensureSchema is deliberately off
+// so a leaked connection cannot mutate the schema.
+const dataProvider: Promise<SqlDatabase> = createPostgresDataProvider({
+  connectionString: DATABASE_URL,
+  schema: SCHEMA,
+});
+
 const api: RemultHonoServer = remultApi({
-  admin: () => remult.isAllowed(Roles.admin),
-  entities: [Task],
+  admin: (): boolean => remult.isAllowed(Roles.admin),
+  dataProvider,
+  ensureSchema: false,
+  entities,
   getUser: (c: Context): Promise<UserInfo | undefined> => {
     const userId: string | undefined = c.req.header('X-Dev-User');
     if (!userId) {

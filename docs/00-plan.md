@@ -34,13 +34,19 @@ Header-based scaffold that provides real permission enforcement without standing
 
 This entire layer is transitional. When real authentication lands, the roles constants, dev users array, dev-auth service, interceptor, switcher component, and the `getUser` body all go. Entity permissions stay untouched.
 
+### Persistence and schema management
+
+Postgres 18.4 runs as a sidecar in the devcontainer (`hono_remult_dev` database, `app` schema, `pgcrypto`/`citext`/`pg_stat_statements` extensions, tuned config). The API uses `remult/postgres` with `ensureSchema: false` — Remult never runs DDL in production code paths.
+
+**DDL is owned by Atlas (community edition, pinned via `mise`)**, schema-as-code style. Migrations live in `apps/api/src/migrations/*.sql`, committed to the repo and reviewed as part of normal PRs. `apps/api/src/db/sync-to-desired.ts` populates a scratch DB (`atlas_desired`) with the current Remult entity schema; `atlas migrate diff` generates SQL diffs from it; `atlas migrate apply` applies them. `atlas migrate lint` flags destructive changes before merge.
+
+**Two-role least-privilege** at the Postgres level is now active: the API connects as `hrm_runtime` (DML only); Atlas connects as `hrm_app` (full DDL). A compromised API process cannot mutate the schema.
+
+The setup is intentionally portable: when GitHub Actions, Terraform, and Azure Postgres Flexible Server land, only an `env "azure"` block in `atlas.hcl` and a workflow file get added — local files and developer commands stay identical.
+
 ---
 
 ## To Build
-
-### Persistence
-
-No database is configured — Remult is using its default in-process store. Plan: SQLite via Remult's data provider configuration at the API mount. Migration strategy to be agreed once more than one entity is in play. Immediate precursor to the fire showcase.
 
 ### Fire incident showcase
 
