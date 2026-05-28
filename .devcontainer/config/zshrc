@@ -1,0 +1,88 @@
+# Powerlevel10k instant prompt — keep at top
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+source "$HOME/.antidote/antidote.zsh"
+antidote load
+
+# Plugin tuning
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets)
+ZSH_HIGHLIGHT_MAXLENGTH=512
+
+# History
+HISTSIZE=50000
+SAVEHIST=50000
+HISTFILE="$HOME/.zsh_history"
+setopt HIST_IGNORE_ALL_DUPS HIST_REDUCE_BLANKS HIST_VERIFY SHARE_HISTORY APPEND_HISTORY
+setopt AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS PUSHD_SILENT
+
+# Editor
+if command -v code >/dev/null 2>&1; then
+  export EDITOR='code --wait'
+  export VISUAL='code --wait'
+else
+  export EDITOR=nano
+  export VISUAL=nano
+fi
+
+# fzf + fd
+if [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]]; then
+  source /usr/share/doc/fzf/examples/key-bindings.zsh
+  [[ -f /usr/share/doc/fzf/examples/completion.zsh ]] && source /usr/share/doc/fzf/examples/completion.zsh
+fi
+export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git --exclude node_modules'
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git --exclude node_modules'
+
+# Completion styling
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+zstyle ':completion:*' menu select
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%F{yellow}-- %d --%f'
+
+# Aliases — just
+alias j='just'
+alias jl='just --list'
+alias jd='just dev'
+alias jt='just test'
+alias jck='just check'
+alias jci='just ci'
+
+# Aliases — bun
+alias bb='bun run build'
+alias bd='bun run dev'
+alias bt='bun test'
+alias btw='bun test --watch'
+alias btc='bun test --coverage'
+alias bf='bun run format'
+alias bc='bun run check'
+
+# Aliases — Nx
+alias nxr='bunx nx run'
+alias nxg='bunx nx generate'
+alias nxt='bunx nx test'
+alias nxb='bunx nx build'
+alias nxs='bunx nx serve'
+alias nxa='bunx nx affected'
+
+# Project shortcuts
+alias apidev='just dev-api'
+alias ngdev='just dev-web'
+alias psqld='just db'
+
+# Docker (via docker-outside-of-docker)
+alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
+alias dcu='docker compose up -d'
+alias dcd='docker compose down'
+alias dcl='docker compose logs -f'
+
+# Source project env if present
+[[ -f /workspaces/hono-remult-1/.env ]] && source /workspaces/hono-remult-1/.env
+
+# Powerlevel10k config
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh

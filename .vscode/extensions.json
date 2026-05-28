@@ -1,4 +1,26 @@
 {
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=827846
-  "recommendations": ["angular.ng-template", "biomejs.biome"]
+  "recommendations": [
+    "oven.bun-vscode",
+    "biomejs.biome",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "angular.ng-template",
+    "nrwl.angular-console",
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+    "usernamehw.errorlens",
+    "streetsidesoftware.code-spell-checker",
+    "tamasfe.even-better-toml",
+    "redhat.vscode-yaml",
+    "EditorConfig.EditorConfig",
+    "timonwong.shellcheck",
+    "foxundermoon.shell-format",
+    "davidanson.vscode-markdownlint",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    "hverlin.mise-vscode",
+    "nefrob.vscode-just-syntax",
+    "oderwat.indent-rainbow",
+    "ms-azuretools.vscode-docker"
+  ]
 }

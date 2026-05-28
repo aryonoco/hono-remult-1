@@ -13,6 +13,16 @@ BAD (never write these):
 - Generated with Claude Code
 - Co-Authored-By: Claude Opus 4.6 <…>
 
+## Git Commit Message Format
+
+Git Commit messages MUST be modelled after the Linux kernel.
+
+The subject line should use the subsystem/component: short description format, stay under 75 characters, and use imperative mood ("fix" not "fixed" or "fixes").
+
+The body should be wrapped at ~75 columns, explain why the change is needed (not just what it does), and be separated from the subject by a blank line.
+
+No AI/LLM attribution should appear in the git message.
+
 ## TypeScript
 
 TypeScript 5.9 strict mode plus: `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `verbatimModuleSyntax`, `noUnusedLocals`, `noUnusedParameters`, `allowUnreachableCode: false`. Full config in `tsconfig.base.json`.

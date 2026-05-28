@@ -1,0 +1,150 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "hono-remult-1",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspaces/hono-remult-1",
+  "shutdownAction": "stopCompose",
+
+  "hostRequirements": { "cpus": 4, "memory": "8gb", "storage": "32gb" },
+  "containerUser": "vscode",
+  "remoteUser": "vscode",
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": false,
+      "username": "vscode",
+      "userUid": "1000",
+      "userGid": "1000",
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": { "version": "latest" },
+    "ghcr.io/devcontainers-extra/features/mise:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false,
+      "dockerDashComposeVersion": "v2"
+    }
+  },
+
+  "mounts": [
+    {
+      "source": "hrm-bun-cache-${devcontainerId}",
+      "target": "/home/vscode/.bun/install/cache",
+      "type": "volume"
+    },
+    {
+      "source": "hrm-node-modules-${devcontainerId}",
+      "target": "/workspaces/hono-remult-1/node_modules",
+      "type": "volume"
+    },
+    {
+      "source": "hrm-nx-cache-${devcontainerId}",
+      "target": "/workspaces/hono-remult-1/.nx",
+      "type": "volume"
+    },
+    {
+      "source": "hrm-angular-cache-${devcontainerId}",
+      "target": "/workspaces/hono-remult-1/.angular",
+      "type": "volume"
+    },
+    {
+      "source": "hrm-gh-config-${devcontainerId}",
+      "target": "/home/vscode/.config/gh",
+      "type": "volume"
+    },
+    {
+      "source": "hrm-mise-data-${devcontainerId}",
+      "target": "/home/vscode/.local/share/mise",
+      "type": "volume"
+    },
+    {
+      "source": "${localEnv:HOME}${localEnv:USERPROFILE}/.ssh",
+      "target": "/home/vscode/.ssh",
+      "type": "bind"
+    }
+  ],
+
+  "containerEnv": {
+    "MISE_DATA_DIR": "/home/vscode/.local/share/mise",
+    "MISE_STATE_DIR": "/home/vscode/.local/share/mise/state",
+    "MISE_TRUSTED_CONFIG_PATHS": "/workspaces",
+    "MISE_YES": "1",
+    "DO_NOT_TRACK": "1",
+    "TZ": "UTC",
+    "EDITOR": "nano",
+    "VISUAL": "nano",
+    "NG_CLI_ANALYTICS": "false",
+    "NX_DAEMON": "true"
+  },
+
+  "forwardPorts": [3000, 4200, 5432],
+  "portsAttributes": {
+    "3000": { "label": "Hono API", "onAutoForward": "notify" },
+    "4200": { "label": "Angular Dev Server", "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "silent" }
+  },
+
+  "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
+  "postCreateCommand": "bash -l .devcontainer/scripts/post-create.sh",
+  "postStartCommand": "bash -l .devcontainer/scripts/post-start.sh",
+  "waitFor": "onCreateCommand",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "oven.bun-vscode",
+        "biomejs.biome",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "angular.ng-template",
+        "nrwl.angular-console",
+        "eamodio.gitlens",
+        "mhutchie.git-graph",
+        "usernamehw.errorlens",
+        "streetsidesoftware.code-spell-checker",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml",
+        "EditorConfig.EditorConfig",
+        "timonwong.shellcheck",
+        "foxundermoon.shell-format",
+        "davidanson.vscode-markdownlint",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "hverlin.mise-vscode",
+        "nefrob.vscode-just-syntax",
+        "oderwat.indent-rainbow",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": { "path": "/usr/bin/zsh", "args": ["-l"] },
+          "bash": { "path": "/bin/bash" }
+        },
+        "editor.rulers": [100],
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "files.associations": { "justfile": "just" },
+        "eslint.useFlatConfig": true,
+        "eslint.workingDirectories": [{ "mode": "auto" }],
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "cSpell.language": "en-GB",
+        "errorLens.enabledDiagnosticLevels": ["error", "warning"],
+        "sqltools.connections": [
+          {
+            "name": "hono_remult_dev",
+            "driver": "PostgreSQL",
+            "server": "postgres",
+            "port": 5432,
+            "database": "hono_remult_dev",
+            "username": "hrm_app",
+            "password": "hrm_dev_password"
+          }
+        ]
+      }
+    }
+  }
+}

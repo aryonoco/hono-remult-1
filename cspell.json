@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+  "version": "0.2",
+  "language": "en-GB",
+  "dictionaries": ["en-gb", "typescript", "node", "npm", "bash", "softwareTerms", "project-words"],
+  "dictionaryDefinitions": [
+    { "name": "project-words", "path": "./project-words.txt", "addWords": true }
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    "dist/**",
+    "tmp/**",
+    ".nx/**",
+    ".angular/**",
+    "coverage/**",
+    "bun.lock",
+    "*.lock",
+    ".devcontainer/config/p10k.zsh",
+    ".claude/skills/**"
+  ],
+  "ignoreRegExpList": ["Base64", "/(?:^|\\s)0x[0-9a-fA-F]+/", "/ghcr\\.io\\/[^\\s\"']+/"]
+}

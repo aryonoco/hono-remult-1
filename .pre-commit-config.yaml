@@ -1,0 +1,53 @@
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.(md|html)$
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+        exclude: '(tsconfig.*\.json|biome\.json|nx\.json|\.vscode/.*\.json)'
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=2000']
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: biome check
+        entry: bun run check
+        language: system
+        types_or: [ts, tsx, javascript, jsx, json, css]
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint
+        entry: bun run lint
+        language: system
+        types: [ts]
+        pass_filenames: false
+
+      - id: typecheck
+        name: tsc --noEmit
+        entry: bash -c 'bunx tsc --noEmit'
+        language: system
+        types: [ts]
+        pass_filenames: false
+
+      - id: prettier-html
+        name: prettier (html only)
+        entry: bunx prettier --check
+        language: system
+        types: [html]
+
+      - id: cspell
+        name: cspell
+        entry: bunx cspell --no-progress --no-must-find-files
+        language: system
+        types_or: [ts, html, markdown, json]
+        exclude: '^(bun\.lock|node_modules/|dist/|\.nx/|\.angular/|\.devcontainer/config/p10k\.zsh|\.claude/skills/)'

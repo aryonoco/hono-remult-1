@@ -1,0 +1,11 @@
+[install]
+peer = false
+
+[install.lockfile]
+save = true
+
+[test]
+coverage = true
+coverageDir = "coverage"
+coverageReporter = ["text", "lcov"]
+timeout = 10000

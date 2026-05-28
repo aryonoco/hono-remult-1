@@ -1,0 +1,102 @@
+# Stack
+hono
+remult
+remultApi
+neverthrow
+biomejs
+zoneless
+linkedSignal
+rxjs
+tslib
+nrwl
+bunx
+bunfig
+
+# Postgres
+postgres
+postgresql
+pgcrypto
+citext
+PGTZ
+PGDATA
+initdb
+psql
+scram
+
+# Project roles / users
+hrm
+hrm_app
+hrm_runtime
+
+# Dev users (libs/shared/domain/src/auth/dev-users.ts)
+Saanvi
+Sarah
+Ali
+
+# Dev tooling
+antidote
+powerlevel
+devcontainer
+mise
+fdfind
+batcat
+shfmt
+
+# British spellings used in the codebase
+authorise
+authorised
+authorisation
+behaviour
+favour
+favourite
+licence
+organisation
+serialise
+serialised
+
+# Domain terms — fire/forestry showcase scenario (docs/02-fire-showcase-overview.md)
+sitrep
+sitreps
+AIIMS
+DEECA
+Snigging
+Buttongrass
+Wagens
+buncher
+skidder
+Barbeque
+Tarnook
+offs
+
+# Software / codebase terms
+codegen
+Formly
+Prefilter
+bufferings
+favorable
+Caml
+Elmish
+Paket
+IDAM
+MSAL
+viewmodel
+errorlens
+
+# VS Code extension publisher IDs (used in devcontainer.json + .vscode/extensions.json)
+dbaeumer
+esbenp
+eamodio
+mhutchie
+usernamehw
+streetsidesoftware
+tamasfe
+timonwong
+foxundermoon
+davidanson
+mtxr
+hverlin
+nefrob
+oderwat
+azuretools
+oven
+sqltools

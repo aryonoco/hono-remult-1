@@ -4712,7 +4712,7 @@ The password value for the provided username to authenticate against.
 
 ### <Badge type="info" text="optional" /> realm: `string`
 
-The domain name of the realm, as part of the returned WWW-Authenticate challenge header. The default is `"Secure Area"`.  
+The domain name of the realm, as part of the returned WWW-Authenticate challenge header. The default is `"Secure Area"`.
 See more: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/WWW-Authenticate#directives
 
 ### <Badge type="info" text="optional" /> hashFunction: `Function`
@@ -14092,5 +14092,3 @@ To reach out to the WebAssembly community with questions, comments, contribution
 [jco-book]: https://bytecodealliance.github.io/jco/
 [jco-example-components]: https://github.com/bytecodealliance/jco/tree/main/examples/components
 [jco-example-component-hono]: https://github.com/bytecodealliance/jco/tree/main/examples/components/http-server-hono
-
-
