@@ -69,6 +69,7 @@ export class TaskListComponent {
 ## inject() Context Rules
 
 `inject()` can only be called in:
+
 - **Field initialisers** (most common)
 - **Constructor body**
 - **Provider factory functions** (`useFactory`)

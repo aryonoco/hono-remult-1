@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Reimplement the core of the fire incident domain in the hono-remult-1 stack as a team showcase. The goal is to make the ceremony reduction visceral: the same domain the team works with daily, rebuilt with radically less plumbing.
+Reimplement the core of the fire incident domain in the hono-remult-1 stack as a team showcase. The goal is to make the
+ceremony reduction visceral: the same domain the team works with daily, rebuilt with radically less plumbing.
 
 This is not a migration plan. It is a proof-of-concept that demonstrates what new feature development could look like.
 
@@ -37,13 +38,22 @@ This is not a migration plan. It is a proof-of-concept that demonstrates what ne
 
 ## Modelling Decisions
 
-Five architectural calls drive the rest of the spec. Anything not addressed here is implied by the field tables and lifecycle hooks below.
+Five architectural calls drive the rest of the spec. Anything not addressed here is implied by the field tables and
+lifecycle hooks below.
 
-- **Three entities, not one polymorphic Report.** EMI uses a single `Report` record with a `ReportType` discriminator on a `Reports` collection inside the `Fire` aggregate. We use three separate Remult entities: `FireIncident` carries the initial-report data on itself; `SituationReport` is one row per sitrep, immutable once inserted; `FinalReport` is at most one optional row per fire (1-to-1 via `fireIncidentId UNIQUE`). The `ReportType` enum is dropped.
-- **`District` as a Remult entity.** Five rows, seeded via a hand-written Atlas migration immediately following the schema migration. Demonstrates `Relations.toOne` alongside `Relations.toMany`.
-- **Sign-off lives on `FinalReport`.** While `FinalReport.isSignedOff = true`, the API rejects every write to the parent FireIncident and to the FinalReport itself. The `removeSignOff` BackendMethod is the only way to re-open editing.
-- **Status, fire totals, and `nextReportDue` are denormalised on FireIncident, updated by the SituationReport `saved` hook.** EMI computes these on the fly from the latest report; we denormalise for fast list queries.
-- **`districtId` and `isParentDeleted` are denormalised onto SituationReport and FinalReport.** Set in the child entity's `saving` hook (or by the parent's `softDelete` BackendMethod for `isParentDeleted`). Lets every entity's `apiPrefilter` use simple field equality.
+- **Three entities, not one polymorphic Report.** EMI uses a single `Report` record with a `ReportType` discriminator on
+  a `Reports` collection inside the `Fire` aggregate. We use three separate Remult entities: `FireIncident` carries the
+  initial-report data on itself; `SituationReport` is one row per sitrep, immutable once inserted; `FinalReport` is at
+  most one optional row per fire (1-to-1 via `fireIncidentId UNIQUE`). The `ReportType` enum is dropped.
+- **`District` as a Remult entity.** Five rows, seeded via a hand-written Atlas migration immediately following the
+  schema migration. Demonstrates `Relations.toOne` alongside `Relations.toMany`.
+- **Sign-off lives on `FinalReport`.** While `FinalReport.isSignedOff = true`, the API rejects every write to the parent
+  FireIncident and to the FinalReport itself. The `removeSignOff` BackendMethod is the only way to re-open editing.
+- **Status, fire totals, and `nextReportDue` are denormalised on FireIncident, updated by the SituationReport `saved`
+  hook.** EMI computes these on the fly from the latest report; we denormalise for fast list queries.
+- **`districtId` and `isParentDeleted` are denormalised onto SituationReport and FinalReport.** Set in the child
+  entity's `saving` hook (or by the parent's `softDelete` BackendMethod for `isParentDeleted`). Lets every entity's
+  `apiPrefilter` use simple field equality.
 
 ---
 
@@ -53,7 +63,9 @@ A fire incident progresses through sequential reports:
 
 ### 1. Initial Report
 
-Created when a fire is first reported. Captures location, name, initial status, initial resource deployment, estimated area, land classification, cause/detection details, and initial department response. Establishes the fire number (district-scoped, sequential per financial year).
+Created when a fire is first reported. Captures location, name, initial status, initial resource deployment, estimated
+area, land classification, cause/detection details, and initial department response. Establishes the fire number
+(district-scoped, sequential per financial year).
 
 - Sets `nextReportDue` to 30 minutes after creation
 - Default status is "Going"
@@ -61,7 +73,8 @@ Created when a fire is first reported. Captures location, name, initial status, 
 
 ### 2. Situation Reports
 
-Ongoing updates during active fire management. Captures current fire behaviour, resources deployed (per agency totals), control progress, weather, strategy, and community impact.
+Ongoing updates during active fire management. Captures current fire behaviour, resources deployed (per agency totals),
+control progress, weather, strategy, and community impact.
 
 - Multiple situation reports per fire
 - Each updates the fire's current status, area, and resource snapshot
@@ -71,22 +84,28 @@ Ongoing updates during active fire management. Captures current fire behaviour, 
 
 ### 3. Final Report
 
-Formal closure documentation when fire reaches a safe state. Captures losses (stock, homes, infrastructure), investigation findings, cost class, and burnt land classification breakdown.
+Formal closure documentation when fire reaches a safe state. Captures losses (stock, homes, infrastructure),
+investigation findings, cost class, and burnt land classification breakdown.
 
 - Can only be created when current status is a "safe" variant or "not found"
 - Must be signed off by an authorised user to formally close the incident
-- Sign-off locks the fire — only State Officers or Admins can remove the sign-off (via the `removeSignOff` BackendMethod) to re-open editing
+- Sign-off locks the fire — only State Officers or Admins can remove the sign-off (via the `removeSignOff`
+  BackendMethod) to re-open editing
 - No further `nextReportDue` once signed off
 
-In the data model the Initial Report is the `FireIncident` record itself; Situation Reports are rows in `SituationReport` (immutable once inserted); the Final Report is at most one `FinalReport` row linked 1-to-1 via `fireIncidentId UNIQUE`. There is no shared `Report` table and no `reportType` discriminator.
+In the data model the Initial Report is the `FireIncident` record itself; Situation Reports are rows in
+`SituationReport` (immutable once inserted); the Final Report is at most one `FinalReport` row linked 1-to-1 via
+`fireIncidentId UNIQUE`. There is no shared `Report` table and no `reportType` discriminator.
 
 ### 4. Soft Deletion
 
-Incidents are never hard-deleted. A soft delete sets `isDeleted = true`, clears `nextReportDue`, and cascades `isParentDeleted = true` to all situation reports and the final report (if any).
+Incidents are never hard-deleted. A soft delete sets `isDeleted = true`, clears `nextReportDue`, and cascades
+`isParentDeleted = true` to all situation reports and the final report (if any).
 
 - Only allowed when fire is in a terminal status (Safe, SafeOverrun, SafeNotFound, SafeFalseAlarm, NotFound)
 - Not allowed if already signed off — sign-off must be removed first
-- Fire incidents are government records subject to audit, legal proceedings, and historical analysis — hard deletion would break traceability
+- Fire incidents are government records subject to audit, legal proceedings, and historical analysis — hard deletion
+  would break traceability
 
 ---
 
@@ -134,13 +153,15 @@ For the showcase, implement these key permissions:
 | Remove sign-off on final report | No | No | Yes | Yes |
 | Delete incident (soft) | No | No | Yes | Yes |
 
-"Edit situation report" is "No" for every role because sitreps are immutable once inserted (see Modelling Decisions). To correct a sitrep, insert another sitrep; StateOfficer/Admin may delete an erroneous sitrep via the delete action.
+"Edit situation report" is "No" for every role because sitreps are immutable once inserted (see Modelling Decisions). To
+correct a sitrep, insert another sitrep; StateOfficer/Admin may delete an erroneous sitrep via the delete action.
 
 ### Row-Level Filtering
 
 - IncidentEditor and Viewer see only incidents in their assigned district
 - Admins and State Officers see all incidents across all districts
-- Soft-deleted incidents are filtered out of all list endpoints. Child sitreps and final reports of deleted parents are also filtered (via denormalised `isParentDeleted`)
+- Soft-deleted incidents are filtered out of all list endpoints. Child sitreps and final reports of deleted parents are
+  also filtered (via denormalised `isParentDeleted`)
 
 ---
 
@@ -148,7 +169,8 @@ For the showcase, implement these key permissions:
 
 ### Districts
 
-Sourced from EMI's `WorkforceContext.cs` district list. Five rows across four regions, seeded via a hand-written Atlas migration:
+Sourced from EMI's `WorkforceContext.cs` district list. Five rows across four regions, seeded via a hand-written Atlas
+migration:
 
 | id | name | regionId | regionName |
 |---|---|---|---|
@@ -160,7 +182,9 @@ Sourced from EMI's `WorkforceContext.cs` district list. Five rows across four re
 
 `isActive` defaults to true on all five.
 
-**Migration approach.** The seed lives in a hand-written `<T+1s>_seed_districts.sql` file alongside the auto-generated `<T>_add_fire_entities.sql` schema migration — the +1 second offset gives clean lexicographic ordering so Atlas applies the seed immediately after the schema:
+**Migration approach.** The seed lives in a hand-written `<T+1s>_seed_districts.sql` file alongside the auto-generated
+`<T>_add_fire_entities.sql` schema migration — the +1 second offset gives clean lexicographic ordering so Atlas applies
+the seed immediately after the schema:
 
 ```sql
 INSERT INTO "districts" ("id", "name", "regionId", "regionName", "isActive") VALUES
@@ -188,7 +212,9 @@ Eight identities — three districts × {incidentEditor, viewer} plus global adm
 | dev-viewer-latrobe | Lin Viewer | `[Roles.viewer]` | 47 |
 | dev-viewer-mallee | Aroha Viewer | `[Roles.viewer]` | 22 |
 
-Three of the five seeded districts (Otway 12, Latrobe 47, Mallee 22) have direct user affiliation; the other two (Far South West 14, Yarra 53) exist as available but unstaffed districts in the dropdowns of incident-create forms — they exercise the "StateOfficer/Admin can create in any district" path.
+Three of the five seeded districts (Otway 12, Latrobe 47, Mallee 22) have direct user affiliation; the other two (Far
+South West 14, Yarra 53) exist as available but unstaffed districts in the dropdowns of incident-create forms — they
+exercise the "StateOfficer/Admin can create in any district" path.
 
 **`CurrentUser` type.** At `libs/shared/domain/src/auth/current-user.ts`:
 
@@ -197,17 +223,22 @@ import type { UserInfo } from 'remult';
 export type CurrentUser = UserInfo & { districtId: number | null };
 ```
 
-`DEV_USERS` is typed `readonly CurrentUser[]`. Entity permission predicates and saving hooks cast: `(remult.user as CurrentUser | undefined)?.districtId`. Forward-compatible with Entra ID — only the producer of `CurrentUser` (the dev-auth interceptor in development, JWT parser when real auth lands) changes, not consumers.
+`DEV_USERS` is typed `readonly CurrentUser[]`. Entity permission predicates and saving hooks cast: `(remult.user as
+CurrentUser | undefined)?.districtId`. Forward-compatible with Entra ID — only the producer of `CurrentUser` (the
+dev-auth interceptor in development, JWT parser when real auth lands) changes, not consumers.
 
 ---
 
 ## Entities
 
-The decorators and field tables below specify the target form of each entity. `District` is implemented exactly as specified. `FireIncident`, `SituationReport`, and `FinalReport` are identity + audit stubs in the current code; Phase 2 widens them to match the spec here. See *Implementation Phases → Phase 1* for the current stub field sets.
+The decorators and field tables below specify the target form of each entity. `District` is implemented exactly as
+specified. `FireIncident`, `SituationReport`, and `FinalReport` are identity + audit stubs in the current code; Phase 2
+widens them to match the spec here. See *Implementation Phases → Phase 1* for the current stub field sets.
 
 ### FireIncident
 
-The core aggregate. Each fire incident is identified by a district-scoped fire number and a system-wide global incident ID.
+The core aggregate. Each fire incident is identified by a district-scoped fire number and a system-wide global incident
+ID.
 
 Decorator:
 
@@ -235,7 +266,7 @@ Decorator:
 })
 ```
 
-**Identity and Tracking**
+#### Identity and Tracking
 
 | Field | Type | Description |
 |---|---|---|
@@ -248,7 +279,7 @@ Decorator:
 | createdAt | datetime, auto | `Fields.createdAt()`. |
 | updatedAt | datetime, auto | `Fields.updatedAt()`. |
 
-**Location**
+#### Location
 
 | Field | Type | Description |
 |---|---|---|
@@ -257,9 +288,10 @@ Decorator:
 | latitude | number, optional, -90 to 90 | Decimal degrees. |
 | longitude | number, optional, -180 to 180 | Decimal degrees. |
 
-The District's `name`, `regionId`, and `regionName` are read via `@Relations.toOne(() => District, 'districtId') district?: District` on FireIncident.
+The District's `name`, `regionId`, and `regionName` are read via `@Relations.toOne(() => District, 'districtId')
+district?: District` on FireIncident.
 
-**Status and Classification**
+#### Status and Classification
 
 | Field | Type | Description |
 |---|---|---|
@@ -270,7 +302,7 @@ The District's `name`, `regionId`, and `regionName` are read via `@Relations.toO
 | declaredBySource | string, optional, 0–200 chars | Who declared the fire major. Required and 1–200 chars when `isMajor = true`. |
 | declaredByTimestamp | datetime, optional | When the major declaration was made. Required and ≤ now when `isMajor = true`. Client-provided. |
 
-**Timeline**
+#### Timeline
 
 | Field | Type | Description |
 |---|---|---|
@@ -281,9 +313,11 @@ The District's `name`, `regionId`, and `regionName` are read via `@Relations.toO
 | firstCrewArrivedAt | datetime, optional | When the first crew arrived on scene. |
 | detectionMethod | FireDetectionMethod enum, optional | How the fire was first detected. |
 
-The saving hook validates adjacent-pair ordering (chain, not full cross-product): each of the four pairs `(fireStartedAt, fireDetectedAt)`, `(fireDetectedAt, reportedAt)`, `(reportedAt, firstCrewSentAt)`, `(firstCrewSentAt, firstCrewArrivedAt)` is checked only when both values are non-null. Same rule on insert and update.
+The saving hook validates adjacent-pair ordering (chain, not full cross-product): each of the four pairs
+`(fireStartedAt, fireDetectedAt)`, `(fireDetectedAt, reportedAt)`, `(reportedAt, firstCrewSentAt)`, `(firstCrewSentAt,
+firstCrewArrivedAt)` is checked only when both values are non-null. Same rule on insert and update.
 
-**Cause**
+#### Cause
 
 | Field | Type | Description |
 |---|---|---|
@@ -291,7 +325,7 @@ The saving hook validates adjacent-pair ordering (chain, not full cross-product)
 | causeSourceOther | string, optional, 0–500 chars | Free text when `causeSource = Other`. |
 | isCauseConfirmed | boolean, default false | Whether the cause is confirmed. |
 
-**Initial Response**
+#### Initial Response
 
 | Field | Type | Description |
 |---|---|---|
@@ -301,7 +335,7 @@ The saving hook validates adjacent-pair ordering (chain, not full cross-product)
 | controlAgency | ControlAgency enum, optional | EMI's 4-value enum. |
 | fuelType | FuelType enum, optional | EMI's 8-value enum. |
 
-**Area**
+#### Area
 
 | Field | Type | Description |
 |---|---|---|
@@ -316,7 +350,7 @@ The saving hook validates adjacent-pair ordering (chain, not full cross-product)
 | totalVehicles | integer, default 0, `allowApiUpdate: false` | Updated by SituationReport `saved` hook. |
 | totalAircraft | integer, default 0, `allowApiUpdate: false` | Updated by SituationReport `saved` hook. |
 
-**Lifecycle**
+#### Lifecycle
 
 | Field | Type | Description |
 |---|---|---|
@@ -324,7 +358,7 @@ The saving hook validates adjacent-pair ordering (chain, not full cross-product)
 | isDeleted | boolean, default false, `allowApiUpdate: false` | Soft-delete flag. Mutated only by the `softDelete` BackendMethod. |
 | deletionReason | string, optional, 0–500 chars, `allowApiUpdate: false` | Set by `softDelete`. Required and 1–500 chars when `isDeleted = true`. |
 
-**Relations**
+#### Relations
 
 | Relation | Type | Description |
 |---|---|---|
@@ -334,7 +368,8 @@ The saving hook validates adjacent-pair ordering (chain, not full cross-product)
 
 ### SituationReport
 
-A point-in-time snapshot of fire conditions, linked to a FireIncident. Multiple sitreps per fire, ordered by report number. **Immutable once inserted.**
+A point-in-time snapshot of fire conditions, linked to a FireIncident. Multiple sitreps per fire, ordered by report
+number. **Immutable once inserted.**
 
 Decorator:
 
@@ -357,7 +392,7 @@ Decorator:
 })
 ```
 
-**Identity**
+#### Identity
 
 | Field | Type | Description |
 |---|---|---|
@@ -367,7 +402,7 @@ Decorator:
 | districtId | integer, `allowApiUpdate: false` | Denormalised from parent. Set in saving hook on insert. |
 | isParentDeleted | boolean, default false, `allowApiUpdate: false` | Denormalised flag set by `softDelete`. |
 
-**Content**
+#### Content
 
 | Field | Type | Description |
 |---|---|---|
@@ -391,7 +426,7 @@ Decorator:
 | vehicles | integer, ≥ 0, default 0 | |
 | aircraft | integer, ≥ 0, default 0 | |
 
-**Audit**
+#### Audit
 
 | Field | Type | Description |
 |---|---|---|
@@ -399,7 +434,7 @@ Decorator:
 | submittedAt | datetime, `allowApiUpdate: false` | Set in saving hook on insert. |
 | createdAt | datetime, auto | `Fields.createdAt()`. |
 
-**Relations**
+#### Relations
 
 | Relation | Type | Description |
 |---|---|---|
@@ -407,7 +442,8 @@ Decorator:
 
 ### FinalReport
 
-At most one per fire (1-to-1 via `fireIncidentId UNIQUE`). Created when the parent fire reaches a terminal status. Signing it off locks both this entity and the parent FireIncident until `removeSignOff` is called.
+At most one per fire (1-to-1 via `fireIncidentId UNIQUE`). Created when the parent fire reaches a terminal status.
+Signing it off locks both this entity and the parent FireIncident until `removeSignOff` is called.
 
 Decorator:
 
@@ -429,7 +465,7 @@ Decorator:
 })
 ```
 
-**Identity**
+#### Identity
 
 | Field | Type | Description |
 |---|---|---|
@@ -441,7 +477,7 @@ Decorator:
 | createdBy | string, `allowApiUpdate: false` | |
 | updatedAt | datetime, auto | |
 
-**Content — Losses**
+#### Content — Losses
 
 | Field | Type | Description |
 |---|---|---|
@@ -453,7 +489,7 @@ Decorator:
 | infrastructureLosses | string, optional, 0–500 chars | Free text. |
 | otherLosses | string, optional, 0–500 chars | Free text. |
 
-**Content — Investigation**
+#### Content — Investigation
 
 | Field | Type | Description |
 |---|---|---|
@@ -462,7 +498,7 @@ Decorator:
 | isOffenceSuspected | boolean, default false | |
 | legalActionStatus | LegalActionStatus enum, optional | |
 
-**Content — Cost**
+#### Content — Cost
 
 | Field | Type | Description |
 |---|---|---|
@@ -478,7 +514,7 @@ Decorator:
 | burntPlantation | number, optional, ≥ 0 | |
 | burntOther | number, optional, ≥ 0 | |
 
-**Sign-off**
+#### Sign-off
 
 | Field | Type | Description |
 |---|---|---|
@@ -490,7 +526,7 @@ Decorator:
 
 These five sign-off fields capture only the most recent event of each kind. No separate event-history entity.
 
-**Relations**
+#### Relations
 
 | Relation | Type | Description |
 |---|---|---|
@@ -524,7 +560,8 @@ Decorator:
 
 ## Enums
 
-Eleven enums in total. Display names live in `libs/shared/domain/src/fire/enum-display.ts` as one `Record<EnumValue, string>` per enum, imported directly by Angular components. No `valueConverter` on field decorators.
+Eleven enums in total. Display names live in `libs/shared/domain/src/fire/enum-display.ts` as one `Record<EnumValue,
+string>` per enum, imported directly by Angular components. No `valueConverter` on field decorators.
 
 Enum values in code use `as const` string-literal unions:
 
@@ -560,9 +597,11 @@ Represents fire control state at a point in time. Ordered by priority (highest u
 | SafeFalseAlarm | `safeFalseAlarm` | Safe - False Alarm | Reported fire was a false alarm. |
 | NotFound | `notFound` | Not Found | Fire could not be located during initial assessment. |
 
-**Terminal statuses** (FinalReport-eligibility AND softDelete-eligibility): `Safe`, `SafeOverrun`, `SafeNotFound`, `SafeFalseAlarm`, `NotFound`. Codified as `TERMINAL_STATUSES` in `helpers.ts`.
+**Terminal statuses** (FinalReport-eligibility AND softDelete-eligibility): `Safe`, `SafeOverrun`, `SafeNotFound`,
+`SafeFalseAlarm`, `NotFound`. Codified as `TERMINAL_STATUSES` in `helpers.ts`.
 
-**Safe-variant statuses** (for cadence rule 3): `Safe`, `SafeOverrun`, `SafeNotFound`, `SafeFalseAlarm`. Codified as `SAFE_VARIANT_STATUSES`. Note `NotFound` is terminal but not "safe" — cadence rule 4 handles it.
+**Safe-variant statuses** (for cadence rule 3): `Safe`, `SafeOverrun`, `SafeNotFound`, `SafeFalseAlarm`. Codified as
+`SAFE_VARIANT_STATUSES`. Note `NotFound` is terminal but not "safe" — cadence rule 4 handles it.
 
 ### IncidentLevel (3 values)
 
@@ -572,7 +611,8 @@ Represents fire control state at a point in time. Ordered by priority (highest u
 | LevelTwo | `levelTwo` | Level 2 |
 | LevelThree | `levelThree` | Level 3 |
 
-Numeric ordering: `LevelOne < LevelTwo < LevelThree`. The `escalate` BackendMethod uses a `LEVEL_ORDER: Record<IncidentLevel, number>` table for the comparison. Escalation can only go up.
+Numeric ordering: `LevelOne < LevelTwo < LevelThree`. The `escalate` BackendMethod uses a `LEVEL_ORDER:
+Record<IncidentLevel, number>` table for the comparison. Escalation can only go up.
 
 ### CauseSource (26 values, EMI verbatim)
 
@@ -635,7 +675,8 @@ Numeric ordering: `LevelOne < LevelTwo < LevelThree`. The `escalate` BackendMeth
 | Moderate | `moderate` | Moderate |
 | High | `high` | High |
 
-Numeric ordering for "escalation" checks: `Low < Moderate < High`. Cadence logic uses a `POTENTIAL_ORDER: Record<Potential, number>` table.
+Numeric ordering for "escalation" checks: `Low < Moderate < High`. Cadence logic uses a `POTENTIAL_ORDER:
+Record<Potential, number>` table.
 
 ### CostClass (7 values)
 
@@ -759,7 +800,10 @@ export function computeGlobalIncidentId(
 
 ### Server-internal flag
 
-The SituationReport `saved` hook and the `softDelete` / `escalate` / `removeSignOff` BackendMethods need to update `FireIncident` rows server-side without triggering the pre-sitrep-edit restriction in `FireIncident.saving`. Remult's `allowApi*` predicates are synchronous (`AllowedForInstance<T>` returns `boolean`), so all multi-row state checks live in `saving` hooks; the bypass is a per-request flag:
+The SituationReport `saved` hook and the `softDelete` / `escalate` / `removeSignOff` BackendMethods need to update
+`FireIncident` rows server-side without triggering the pre-sitrep-edit restriction in `FireIncident.saving`. Remult's
+`allowApi*` predicates are synchronous (`AllowedForInstance<T>` returns `boolean`), so all multi-row state checks live
+in `saving` hooks; the bypass is a per-request flag:
 
 ```typescript
 (remult as { __serverInternal?: boolean }).__serverInternal = true;
@@ -775,34 +819,48 @@ try { /* repo.update(...) */ } finally {
 If `e.isNew === true` (insert):
 
 1. Validate `reportedAt` non-null and ≤ now; else cancel with `"reportedAt is required and must be ≤ now"`.
-2. Validate `districtId` non-null; resolve `district = await remult.repo(District).findId(fire.districtId)`; if not found or `district.isActive === false`, cancel.
-3. If user is `Roles.incidentEditor` and is not also `Roles.stateOfficer` or `Roles.admin`, validate `fire.districtId === (remult.user as CurrentUser).districtId`; else cancel.
+2. Validate `districtId` non-null; resolve `district = await remult.repo(District).findId(fire.districtId)`; if not
+   found or `district.isActive === false`, cancel.
+3. If user is `Roles.incidentEditor` and is not also `Roles.stateOfficer` or `Roles.admin`, validate `fire.districtId
+   === (remult.user as CurrentUser).districtId`; else cancel.
 4. `fire.createdBy = remult.user!.id`.
 5. `fire.financialYear = computeFinancialYear(new Date())`.
-6. `fire.fireNumber = (await remult.repo(FireIncident).count({ districtId: fire.districtId, financialYear: fire.financialYear })) + 1`. (No `isDeleted` filter — counts deleted rows, matching EMI uniqueness in audit history.)
+6. `fire.fireNumber = (await remult.repo(FireIncident).count({ districtId: fire.districtId, financialYear:
+   fire.financialYear })) + 1`. (No `isDeleted` filter — counts deleted rows, matching EMI uniqueness in audit history.)
 7. `fire.globalIncidentId = computeGlobalIncidentId(fire.financialYear, fire.districtId, fire.fireNumber)`.
 8. `fire.statusAsAt = new Date()`.
 9. `fire.nextReportDue = new Date(Date.now() + 30 * MS_PER_MINUTE)`.
 10. `fire.isDeleted = false`; `fire.deletionReason = ''`.
 11. `fire.totalPersonnel = 0; fire.totalVehicles = 0; fire.totalAircraft = 0`.
 12. If `fire.status === FireStatus.SafeOverrun` → `fire.fireAreaHectares = 0`.
-13. If `fire.isMajor === true`: validate `fire.declaredBySource` 1–200 chars AND `fire.declaredByTimestamp` non-null AND `fire.declaredByTimestamp ≤ new Date()`; else cancel.
-14. Validate adjacent-pair timestamp ordering (each pair only if both non-null): `(fireStartedAt, fireDetectedAt)`, `(fireDetectedAt, reportedAt)`, `(reportedAt, firstCrewSentAt)`, `(firstCrewSentAt, firstCrewArrivedAt)`. Any violation → cancel with the exact pair name.
+13. If `fire.isMajor === true`: validate `fire.declaredBySource` 1–200 chars AND `fire.declaredByTimestamp` non-null AND
+    `fire.declaredByTimestamp ≤ new Date()`; else cancel.
+14. Validate adjacent-pair timestamp ordering (each pair only if both non-null): `(fireStartedAt, fireDetectedAt)`,
+    `(fireDetectedAt, reportedAt)`, `(reportedAt, firstCrewSentAt)`, `(firstCrewSentAt, firstCrewArrivedAt)`. Any
+    violation → cancel with the exact pair name.
 
 If `e.isNew === false` (update):
 
 1. **Internal-update bypass:** if `__serverInternal === true`, skip the pre-sitrep restriction (step 9 below).
-2. `finalReport = await remult.repo(FinalReport).findFirst({ fireIncidentId: fire.id })`. If `finalReport && finalReport.isSignedOff === true` → cancel with `"FireIncident is locked while FinalReport is signed off; call removeSignOff first"`.
-3. If `e.fields.isDeleted.originalValue === true && fire.isDeleted === true` → cancel with `"FireIncident is soft-deleted; no further edits permitted"`.
-4. If `e.fields.isMajor.originalValue === true && fire.isMajor === false` → cancel with `"isMajor is one-way; cannot be set back to false"`.
+2. `finalReport = await remult.repo(FinalReport).findFirst({ fireIncidentId: fire.id })`. If `finalReport &&
+   finalReport.isSignedOff === true` → cancel with `"FireIncident is locked while FinalReport is signed off; call
+   removeSignOff first"`.
+3. If `e.fields.isDeleted.originalValue === true && fire.isDeleted === true` → cancel with `"FireIncident is
+   soft-deleted; no further edits permitted"`.
+4. If `e.fields.isMajor.originalValue === true && fire.isMajor === false` → cancel with `"isMajor is one-way; cannot be
+   set back to false"`.
 5. If `e.fields.status.originalValue !== fire.status` → `fire.statusAsAt = new Date()`.
 6. If `fire.status === FireStatus.SafeOverrun` → `fire.fireAreaHectares = 0`.
 7. If `fire.isMajor === true`: same validation as insert step 13.
 8. Same adjacent-pair timestamp ordering validation as insert step 14.
-9. **Pre-sitrep edit restriction:** if `__serverInternal` flag is not set AND user roles do NOT include `Roles.stateOfficer` or `Roles.admin`:
-   - Validate `fire.createdBy === remult.user!.id`; else cancel with `"IncidentEditor can only edit fires they created"`.
-   - Validate `await remult.repo(SituationReport).count({ fireIncidentId: fire.id }) === 0`; else cancel with `"FireIncident cannot be edited after first SituationReport"`.
-   - Validate `await remult.repo(FinalReport).count({ fireIncidentId: fire.id }) === 0`; else cancel with `"FireIncident cannot be edited after FinalReport exists"`.
+9. **Pre-sitrep edit restriction:** if `__serverInternal` flag is not set AND user roles do NOT include
+   `Roles.stateOfficer` or `Roles.admin`:
+   - Validate `fire.createdBy === remult.user!.id`; else cancel with `"IncidentEditor can only edit fires they
+     created"`.
+   - Validate `await remult.repo(SituationReport).count({ fireIncidentId: fire.id }) === 0`; else cancel with
+     `"FireIncident cannot be edited after first SituationReport"`.
+   - Validate `await remult.repo(FinalReport).count({ fireIncidentId: fire.id }) === 0`; else cancel with `"FireIncident
+     cannot be edited after FinalReport exists"`.
 
 `FireIncident` has no `saved` hook.
 
@@ -814,8 +872,10 @@ If `e.isNew === true` (insert):
 
 1. `parent = await remult.repo(FireIncident).findId(sitrep.fireIncidentId)`. If not found → cancel.
 2. If `parent.isDeleted === true` → cancel with `"Parent fire is soft-deleted"`.
-3. `finalReport = await remult.repo(FinalReport).findFirst({ fireIncidentId: sitrep.fireIncidentId })`. If `finalReport && finalReport.isSignedOff === true` → cancel with `"Parent fire is signed off"`.
-4. If user is `Roles.incidentEditor` and not also `Roles.stateOfficer` / `Roles.admin`, validate `parent.districtId === (remult.user as CurrentUser).districtId`; else cancel.
+3. `finalReport = await remult.repo(FinalReport).findFirst({ fireIncidentId: sitrep.fireIncidentId })`. If `finalReport
+   && finalReport.isSignedOff === true` → cancel with `"Parent fire is signed off"`.
+4. If user is `Roles.incidentEditor` and not also `Roles.stateOfficer` / `Roles.admin`, validate `parent.districtId ===
+   (remult.user as CurrentUser).districtId`; else cancel.
 5. `sitrep.reportNumber = (await remult.repo(SituationReport).count({ fireIncidentId: sitrep.fireIncidentId })) + 1`.
 6. `sitrep.submittedBy = remult.user!.id`.
 7. `sitrep.submittedAt = new Date()`.
@@ -830,10 +890,15 @@ If `e.isNew === true` (insert):
 
 Always (every successful insert):
 
-1. `prev = await remult.repo(SituationReport).findFirst({ fireIncidentId: sitrep.fireIncidentId, reportNumber: { '!=': sitrep.reportNumber } }, { orderBy: { reportNumber: 'desc' }, limit: 1 })` — immediately previous sitrep, or `undefined` if first.
+1. `prev = await remult.repo(SituationReport).findFirst({ fireIncidentId: sitrep.fireIncidentId, reportNumber: { '!=':
+   sitrep.reportNumber } }, { orderBy: { reportNumber: 'desc' }, limit: 1 })` — immediately previous sitrep, or
+   `undefined` if first.
 2. `parent = await remult.repo(FireIncident).findId(sitrep.fireIncidentId)`.
-3. Compute `nextReportDue` from `(previousStatus = parent.status, newStatus = sitrep.status, prevLoss = prev?.potentialLoss, prevSpread = prev?.potentialSpread, newLoss = sitrep.potentialLoss, newSpread = sitrep.potentialSpread)` using the cadence precedence table (see Business Rules).
+3. Compute `nextReportDue` from `(previousStatus = parent.status, newStatus = sitrep.status, prevLoss =
+   prev?.potentialLoss, prevSpread = prev?.potentialSpread, newLoss = sitrep.potentialLoss, newSpread =
+   sitrep.potentialSpread)` using the cadence precedence table (see Business Rules).
 4. Set the `__serverInternal` flag and update parent:
+
    ```typescript
    await remult.repo(FireIncident).update(parent.id, {
      status: sitrep.status,
@@ -852,9 +917,12 @@ If `e.isNew === true` (insert):
 
 1. `parent = await remult.repo(FireIncident).findId(fr.fireIncidentId)`. If not found → cancel.
 2. If `parent.isDeleted === true` → cancel.
-3. If `!TERMINAL_STATUSES.includes(parent.status)` → cancel with `"FinalReport requires parent fire to be in a terminal status (Safe*, NotFound)"`.
-4. If `await remult.repo(FinalReport).count({ fireIncidentId: fr.fireIncidentId }) > 0` → cancel with `"FinalReport already exists for this fire"`.
-5. If user is `Roles.incidentEditor` and not also `Roles.stateOfficer` / `Roles.admin`, validate `parent.districtId === (remult.user as CurrentUser).districtId`; else cancel.
+3. If `!TERMINAL_STATUSES.includes(parent.status)` → cancel with `"FinalReport requires parent fire to be in a terminal
+   status (Safe*, NotFound)"`.
+4. If `await remult.repo(FinalReport).count({ fireIncidentId: fr.fireIncidentId }) > 0` → cancel with `"FinalReport
+   already exists for this fire"`.
+5. If user is `Roles.incidentEditor` and not also `Roles.stateOfficer` / `Roles.admin`, validate `parent.districtId ===
+   (remult.user as CurrentUser).districtId`; else cancel.
 6. `fr.createdBy = remult.user!.id`.
 7. `fr.districtId = parent.districtId`.
 8. `fr.isParentDeleted = false`.
@@ -865,10 +933,14 @@ If `e.isNew === false` (update):
 
 1. Internal-update bypass: same `__serverInternal` flag pattern.
 2. `parent = await remult.repo(FireIncident).findId(fr.fireIncidentId)`. If `parent.isDeleted === true` → cancel.
-3. Compute transition: `wasSignedOff = e.fields.isSignedOff.originalValue === true`, `isSignedOff = fr.isSignedOff === true`.
-4. If `wasSignedOff && isSignedOff` (still signed off, field edit attempt) AND `__serverInternal` not set → cancel with `"FinalReport is locked while signed off; call removeSignOff first"`.
-5. If `!wasSignedOff && isSignedOff` (false → true): validate `TERMINAL_STATUSES.includes(parent.status)`; else cancel. Set `fr.signedOffAt = new Date()`, `fr.signedOffBy = remult.user!.id`.
-6. If `wasSignedOff && !isSignedOff` (true → false) AND `__serverInternal` not set → cancel with `"removeSignOff is only available via the removeSignOff BackendMethod"`.
+3. Compute transition: `wasSignedOff = e.fields.isSignedOff.originalValue === true`, `isSignedOff = fr.isSignedOff ===
+   true`.
+4. If `wasSignedOff && isSignedOff` (still signed off, field edit attempt) AND `__serverInternal` not set → cancel with
+   `"FinalReport is locked while signed off; call removeSignOff first"`.
+5. If `!wasSignedOff && isSignedOff` (false → true): validate `TERMINAL_STATUSES.includes(parent.status)`; else cancel.
+   Set `fr.signedOffAt = new Date()`, `fr.signedOffBy = remult.user!.id`.
+6. If `wasSignedOff && !isSignedOff` (true → false) AND `__serverInternal` not set → cancel with `"removeSignOff is only
+   available via the removeSignOff BackendMethod"`.
 7. Field bounds re-validated.
 
 ### FinalReport — `saved` hook
@@ -876,9 +948,11 @@ If `e.isNew === false` (update):
 Wrap the parent-update calls below in the `__serverInternal` flag.
 
 - If `e.isNew === true && fr.isSignedOff === true`: update parent `nextReportDue = null`.
-- If `e.isNew === false && !e.fields.isSignedOff.originalValue && fr.isSignedOff === true` (transition false → true via update): update parent `nextReportDue = null`.
+- If `e.isNew === false && !e.fields.isSignedOff.originalValue && fr.isSignedOff === true` (transition false → true via
+  update): update parent `nextReportDue = null`.
 
-The "remove sign-off" path is the `removeSignOff` BackendMethod (see Domain Operations), not the entity update; that method itself recomputes `parent.nextReportDue`.
+The "remove sign-off" path is the `removeSignOff` BackendMethod (see Domain Operations), not the entity update; that
+method itself recomputes `parent.nextReportDue`.
 
 ### District — saving / saved
 
@@ -890,11 +964,14 @@ No logic. Permission predicates (`Roles.admin` for writes, `Allow.authenticated`
 
 ### Next Report Due Calculation
 
-Cadence rules with **explicit precedence**: the FIRST matching rule applies. Inputs (computed inside SituationReport `saved` hook, exported as `computeNextReportDue(...)` in `helpers.ts`):
+Cadence rules with **explicit precedence**: the FIRST matching rule applies. Inputs (computed inside SituationReport
+`saved` hook, exported as `computeNextReportDue(...)` in `helpers.ts`):
 
-- `previousStatus`: the parent fire's `status` snapshot read BEFORE the parent is updated (i.e., the prior sitrep's status, or the initial-report status if this is the first sitrep).
+- `previousStatus`: the parent fire's `status` snapshot read BEFORE the parent is updated (i.e., the prior sitrep's
+  status, or the initial-report status if this is the first sitrep).
 - `newStatus`: the just-inserted sitrep's `status`.
-- `prevLoss`, `prevSpread`: the immediately previous sitrep's `potentialLoss` / `potentialSpread`, or `undefined` if this is the first sitrep.
+- `prevLoss`, `prevSpread`: the immediately previous sitrep's `potentialLoss` / `potentialSpread`, or `undefined` if
+  this is the first sitrep.
 - `newLoss`, `newSpread`: the just-inserted sitrep's `potentialLoss` / `potentialSpread`.
 - `now`: the saved-hook execution time.
 
@@ -916,14 +993,18 @@ Every possible `newStatus` matches exactly one rule.
 
 - FireIncident `saving` insert: `nextReportDue = now + 30 min`.
 - `softDelete` BackendMethod: `nextReportDue = null`.
-- FinalReport sign-off (saved hook on insert with `isSignedOff = true` OR transition false → true on update): `nextReportDue = null`.
-- `removeSignOff` BackendMethod: `nextReportDue` recomputed from the most recent SituationReport using rules 1–7. If zero sitreps exist, `now + 30 min`.
+- FinalReport sign-off (saved hook on insert with `isSignedOff = true` OR transition false → true on update):
+  `nextReportDue = null`.
+- `removeSignOff` BackendMethod: `nextReportDue` recomputed from the most recent SituationReport using rules 1–7. If
+  zero sitreps exist, `now + 30 min`.
 
 ### Fire Numbering
 
 - Fire numbers are sequential integers per district per financial year.
-- When creating a fire, query the count of fires for that district + financial year (including `isDeleted` rows for EMI parity), then assign count + 1.
-- The `globalIncidentId` is constructed as: `10` (fire type code) + last 2 digits of financial year + district ID (zero-padded to 2 digits) + fire number (zero-padded to 3 digits).
+- When creating a fire, query the count of fires for that district + financial year (including `isDeleted` rows for EMI
+  parity), then assign count + 1.
+- The `globalIncidentId` is constructed as: `10` (fire type code) + last 2 digits of financial year + district ID
+  (zero-padded to 2 digits) + fire number (zero-padded to 3 digits).
 - Worked example: fire #42 in district 47 (Latrobe) in FY26 → `parseInt("10" + "26" + "47" + "042", 10) = 1026470042`.
 
 ### Financial Year
@@ -936,11 +1017,14 @@ Every possible `newStatus` matches exactly one rule.
 
 ### Status Transition Rules
 
-- Final report can only be created when status is in `TERMINAL_STATUSES` (Safe, SafeOverrun, SafeNotFound, SafeFalseAlarm, NotFound).
+- Final report can only be created when status is in `TERMINAL_STATUSES` (Safe, SafeOverrun, SafeNotFound,
+  SafeFalseAlarm, NotFound).
 - Soft deletion only allowed when status is in `TERMINAL_STATUSES`.
 - Soft deletion not allowed if fire has a signed-off final report — must call `removeSignOff` first.
-- When status is SafeOverrun, `fireAreaHectares` is automatically set to 0 (both on the sitrep and on the parent after the `saved` hook propagates).
-- Major fire declaration (`isMajor = true`) requires `declaredBySource` non-empty (1–200 chars) and `declaredByTimestamp` ≤ now. Once `isMajor = true`, it cannot be set back to false.
+- When status is SafeOverrun, `fireAreaHectares` is automatically set to 0 (both on the sitrep and on the parent after
+  the `saved` hook propagates).
+- Major fire declaration (`isMajor = true`) requires `declaredBySource` non-empty (1–200 chars) and
+  `declaredByTimestamp` ≤ now. Once `isMajor = true`, it cannot be set back to false.
 
 ### Incident Level Escalation
 
@@ -950,7 +1034,8 @@ Every possible `newStatus` matches exactly one rule.
 
 ### Timestamp Ordering Validation
 
-These timestamps must be in chronological order when present, validated as adjacent pairs only (each pair only when both values are non-null):
+These timestamps must be in chronological order when present, validated as adjacent pairs only (each pair only when both
+values are non-null):
 
 1. `fireStartedAt ≤ fireDetectedAt`
 2. `fireDetectedAt ≤ reportedAt`
@@ -969,16 +1054,19 @@ These timestamps must be in chronological order when present, validated as adjac
 
 **Removing a sign-off** (`removeSignOff` BackendMethod; StateOfficer or Admin only):
 
-1. Records `signOffRemovedAt` + `signOffRemovedBy`. `reason` is validated for length but emitted only to logs (no audit-history entity in this showcase).
+1. Records `signOffRemovedAt` + `signOffRemovedBy`. `reason` is validated for length but emitted only to logs (no
+   audit-history entity in this showcase).
 2. `isSignedOff = false`.
-3. Parent `nextReportDue` recomputed from the latest SituationReport using the cadence rules, or `now + 30 min` if no sitreps exist.
+3. Parent `nextReportDue` recomputed from the latest SituationReport using the cadence rules, or `now + 30 min` if no
+   sitreps exist.
 4. FinalReport and parent FireIncident become editable again.
 
 ---
 
 ## Validation Rules
 
-Implement via `Fields.*({ validate: ... })` for field bounds and via `saving` hooks for cross-field rules. Exhaustive list:
+Implement via `Fields.*({ validate: ... })` for field bounds and via `saving` hooks for cross-field rules. Exhaustive
+list:
 
 ### FireIncident
 
@@ -1042,7 +1130,8 @@ Implement via `Fields.*({ validate: ... })` for field bounds and via `saving` ho
 
 ### Status Colour Palette
 
-Tailwind utility classes applied to a `<span class="...">` badge. Implemented as `STATUS_BADGE_CLASSES: Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts`:
+Tailwind utility classes applied to a `<span class="...">` badge. Implemented as `STATUS_BADGE_CLASSES:
+Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts`:
 
 | Status | Classes |
 |---|---|
@@ -1055,13 +1144,15 @@ Tailwind utility classes applied to a `<span class="...">` badge. Implemented as
 
 ### Enum Display Location
 
-`libs/shared/domain/src/fire/enum-display.ts` exports one `Record<EnumValue, string>` per enum (using the Display Names from Enums), imported directly by Angular components.
+`libs/shared/domain/src/fire/enum-display.ts` exports one `Record<EnumValue, string>` per enum (using the Display Names
+from Enums), imported directly by Angular components.
 
 ---
 
 ## Domain Operations
 
-Four `@BackendMethod`s on the relevant entity classes. The previous spec's `submitForFire` is removed — the standard REST `POST /api/situationReports` already exercises the `SituationReport.saving` hook end-to-end.
+Four `@BackendMethod`s on the relevant entity classes. The previous spec's `submitForFire` is removed — the standard
+REST `POST /api/situationReports` already exercises the `SituationReport.saving` hook end-to-end.
 
 ### `FireIncident.getNextFireNumber(districtId: number): Promise<number>`
 
@@ -1136,7 +1227,8 @@ static async softDelete(fireId: string, reason: string): Promise<void> {
 }
 ```
 
-Operation is sequential, not transactional in the showcase. The Postgres data provider commits each `update` independently. Production code would wrap in a transaction.
+Operation is sequential, not transactional in the showcase. The Postgres data provider commits each `update`
+independently. Production code would wrap in a transaction.
 
 ### `FinalReport.removeSignOff(finalReportId: string, reason: string): Promise<void>`
 
@@ -1183,13 +1275,17 @@ static async removeSignOff(finalReportId: string, reason: string): Promise<void>
 }
 ```
 
-`reason` is validated for length but stored only in logs (the entity keeps only `signOffRemovedAt` + `signOffRemovedBy`).
+`reason` is validated for length but stored only in logs (the entity keeps only `signOffRemovedAt` +
+`signOffRemovedBy`).
 
 ---
 
 ## Resource Tracking Model
 
-The full resource tracking system (not in scope for this showcase) tracks resources per agency and per type across many categories. For the showcase, flatten to totals on `FireIncident` (`totalPersonnel`, `totalVehicles`, `totalAircraft`) and snapshots on `SituationReport` (`personnel`, `vehicles`, `aircraft`). The full per-agency breakdown is a future enhancement.
+The full resource tracking system (not in scope for this showcase) tracks resources per agency and per type across many
+categories. For the showcase, flatten to totals on `FireIncident` (`totalPersonnel`, `totalVehicles`, `totalAircraft`)
+and snapshots on `SituationReport` (`personnel`, `vehicles`, `aircraft`). The full per-agency breakdown is a future
+enhancement.
 
 ---
 
@@ -1197,9 +1293,12 @@ The full resource tracking system (not in scope for this showcase) tracks resour
 
 ### Incident List
 
-Displays all fire incidents visible to the current user (district-filtered for IncidentEditor/Viewer; cross-district for StateOfficer/Admin). Shows: fire name, district, fire number, status (colour-coded via `STATUS_BADGE_CLASSES`), fire area, incident level, whether it's a major fire, last report date, next report due.
+Displays all fire incidents visible to the current user (district-filtered for IncidentEditor/Viewer; cross-district for
+StateOfficer/Admin). Shows: fire name, district, fire number, status (colour-coded via `STATUS_BADGE_CLASSES`), fire
+area, incident level, whether it's a major fire, last report date, next report due.
 
-Sortable by name, district, number, last report date. "New Incident" action visible only to users with create permission.
+Sortable by name, district, number, last report date. "New Incident" action visible only to users with create
+permission.
 
 ### Incident Detail
 
@@ -1213,49 +1312,87 @@ Shows full incident information and a timeline of situation reports (newest firs
 
 ### Incident Form (Create / Edit)
 
-Form for creating or editing a fire incident. Fields driven by entity metadata where possible. Enum fields render as dropdowns. Validation runs on the client before submit (same rules as server). Required fields: name, districtId, status, reportedAt.
+Form for creating or editing a fire incident. Fields driven by entity metadata where possible. Enum fields render as
+dropdowns. Validation runs on the client before submit (same rules as server). Required fields: name, districtId,
+status, reportedAt.
 
 ### Situation Report Form
 
-Form for submitting a new sitrep against a fire. Pre-populates fire identity fields (district, fire number) as read-only. Captures status, area, weather, strategy, significant events, predicted behaviour, control progress, community impact, potentials, and resource snapshot. After submission the sitrep cannot be edited.
+Form for submitting a new sitrep against a fire. Pre-populates fire identity fields (district, fire number) as
+read-only. Captures status, area, weather, strategy, significant events, predicted behaviour, control progress,
+community impact, potentials, and resource snapshot. After submission the sitrep cannot be edited.
 
 ---
 
 ## Implementation Phases
 
-The *Entities*, *Enums*, *Lifecycle Hooks*, *Business Rules*, *Validation Rules*, *UI Display*, and *Domain Operations* sections describe the target form of the showcase. The phases below carve that target into deliverables and record current implementation status.
+The *Entities*, *Enums*, *Lifecycle Hooks*, *Business Rules*, *Validation Rules*, *UI Display*, and *Domain Operations*
+sections describe the target form of the showcase. The phases below carve that target into deliverables and record
+current implementation status.
 
 ### Phase 1: Infrastructure
 
 **Status: Implemented.**
 
-`libs/shared/domain/src/auth/roles.ts` defines the four showcase roles (`viewer`, `incidentEditor`, `stateOfficer`, `admin`). `libs/shared/domain/src/auth/current-user.ts` exports `CurrentUser` (`UserInfo & { districtId: number | null }`). `libs/shared/domain/src/auth/dev-users.ts` carries the eight `CurrentUser` identities from *Dev Users* and the `DEV_DISTRICT_NAMES` lookup. `apps/web/src/app/shared/components/dev-user-switcher.ts` renders each user's role and district inline in both the dropdown options and the active-user detail line. `apps/web/src/app/core/dev-auth.service.ts` and `apps/api/src/main.ts`'s `getUser` callback both work in `CurrentUser` terms.
+`libs/shared/domain/src/auth/roles.ts` defines the four showcase roles (`viewer`, `incidentEditor`, `stateOfficer`,
+`admin`). `libs/shared/domain/src/auth/current-user.ts` exports `CurrentUser` (`UserInfo & { districtId: number | null
+}`). `libs/shared/domain/src/auth/dev-users.ts` carries the eight `CurrentUser` identities from *Dev Users* and the
+`DEV_DISTRICT_NAMES` lookup. `apps/web/src/app/shared/components/dev-user-switcher.ts` renders each user's role and
+district inline in both the dropdown options and the active-user detail line.
+`apps/web/src/app/core/dev-auth.service.ts` and `apps/api/src/main.ts`'s `getUser` callback both work in `CurrentUser`
+terms.
 
-`libs/shared/domain/src/fire/district.ts` defines the `District` entity at its target form (decorator and column set per *Entities → District*), plus the `districtSchemaExtras` array (UNIQUE on `name`). `libs/shared/domain/src/fire/fire-incident.ts`, `situation-report.ts`, and `final-report.ts` define the other three entities as identity + foreign-key + audit + denormalised-state stubs:
+`libs/shared/domain/src/fire/district.ts` defines the `District` entity at its target form (decorator and column set per
+*Entities → District*), plus the `districtSchemaExtras` array (UNIQUE on `name`).
+`libs/shared/domain/src/fire/fire-incident.ts`, `situation-report.ts`, and `final-report.ts` define the other three
+entities as identity + foreign-key + audit + denormalised-state stubs:
 
 - `FireIncident` — `id`, `districtId`, `createdBy`, `createdAt`, `updatedAt`.
-- `SituationReport` — `id`, `fireIncidentId`, `reportNumber`, `districtId`, `isParentDeleted`, `submittedBy`, `submittedAt`, `createdAt`.
-- `FinalReport` — `id`, `fireIncidentId`, `districtId`, `isParentDeleted`, `isSignedOff`, `signedOffAt`, `signedOffBy`, `signOffRemovedAt`, `signOffRemovedBy`, `createdBy`, `createdAt`, `updatedAt`.
+- `SituationReport` — `id`, `fireIncidentId`, `reportNumber`, `districtId`, `isParentDeleted`, `submittedBy`,
+  `submittedAt`, `createdAt`.
+- `FinalReport` — `id`, `fireIncidentId`, `districtId`, `isParentDeleted`, `isSignedOff`, `signedOffAt`, `signedOffBy`,
+  `signOffRemovedAt`, `signOffRemovedBy`, `createdBy`, `createdAt`, `updatedAt`.
 
-All three stubs use `Roles.admin` uniformly across `allowApiRead` / `allowApiInsert` / `allowApiUpdate` / `allowApiDelete`; no `apiPrefilter`, no lifecycle hooks, no `Relations` decorators, no cross-field validators. `final-report.ts` also exports `finalReportSchemaExtras` (UNIQUE on `fireIncidentId`).
+All three stubs use `Roles.admin` uniformly across `allowApiRead` / `allowApiInsert` / `allowApiUpdate` /
+`allowApiDelete`; no `apiPrefilter`, no lifecycle hooks, no `Relations` decorators, no cross-field validators.
+`final-report.ts` also exports `finalReportSchemaExtras` (UNIQUE on `fireIncidentId`).
 
-The per-entity `SchemaExtras` convention is established: each entity that needs DB-level DDL beyond `CREATE TABLE columns + PRIMARY KEY` exports a sibling `readonly string[]` of raw SQL fragments. `apps/api/src/config.ts` registers the four fire entities and collates the extras into a single `schemaExtras` export. `apps/api/src/db/sync-to-desired.ts` runs them against the Atlas scratch DB after `ensureSchema` so Atlas inspects the constraints and emits them in the diff.
+The per-entity `SchemaExtras` convention is established: each entity that needs DB-level DDL beyond `CREATE TABLE
+columns + PRIMARY KEY` exports a sibling `readonly string[]` of raw SQL fragments. `apps/api/src/config.ts` registers
+the four fire entities and collates the extras into a single `schemaExtras` export. `apps/api/src/db/sync-to-desired.ts`
+runs them against the Atlas scratch DB after `ensureSchema` so Atlas inspects the constraints and emits them in the
+diff.
 
-Two Atlas migrations cover Phase 1: `apps/api/src/migrations/20260528125801_add_fire_entities.sql` (auto-generated, four `CREATE TABLE` statements with both UNIQUE constraints inlined) and `apps/api/src/migrations/20260528125802_seed_districts.sql` (hand-written, inserts the five Victorian districts from *Districts*).
+Two Atlas migrations cover Phase 1: `apps/api/src/migrations/20260528125801_add_fire_entities.sql` (auto-generated, four
+`CREATE TABLE` statements with both UNIQUE constraints inlined) and
+`apps/api/src/migrations/20260528125802_seed_districts.sql` (hand-written, inserts the five Victorian districts from
+*Districts*).
 
 ### Phase 2: Domain Entities
 
 **Status: Pending.**
 
-Widen the three stubs to the target field schemas in *Entities*. Define the eleven enums as string-literal unions in `libs/shared/domain/src/fire/enums.ts`. Create `libs/shared/domain/src/fire/helpers.ts` with `TERMINAL_STATUSES`, `SAFE_VARIANT_STATUSES`, `ACTIVE_CONTAINED_STATUSES`, `POTENTIAL_ORDER`, `LEVEL_ORDER`, the time constants, and the three exported computations (`computeFinancialYear`, `computeGlobalIncidentId`, `computeNextReportDue`). Replace the uniform admin-only stub permissions with the role-based predicates per the *Permission Matrix*; add district-scoped `apiPrefilter` to all four entities; add `saving` / `saved` lifecycle hooks per *Lifecycle Hooks* (including the `__serverInternal` flag pattern for server-side parent updates); add cross-field validators from *Validation Rules* that field-level decorators cannot express; add `Relations.toOne` / `Relations.toMany` decorators. Any new DB-level constraints flow through the per-entity `SchemaExtras` arrays. Generate the follow-up Atlas migration for the added columns. All added columns carry Remult's standard defaults (`NOT NULL DEFAULT '' / 0 / false` for non-nullable types; `NULL` for `Date | undefined`), so Atlas's `data_depend` MF103 check does not trigger.
+Widen the three stubs to the target field schemas in *Entities*. Define the eleven enums as string-literal unions in
+`libs/shared/domain/src/fire/enums.ts`. Create `libs/shared/domain/src/fire/helpers.ts` with `TERMINAL_STATUSES`,
+`SAFE_VARIANT_STATUSES`, `ACTIVE_CONTAINED_STATUSES`, `POTENTIAL_ORDER`, `LEVEL_ORDER`, the time constants, and the
+three exported computations (`computeFinancialYear`, `computeGlobalIncidentId`, `computeNextReportDue`). Replace the
+uniform admin-only stub permissions with the role-based predicates per the *Permission Matrix*; add district-scoped
+`apiPrefilter` to all four entities; add `saving` / `saved` lifecycle hooks per *Lifecycle Hooks* (including the
+`__serverInternal` flag pattern for server-side parent updates); add cross-field validators from *Validation Rules* that
+field-level decorators cannot express; add `Relations.toOne` / `Relations.toMany` decorators. Any new DB-level
+constraints flow through the per-entity `SchemaExtras` arrays. Generate the follow-up Atlas migration for the added
+columns. All added columns carry Remult's standard defaults (`NOT NULL DEFAULT '' / 0 / false` for non-nullable types;
+`NULL` for `Date | undefined`), so Atlas's `data_depend` MF103 check does not trigger.
 
-**Demo moment: four entity files produce a full API with auth, district-scoped row filtering, and business rules. No controllers written.**
+**Demo moment: four entity files produce a full API with auth, district-scoped row filtering, and business rules. No
+controllers written.**
 
 ### Phase 3: Domain Operations
 
 **Status: Pending.**
 
-Add the four BackendMethods from *Domain Operations*: `getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`. Business logic lives on the entities.
+Add the four BackendMethods from *Domain Operations*: `getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`.
+Business logic lives on the entities.
 
 **Demo moment: business logic on the entity, callable from frontend with type safety.**
 
@@ -1263,13 +1400,20 @@ Add the four BackendMethods from *Domain Operations*: `getNextFireNumber`, `esca
 
 **Status: Pending.**
 
-Build the incident list, incident detail with sitrep timeline + final-report subpanel, incident form, and sitrep form as a lazy-loaded feature route under `apps/web/src/app/features/fire-incidents/`. Add `libs/shared/domain/src/fire/enum-display.ts` (one `Record<EnumValue, string>` per enum for human-readable labels) and `libs/shared/domain/src/fire/ui.ts` (`STATUS_BADGE_CLASSES` Tailwind classes per *UI Display*). Convert the root `App` component into a routed shell (`RouterOutlet` + nav) and remove the inline `Task` CRUD; delete the `Task` entity from `libs/shared/domain`, drop its registration in `apps/api/src/config.ts`, and generate the Atlas migration that drops the `tasks` table.
+Build the incident list, incident detail with sitrep timeline + final-report subpanel, incident form, and sitrep form as
+a lazy-loaded feature route under `apps/web/src/app/features/fire-incidents/`. Add
+`libs/shared/domain/src/fire/enum-display.ts` (one `Record<EnumValue, string>` per enum for human-readable labels) and
+`libs/shared/domain/src/fire/ui.ts` (`STATUS_BADGE_CLASSES` Tailwind classes per *UI Display*). Convert the root `App`
+component into a routed shell (`RouterOutlet` + nav) and remove the inline `Task` CRUD; delete the `Task` entity from
+`libs/shared/domain`, drop its registration in `apps/api/src/config.ts`, and generate the Atlas migration that drops the
+`tasks` table.
 
 ### Phase 5: The Demo Moment
 
 **Status: Pending.**
 
-Add a new field to `FireIncident` — e.g. `estimatedContainmentDate` with a date validator. Show it working: field appears in API response, validates on both client and server, renders in form. Two files touched. Zero codegen.
+Add a new field to `FireIncident` — e.g. `estimatedContainmentDate` with a date validator. Show it working: field
+appears in API response, validates on both client and server, renders in form. Two files touched. Zero codegen.
 
 **This is the mic drop. The team has lived the 13-step version. Seeing it in 2 steps lands differently.**
 
@@ -1292,26 +1436,35 @@ Add a new field to `FireIncident` — e.g. `estimatedContainmentDate` with a dat
 
 ## Risks and Mitigations
 
-**"This is just a demo, production will be harder."** Acknowledge it. The showcase deliberately omits complex integrations, PDF generation, and background processing. Frame it as: the 80% of work that is CRUD, forms, permissions, and validation gets radically simpler. The 20% that is infrastructure integration is a separate conversation.
+**"This is just a demo, production will be harder."** Acknowledge it. The showcase deliberately omits complex
+integrations, PDF generation, and background processing. Frame it as: the 80% of work that is CRUD, forms, permissions,
+and validation gets radically simpler. The 20% that is infrastructure integration is a separate conversation.
 
-**"What about our complex queries?"** The `getNextFireNumber` operation proves you can drop to raw queries when needed. The framework doesn't lock you in.
+**"What about our complex queries?"** The `getNextFireNumber` operation proves you can drop to raw queries when needed.
+The framework doesn't lock you in.
 
-**"What about our existing auth library?"** The role model is simplified. The point is that wherever roles come from, the permission enforcement is declarative on the entity. Swapping the auth source is middleware — entity permissions stay unchanged.
+**"What about our existing auth library?"** The role model is simplified. The point is that wherever roles come from,
+the permission enforcement is declarative on the entity. Swapping the auth source is middleware — entity permissions
+stay unchanged.
 
-**"We'd need to rewrite everything."** No. The showcase demonstrates what new features could look like. Migration is incremental and optional. One domain at a time, if at all.
+**"We'd need to rewrite everything."** No. The showcase demonstrates what new features could look like. Migration is
+incremental and optional. One domain at a time, if at all.
 
 ---
 
 ## Showcase-Specific Out of Scope
 
-The high-level Scope table above lists what's out for the showcase as a whole. This section makes explicit what we deliberately do NOT carry over from EMI:
+The high-level Scope table above lists what's out for the showcase as a whole. This section makes explicit what we
+deliberately do NOT carry over from EMI:
 
-- Full edit-history audit log (EMI's `EditHistory` per-row table). We record only `createdBy` / `createdAt` / `updatedAt` / last sign-off event.
+- Full edit-history audit log (EMI's `EditHistory` per-row table). We record only `createdBy` / `createdAt` /
+  `updatedAt` / last sign-off event.
 - File attachments and attachment URLs.
 - Geo geometry (GeoJSON `Point`). Only decimal `latitude` / `longitude` number fields.
 - Charge codes (`DeecaChargeCode`, `PvChargeCode`, `VfsChargeCode`, `DedjtrChargeCode`).
 - Wildfire prediction integration (`WildFireId`).
-- Resource breakdown by agency (EMI's working/resting resources across DEECA/PV/CFA/SES/FRV). Showcase uses three simple totals per sitrep.
+- Resource breakdown by agency (EMI's working/resting resources across DEECA/PV/CFA/SES/FRV). Showcase uses three simple
+  totals per sitrep.
 - Region as a separate entity. `District.regionId` and `District.regionName` are denormalised columns.
 - Real Entra ID auth. Dev users persist via `DEV_USERS` array; swap-in is a future task per `docs/00-plan.md`.
 

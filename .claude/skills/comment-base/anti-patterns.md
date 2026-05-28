@@ -8,7 +8,8 @@ detection heuristic and the correct response.
 **Detection**: Comment restates the code on the next line in natural language.
 
 **Before** (delete):
-```
+
+```typescript
 // Increment the counter
 counter++;
 
@@ -27,6 +28,7 @@ if (user.isAuthenticated) {
 or return type that are already expressed in the function signature or type system.
 
 **Before** (delete or rewrite):
+
 ```typescript
 /**
  * Processes the user data.
@@ -46,6 +48,7 @@ ordering guarantees, side effects).
 **Detection**: Comments follow a `// Step N:` or `# Step N:` pattern.
 
 **Before** (delete):
+
 ```python
 # Step 1: Connect to the database
 conn = get_connection()
@@ -64,7 +67,8 @@ constraint, replace with a single comment explaining WHY that order matters.
 as visual separators between code sections.
 
 **Before** (delete):
-```
+
+```typescript
 // ============================================
 // ===        USER AUTHENTICATION           ===
 // ============================================
@@ -80,6 +84,7 @@ suffices, but prefer splitting the file.
 `// Helper functions`, `// Handle errors`, `// Export`, `// This file contains...`.
 
 **Before** (delete):
+
 ```python
 # Import necessary modules
 import os
@@ -96,6 +101,7 @@ MAX_RETRIES = 3
 **Detection**: Every parameter is documented with a restatement of its name or type.
 
 **Before** (delete the redundant params):
+
 ```typescript
 /**
  * @param id - The ID of the user
@@ -113,6 +119,7 @@ ownership semantics).
 **Detection**: End-of-line comments that restate the attribute or variable name.
 
 **Before** (delete):
+
 ```hcl
 location = var.location  # Set the Azure region
 tags     = var.tags       # Apply tags to the resource

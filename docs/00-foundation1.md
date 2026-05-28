@@ -1,4 +1,5 @@
 # Full-Stack TypeScript Architecture Guide
+
 ## Hono · Angular · Remult · NX
 
 ---
@@ -7,7 +8,9 @@
 
 **Define once. Enforce everywhere.**
 
-This architecture replicates the F#/SAFE stack experience in TypeScript. The Remult entity is the single source of truth — it defines your data model, validation rules, authorization policies, and business operations in one place. Both frontend and backend import the same entity class. There is no duplication.
+This architecture replicates the F#/SAFE stack experience in TypeScript. The Remult entity is the single source of truth
+— it defines your data model, validation rules, authorization policies, and business operations in one place. Both
+frontend and backend import the same entity class. There is no duplication.
 
 ---
 
@@ -24,7 +27,8 @@ A Remult entity is not just a data model. It is simultaneously:
 - The authorization policy (row-level and field-level)
 - The business operations (BackendMethods)
 
-When you define a `Task` entity, you get `/api/tasks` endpoints, type-safe queries from Angular, validation that runs identically in the browser and on the server, and permission checks that apply everywhere.
+When you define a `Task` entity, you get `/api/tasks` endpoints, type-safe queries from Angular, validation that runs
+identically in the browser and on the server, and permission checks that apply everywhere.
 
 ### 2. No Separate Controllers
 
@@ -33,11 +37,14 @@ Business logic belongs on the entity it operates on. Use `@BackendMethod` decora
 - **Instance methods** for operations on a specific entity (archive, approve, submit)
 - **Static methods** for collection operations (bulk update, reports, aggregations)
 
-The only exception: cross-domain operations that don't belong to any single entity. These go in a minimal operations file within the relevant domain folder — not a controllers directory.
+The only exception: cross-domain operations that don't belong to any single entity. These go in a minimal operations
+file within the relevant domain folder — not a controllers directory.
 
 ### 3. Validation Runs Isomorphically
 
-Remult validators execute the same code on frontend and backend. Define validation once in the entity field decorator. Angular calls `repo.validate()` before submission; the server validates again on save. No separate validation schemas, no drift between client and server rules.
+Remult validators execute the same code on frontend and backend. Define validation once in the entity field decorator.
+Angular calls `repo.validate()` before submission; the server validates again on save. No separate validation schemas,
+no drift between client and server rules.
 
 ### 4. Authorization is Declarative
 
@@ -63,7 +70,7 @@ NX provides monorepo tooling, not architectural complexity. Use the minimum stru
 
 ## Directory Structure
 
-```
+```text
 workspace/
 ├── apps/
 │   ├── web/                          # Angular application
@@ -138,6 +145,7 @@ workspace/
 This is the heart of the architecture. Every entity lives here.
 
 **What goes here:**
+
 - Entity classes with `@Entity` decorator
 - Field definitions with validation
 - Relations between entities
@@ -146,12 +154,14 @@ This is the heart of the architecture. Every entity lives here.
 - Cross-entity operations files (minimal, only when truly needed)
 
 **What does NOT go here:**
+
 - Angular components or services
 - Hono middleware or routes
 - Environment configuration
 - Platform-specific code
 
-**Organization pattern:** Group by domain aggregate, not by technical type (DDD-style). Task-related entities live in tasks/,
+**Organization pattern:** Group by domain aggregate, not by technical type (DDD-style). Task-related entities live in
+tasks/,
 project-related entities in projects/.
 
 ### Layer 2: API Application (apps/api)
@@ -159,6 +169,7 @@ project-related entities in projects/.
 A thin shell that mounts Remult and handles platform concerns.
 
 **What goes here:**
+
 - Hono application setup
 - Remult API mount with entity registration
 - JWT/OIDC middleware
@@ -167,17 +178,20 @@ A thin shell that mounts Remult and handles platform concerns.
 - Database connection configuration
 
 **What does NOT go here:**
+
 - Business logic (belongs on entities)
 - Validation rules (belongs on entities)
 - Authorization logic (belongs on entities)
 
-The API application should be minimal. Remult auto-generates all CRUD endpoints. Custom routes are only for things Remult doesn't handle: authentication flows, file uploads, external webhooks.
+The API application should be minimal. Remult auto-generates all CRUD endpoints. Custom routes are only for things
+Remult doesn't handle: authentication flows, file uploads, external webhooks.
 
 ### Layer 3: Web Application (apps/web)
 
 Angular consumes the shared entities directly.
 
 **What goes here:**
+
 - Standalone components
 - Route definitions
 - UI-specific services (toast notifications, modal management)
@@ -185,6 +199,7 @@ Angular consumes the shared entities directly.
 - Feature components organized by domain
 
 **What does NOT go here:**
+
 - Data fetching services (use Remult repository directly)
 - Duplicate type definitions (import from shared)
 - Validation logic (call `repo.validate()`)
@@ -244,11 +259,13 @@ Each entity file is self-contained:
 Configure NX to enforce architectural rules:
 
 **Tags:**
+
 - `scope:shared` — platform-agnostic code (entities)
 - `scope:web` — Angular application
 - `scope:api` — Hono application
 
 **Rules:**
+
 - `scope:shared` can only depend on `scope:shared`
 - `scope:web` can depend on `scope:shared` and `scope:web`
 - `scope:api` can depend on `scope:shared` and `scope:api`
@@ -256,7 +273,8 @@ Configure NX to enforce architectural rules:
 - `scope:web` cannot import from `hono` or `hono/*`
 - `scope:api` cannot import from `@angular/*`
 
-This prevents platform-specific code from leaking across boundaries — entities stay isomorphic, and frontend/backend cannot accidentally depend on each other's frameworks.
+This prevents platform-specific code from leaking across boundaries — entities stay isomorphic, and frontend/backend
+cannot accidentally depend on each other's frameworks.
 
 ---
 
@@ -272,7 +290,8 @@ Despite maximum sharing, some code is inherently platform-specific:
 | Styling | Webhook handlers |
 | Build configuration | Environment secrets |
 
-This separation is natural and correct. The goal is not to share everything — it's to share everything that CAN be shared, and clearly separate what cannot.
+This separation is natural and correct. The goal is not to share everything — it's to share everything that CAN be
+shared, and clearly separate what cannot.
 
 ---
 
@@ -289,7 +308,8 @@ This separation is natural and correct. The goal is not to share everything — 
 | Paket | npm/pnpm |
 | FAKE | NX task runner |
 
-The philosophy is identical: define your domain model once, let the framework derive everything else. The implementation differs by language and ecosystem, but the developer experience — write it once, trust it everywhere — is preserved.
+The philosophy is identical: define your domain model once, let the framework derive everything else. The implementation
+differs by language and ecosystem, but the developer experience — write it once, trust it everywhere — is preserved.
 
 ---
 
@@ -299,10 +319,12 @@ The philosophy is identical: define your domain model once, let the framework de
 
 **Entities:** Self-contained with fields, validation, permissions, and business logic. No separate controllers.
 
-**Angular:** Modern patterns — signals, standalone, zoneless, inject(). Import entities directly, use repository for data access.
+**Angular:** Modern patterns — signals, standalone, zoneless, inject(). Import entities directly, use repository for
+data access.
 
 **Hono:** Minimal shell. Mount Remult, configure auth middleware, done.
 
 **NX:** Enforces boundaries. Shared code stays platform-agnostic.
 
-**Result:** Define your data model once. Get type safety, validation, authorization, and API endpoints everywhere. No duplication.
+**Result:** Define your data model once. Get type safety, validation, authorization, and API endpoints everywhere. No
+duplication.

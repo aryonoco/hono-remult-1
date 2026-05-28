@@ -2,7 +2,8 @@
 
 ## Core Concept
 
-BackendMethods are functions decorated with `@BackendMethod` that run on the server but are callable from the frontend as if they were local functions. Remult handles the HTTP transport transparently.
+BackendMethods are functions decorated with `@BackendMethod` that run on the server but are callable from the frontend
+as if they were local functions. Remult handles the HTTP transport transparently.
 
 ---
 
@@ -63,6 +64,7 @@ await task.toggleCompleted();
 ```
 
 ### Accessing field metadata in instance methods
+
 ```typescript
 @BackendMethod({ allowed: Allow.authenticated })
 async logChanges() {
@@ -76,7 +78,8 @@ async logChanges() {
 
 ## Mutable Controller (Cross-Entity Operations)
 
-**Pattern:** When an operation needs its own input fields and doesn't belong on any single entity. Used for auth flows, multi-step wizards, etc.
+**Pattern:** When an operation needs its own input fields and doesn't belong on any single entity. Used for auth flows,
+multi-step wizards, etc.
 
 ```typescript
 @Controller('auth')
@@ -107,6 +110,7 @@ console.log(auth.token);
 ```
 
 Register controllers in remultApi:
+
 ```typescript
 const api = remultApi({
   entities: [Task],
@@ -130,7 +134,8 @@ const api = remultApi({
 
 ## Security Warning
 
-**BackendMethods bypass entity API restrictions.** Even if `allowApiUpdate: false` on a field, a BackendMethod can modify it. Always implement authorisation checks manually:
+**BackendMethods bypass entity API restrictions.** Even if `allowApiUpdate: false` on a field, a BackendMethod can
+modify it. Always implement authorisation checks manually:
 
 ```typescript
 @BackendMethod({ allowed: Allow.authenticated })

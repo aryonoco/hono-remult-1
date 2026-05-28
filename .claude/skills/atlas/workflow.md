@@ -2,9 +2,11 @@
 
 ## The pattern
 
-Generic Atlas tutorials assume an HCL schema file or an ORM provider (TypeORM/Drizzle/GORM/etc). This project does neither. Remult entities are the source of truth, and Atlas reads schema from a live Postgres DB that we populate via Remult's `ensureSchema`.
+Generic Atlas tutorials assume an HCL schema file or an ORM provider (TypeORM/Drizzle/GORM/etc). This project does
+neither. Remult entities are the source of truth, and Atlas reads schema from a live Postgres DB that we populate via
+Remult's `ensureSchema`.
 
-```
+```text
 ┌──────────────────────────┐         ┌─────────────────────────────────────┐
 │  libs/shared/domain/     │         │  apps/api/src/db/sync-to-desired.ts │
 │  src/...entity.ts        │ ──────▶ │  (Bun script — boots Remult,        │
@@ -87,7 +89,9 @@ git commit -m "schema: add Task.priority"
 
 ## Why the sync-to-desired dance
 
-Remult's `ensureSchema` is **additive only**: it adds missing tables and columns but never drops or alters. If we just kept running `ensureSchema` against `atlas_desired` across many entity edits, dropped fields would linger and Atlas's diff would be wrong.
+Remult's `ensureSchema` is **additive only**: it adds missing tables and columns but never drops or alters. If we just
+kept running `ensureSchema` against `atlas_desired` across many entity edits, dropped fields would linger and Atlas's
+diff would be wrong.
 
 `sync-to-desired.ts` solves this by:
 
@@ -96,7 +100,8 @@ Remult's `ensureSchema` is **additive only**: it adds missing tables and columns
 3. Booting Remult against the fresh schema with `createPostgresDataProvider({ schema: 'app' })`
 4. Calling `dataProvider.ensureSchema(entities.map(e => remult.repo(e).metadata))`
 
-After this, `atlas_desired` holds *exactly* what the current entity definitions imply — no historical residue. Atlas can then diff cleanly.
+After this, `atlas_desired` holds *exactly* what the current entity definitions imply — no historical residue. Atlas can
+then diff cleanly.
 
 ## Adding a new entity
 
@@ -113,6 +118,7 @@ Then `just migrate-generate add_fire_incident`. The Atlas diff will include `CRE
 ## When Remult's ensureSchema isn't enough
 
 `ensureSchema` doesn't handle:
+
 - Renames (it sees rename as drop+add)
 - Column type changes
 - Constraints beyond PK (no UNIQUE, no CHECK, no FK enforcement in some cases)
@@ -130,7 +136,8 @@ just migrate-lint      # confirm no new issues
 just migrate-apply
 ```
 
-`atlas.sum` MUST be regenerated via `migrate:hash` after any manual edit — otherwise `migrate:apply` (and CI) will reject the migration as tampered.
+`atlas.sum` MUST be regenerated via `migrate:hash` after any manual edit — otherwise `migrate:apply` (and CI) will
+reject the migration as tampered.
 
 ## What changes for Azure later
 
@@ -138,4 +145,5 @@ When `env "azure"` is added to `atlas.hcl`:
 
 - `bun run migrate:generate <name>` continues to work locally — it always uses `--env local`
 - Apply becomes `atlas migrate apply --env azure` in a GitHub Actions job
-- The committed `apps/api/src/migrations/*.sql` files are what the Azure pipeline applies — same files, different runtime
+- The committed `apps/api/src/migrations/*.sql` files are what the Azure pipeline applies — same files, different
+  runtime

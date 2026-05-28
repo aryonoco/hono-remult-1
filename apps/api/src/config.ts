@@ -4,6 +4,7 @@ import {
   FinalReport,
   FireIncident,
   finalReportSchemaExtras,
+  fireIncidentSchemaExtras,
   SituationReport,
   Task,
 } from '@workspace/shared-domain';
@@ -25,6 +26,7 @@ export const entities: ClassType<unknown>[] = [
 // in sync-to-desired.ts so Atlas sees them in the desired state.
 export const schemaExtras: readonly string[] = [
   ...districtSchemaExtras,
+  ...fireIncidentSchemaExtras,
   ...finalReportSchemaExtras,
 ] as const;
 

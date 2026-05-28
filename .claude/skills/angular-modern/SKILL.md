@@ -1,6 +1,7 @@
 ---
 name: angular-modern
-description: "Modern Angular patterns (v16–21) — signals, standalone, zoneless, inject(), control flow, resource, linkedSignal. Use when writing or reviewing Angular components."
+description: "Modern Angular patterns (v16–21) — signals, standalone, zoneless, inject(), control flow, resource,
+linkedSignal. Use when writing or reviewing Angular components."
 user-invocable: false
 ---
 
@@ -11,9 +12,11 @@ standalone components, signals, zoneless change detection, `inject()`, built-in 
 
 ## References
 
-- [Signal patterns](signal-patterns.md) — signal, computed, effect, linkedSignal, resource, inputs, outputs, RxJS interop
+- [Signal patterns](signal-patterns.md) — signal, computed, effect, linkedSignal, resource, inputs, outputs, RxJS
+  interop
 - [Component patterns](component-patterns.md) — Remult + neverthrow integration, inject, DestroyRef, testing
-- [Full Angular docs](llms-full.txt) — official docs covering signals, components, DI, templates, routing, forms, HTTP, CD, testing
+- [Full Angular docs](llms-full.txt) — official docs covering signals, components, DI, templates, routing, forms, HTTP,
+  CD, testing
 
 When the quick reference files are insufficient, read targeted sections from `llms-full.txt`.
 

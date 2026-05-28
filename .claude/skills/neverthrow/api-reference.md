@@ -3,6 +3,7 @@
 ## Constructors
 
 ### Result (Synchronous)
+
 ```typescript
 ok<T>(value: T): Result<T, never>          // Success
 err<E>(error: E): Result<never, E>         // Failure
@@ -11,6 +12,7 @@ err(): Result<never, void>                  // Failure with void (v8.2.0)
 ```
 
 ### ResultAsync (Asynchronous)
+
 ```typescript
 okAsync<T>(value: T): ResultAsync<T, never>
 errAsync<E>(error: E): ResultAsync<never, E>
@@ -139,6 +141,7 @@ const result = safeTry(async function* () {
 ```
 
 **When to use safeTry vs andThen:**
+
 - `safeTry`: Multi-step sequences (3+ steps), reads like imperative code
 - `andThen` chain: Simple 1–2 step transformations, more functional style
 

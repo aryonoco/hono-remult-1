@@ -3,6 +3,7 @@
 ## Basic Entity
 
 **Pattern:**
+
 ```typescript
 @Entity('tasks', {
   allowApiRead: Allow.authenticated,
@@ -38,6 +39,7 @@ export class Task {
 ## Abstract Base Entity
 
 **Pattern:** Share common fields across entities.
+
 ```typescript
 abstract class BaseEntity {
   @Fields.id()
@@ -62,6 +64,7 @@ export class Task extends BaseEntity {
 ## Relations: toOne
 
 **Pattern:** Always define the FK field alongside the relation.
+
 ```typescript
 @Fields.string()
 customerId = '';
@@ -77,6 +80,7 @@ customer?: Customer;
 ## Relations: toMany
 
 **Pattern:**
+
 ```typescript
 @Relations.toMany(() => Order)
 orders?: Order[];
@@ -96,6 +100,7 @@ const customers = await repo.find({
 ## Many-to-Many via Intermediate Entity
 
 **Pattern:** Composite primary key on the junction table.
+
 ```typescript
 @Entity<TagToCustomer>('tagsToCustomers', {
   id: { customerId: true, tagId: true },
@@ -118,6 +123,7 @@ export class TagToCustomer {
 ## Lifecycle Hooks
 
 **Pattern: `saving` for computed fields and audit trails.**
+
 ```typescript
 @Entity('tasks', {
   saving: (task, e) => {
@@ -130,6 +136,7 @@ export class TagToCustomer {
 ```
 
 **Pattern: `validation` for cross-field business rules (runs on both client and server).**
+
 ```typescript
 @Entity('tasks', {
   validation: (task) => {
@@ -140,13 +147,15 @@ export class TagToCustomer {
 })
 ```
 
-**Avoid:** Throwing raw errors in `saving` for validation — use the `validation` hook instead so it runs on both client and server.
+**Avoid:** Throwing raw errors in `saving` for validation — use the `validation` hook instead so it runs on both client
+and server.
 
 ---
 
 ## BackendMethods on Entity
 
 **Pattern: Instance method for row operations.**
+
 ```typescript
 export class Task {
   // ... fields ...
@@ -161,6 +170,7 @@ export class Task {
 ```
 
 **Pattern: Static method for collection operations.**
+
 ```typescript
 export class Task {
   @BackendMethod({ allowed: Roles.admin })
@@ -175,6 +185,7 @@ export class Task {
 ```
 
 **Critical warning:** BackendMethods bypass entity API restrictions. Always check authorisation manually:
+
 ```typescript
 @BackendMethod({ allowed: Allow.authenticated })
 async reassign(newUserId: string) {
@@ -191,6 +202,7 @@ async reassign(newUserId: string) {
 ## apiPrefilter vs backendPrefilter
 
 **Pattern: `apiPrefilter` — restricts what API consumers see.**
+
 ```typescript
 @Entity('tasks', {
   apiPrefilter: () => {
@@ -201,19 +213,22 @@ async reassign(newUserId: string) {
 ```
 
 **Pattern: `backendPrefilter` — restricts ALL queries including BackendMethods.**
+
 ```typescript
 @Entity('tasks', {
   backendPrefilter: () => ({ archived: false }),
 })
 ```
 
-**Avoid:** Using `apiPrefilter` and expecting it to apply in BackendMethods — it doesn't. Use `backendPrefilter` for universal filtering.
+**Avoid:** Using `apiPrefilter` and expecting it to apply in BackendMethods — it doesn't. Use `backendPrefilter` for
+universal filtering.
 
 ---
 
 ## Custom Validators
 
 **Pattern:**
+
 ```typescript
 @Fields.string({
   validate: [
@@ -238,6 +253,7 @@ email = '';
 ## Custom Field Factories
 
 **Pattern:** Reusable field decorators.
+
 ```typescript
 function NanoIdField() {
   return Fields.id({ idFactory: () => nanoid() });
@@ -254,6 +270,7 @@ export class Task {
 ## Partial Field Loading
 
 **Pattern:** `select` for performance.
+
 ```typescript
 // Only fetch needed fields
 const tasks = await repo.find({
@@ -273,6 +290,7 @@ await repo.updateMany({
 ## Sensitive Fields
 
 **Pattern:**
+
 ```typescript
 @Fields.string({ includeInApi: false })
 passwordHash = '';

@@ -3,6 +3,7 @@
 ## Remult Mount
 
 **Pattern:** The standard setup from this project.
+
 ```typescript
 import { remultApi } from 'remult/remult-hono';
 import { Task } from '@workspace/shared-domain';
@@ -29,6 +30,7 @@ Bun.serve({ port: 3000, fetch: app.fetch });
 ## getUser Pattern
 
 `getUser` extracts user from request context and returns a Remult `UserInfo`:
+
 ```typescript
 getUser: async (c) => {
   const jwtPayload = c.get('jwtPayload');  // If using hono/jwt middleware
@@ -46,6 +48,7 @@ getUser: async (c) => {
 ## withRemult — Remult Context in Non-Remult Routes
 
 **Pattern:** Access Remult (entities, repos, user context) from a custom Hono route.
+
 ```typescript
 app.post('/custom-endpoint', async (c) => {
   return api.withRemult(c, async () => {
@@ -61,6 +64,7 @@ app.post('/custom-endpoint', async (c) => {
 ## Type-Safe Middleware
 
 **Pattern:** Use `createMiddleware` for typed context variables.
+
 ```typescript
 import { createMiddleware } from 'hono/factory';
 
@@ -123,6 +127,7 @@ app.get('/api/me', (c) => {
 ## Error Handling
 
 **Pattern:** Global error handler + HTTPException for structured errors.
+
 ```typescript
 import { HTTPException } from 'hono/http-exception';
 
@@ -140,6 +145,7 @@ app.onError((err, c) => {
 ## Sub-Router Pattern
 
 **Pattern:** Organise non-Remult routes in separate files.
+
 ```typescript
 // routes/auth.ts
 import { Hono } from 'hono';
@@ -157,7 +163,7 @@ app.route('/auth', authRoutes);
 
 ## Middleware Execution Order (Onion Model)
 
-```
+```text
 Request →  logger (pre)  →  cors (pre)  →  auth (pre)  →  handler
                                                             ↓
 Response ← logger (post) ← cors (post) ← auth (post) ← response

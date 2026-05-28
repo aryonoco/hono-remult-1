@@ -12,6 +12,7 @@
 ```
 
 Or with a blanket setting:
+
 ```typescript
 allowApiCrud: Allow.authenticated  // Same permission for all CRUD ops
 ```
@@ -21,6 +22,7 @@ allowApiCrud: Allow.authenticated  // Same permission for all CRUD ops
 ## Row-Level Security
 
 ### allowApiUpdate / allowApiDelete with instance check
+
 ```typescript
 @Entity('tasks', {
   allowApiUpdate: (task, c) => {
@@ -32,6 +34,7 @@ allowApiCrud: Allow.authenticated  // Same permission for all CRUD ops
 ```
 
 ### apiPrefilter — restrict which rows API consumers can see
+
 ```typescript
 @Entity('tasks', {
   apiPrefilter: () => {
@@ -41,9 +44,11 @@ allowApiCrud: Allow.authenticated  // Same permission for all CRUD ops
 })
 ```
 
-**Critical:** `apiPrefilter` only applies to API requests. BackendMethods and direct backend queries bypass it. Use `backendPrefilter` for universal filtering.
+**Critical:** `apiPrefilter` only applies to API requests. BackendMethods and direct backend queries bypass it. Use
+`backendPrefilter` for universal filtering.
 
 ### backendPrefilter — applies to ALL queries
+
 ```typescript
 @Entity('tasks', {
   backendPrefilter: () => ({ archived: false }),  // Never show archived, anywhere
@@ -51,6 +56,7 @@ allowApiCrud: Allow.authenticated  // Same permission for all CRUD ops
 ```
 
 ### apiPreprocessFilter — modify incoming filter criteria
+
 ```typescript
 @Entity('tasks', {
   apiPreprocessFilter: (filter, context) => {
@@ -67,6 +73,7 @@ allowApiCrud: Allow.authenticated  // Same permission for all CRUD ops
 ## Field-Level Security
 
 ### includeInApi — control field visibility
+
 ```typescript
 @Fields.string({ includeInApi: false })          // Never in API response
 passwordHash = '';
@@ -81,6 +88,7 @@ email = '';
 ```
 
 ### allowApiUpdate — control field mutability
+
 ```typescript
 @Fields.string({ allowApiUpdate: false })         // Read-only via API
 createdBy = '';
@@ -94,6 +102,7 @@ role = '';
 ## Frontend Permission Introspection
 
 Use entity metadata to conditionally render UI:
+
 ```typescript
 const repo = remult.repo(Task);
 
@@ -136,6 +145,7 @@ Allow.everyone           // Alias for true
 ## Permission Type Summary
 
 All permission fields accept these types:
+
 - `boolean` — `true` (everyone) / `false` (no one)
 - `string` — role name
 - `string[]` — array of role names (OR logic)

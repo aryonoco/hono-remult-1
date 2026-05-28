@@ -42,6 +42,7 @@ on top. See [anti-patterns.md](anti-patterns.md) for a detection checklist with 
 ## British English
 
 All comments must use British English spelling exclusively:
+
 - colour, behaviour, initialise, serialise, organisation, licence (noun), defence
 - "ise" not "ize" (standardise, normalise, optimise)
 - "re" not "er" (centre, metre — but "computer", "parameter" are unchanged)
@@ -54,6 +55,7 @@ even if they use American English spelling. This is a zero-functional-changes co
 
 Write comments with the persona of a senior SRE at a top-tier engineering organisation.
 Comments should be dry, factual, and terse. Never:
+
 - Use emoji in any comment
 - Use enthusiastic adjectives ("elegantly", "seamlessly", "beautifully", "powerful")
 - Use marketing language ("leverage", "unlock", "empower")

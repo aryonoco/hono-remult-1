@@ -3,6 +3,7 @@
 ## 1. Using try/catch Around ResultAsync
 
 **Wrong:**
+
 ```typescript
 try {
   const result = await fetchUser(id);
@@ -15,6 +16,7 @@ try {
 **Why:** Defeats the purpose of typed error handling. ResultAsync never rejects — errors are in the Err track.
 
 **Correct:**
+
 ```typescript
 const result = await fetchUser(id);
 result.match(
@@ -28,14 +30,17 @@ result.match(
 ## 2. Forgetting to Handle the Result
 
 **Wrong:**
+
 ```typescript
 fetchUser(id).map((u) => u.name);
 // Result silently discarded
 ```
 
-**Why:** The ESLint `must-use-result` rule catches this. Every Result must be consumed via `.match()`, `.unwrapOr()`, or assigned.
+**Why:** The ESLint `must-use-result` rule catches this. Every Result must be consumed via `.match()`, `.unwrapOr()`, or
+assigned.
 
 **Correct:**
+
 ```typescript
 const name = fetchUser(id)
   .map((u) => u.name)
@@ -47,6 +52,7 @@ const name = fetchUser(id)
 ## 3. Using `Result.fromThrowable` for Async Functions
 
 **Wrong:**
+
 ```typescript
 const safeFetch = Result.fromThrowable(async () => {
   const res = await fetch('/api');
@@ -58,6 +64,7 @@ const safeFetch = Result.fromThrowable(async () => {
 **Why:** `Result.fromThrowable` is for synchronous functions only. Async rejections are not caught.
 
 **Correct:**
+
 ```typescript
 const safeFetch = ResultAsync.fromThrowable(
   async () => {
@@ -73,6 +80,7 @@ const safeFetch = ResultAsync.fromThrowable(
 ## 4. Wrapping `Promise.resolve()` in `fromPromise`
 
 **Wrong:**
+
 ```typescript
 const result = ResultAsync.fromPromise(
   Promise.resolve(42),
@@ -83,6 +91,7 @@ const result = ResultAsync.fromPromise(
 **Why:** Redundant — the promise can't reject.
 
 **Correct:**
+
 ```typescript
 const result = okAsync(42);
 // Or: ResultAsync.fromSafePromise(Promise.resolve(42));
@@ -93,6 +102,7 @@ const result = okAsync(42);
 ## 5. Not Mapping Error Types Consistently
 
 **Wrong:**
+
 ```typescript
 fetchUser(id)                              // ResultAsync<User, FetchError>
   .asyncAndThen(() => fetchTasks(userId))  // ResultAsync<Task[], TaskError>
@@ -103,6 +113,7 @@ fetchUser(id)                              // ResultAsync<User, FetchError>
 **Why:** Error types accumulate into wide unions. Consumers can't handle them consistently.
 
 **Correct:** Map errors to a consistent discriminated union.
+
 ```typescript
 type AppError =
   | { tag: 'NOT_FOUND'; message: string }
@@ -119,6 +130,7 @@ fetchUser(id)
 ## 6. Using `.isOk()` / `.isErr()` Instead of `.match()`
 
 **Wrong:**
+
 ```typescript
 if (result.isOk()) {
   // TypeScript narrows, but not exhaustive
@@ -131,6 +143,7 @@ if (result.isOk()) {
 **Why:** Not exhaustive — easy to forget the else branch. Also uses the internal `.value`/`.error` properties.
 
 **Correct:**
+
 ```typescript
 result.match(
   (value) => console.log(value),
@@ -143,6 +156,7 @@ result.match(
 ## 7. Deeply Nesting `.andThen()` Callbacks
 
 **Wrong:**
+
 ```typescript
 fetchUser(id)
   .andThen((user) =>
@@ -159,6 +173,7 @@ fetchUser(id)
 **Why:** Callback hell — hard to read, harder to debug.
 
 **Correct:** Use `safeTry` for multi-step sequences.
+
 ```typescript
 safeTry(function* () {
   const user = yield* fetchUser(id);
@@ -173,6 +188,7 @@ safeTry(function* () {
 ## 8. Throwing Inside `.match()` Callbacks
 
 **Wrong:**
+
 ```typescript
 result.match(
   (user) => {
@@ -186,6 +202,7 @@ result.match(
 **Why:** Breaks the Result pattern. Exceptions bypass the type system.
 
 **Correct:** Return a new Result or handle the error explicitly.
+
 ```typescript
 result.andThen((user) => {
   if (!user.active) return err({ tag: 'INACTIVE' as const, message: 'User inactive' });

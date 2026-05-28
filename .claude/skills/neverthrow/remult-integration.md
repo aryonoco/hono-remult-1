@@ -161,4 +161,5 @@ ResultAsync.fromPromise(repo.find(), toError)
 | BackendMethod error handling | neverthrow on the frontend call |
 | LiveQuery errors | Remult's built-in subscription error handling |
 
-**Rule of thumb:** Remult handles validation and auth errors at the entity level. neverthrow handles error propagation and display at the component level.
+**Rule of thumb:** Remult handles validation and auth errors at the entity level. neverthrow handles error propagation
+and display at the component level.

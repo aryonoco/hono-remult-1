@@ -16,6 +16,7 @@ Use `@returns` ONLY when the return value has non-obvious semantics.
 ## Entity File Comments
 
 ### Entity Class
+
 A brief JSDoc on the entity class is useful when the entity's role in the domain
 is not obvious from its name. Omit for entities whose name says it all (Task, User).
 
@@ -29,7 +30,9 @@ export class ProjectMember { ... }
 ```
 
 ### Field Decorators
+
 Field decorators are self-documenting. Do NOT comment:
+
 ```typescript
 // BAD — restates the decorator
 /** The task title */
@@ -38,6 +41,7 @@ title = '';
 ```
 
 Comment only when the field has non-obvious semantics:
+
 ```typescript
 /** ISO 4217 currency code, not a display name. */
 @Fields.string()
@@ -45,7 +49,9 @@ currency = 'AUD';
 ```
 
 ### Permission Decisions
+
 `allowApiUpdate`, `apiPrefilter`, and permission functions deserve WHY comments:
+
 ```typescript
 @Entity('tasks', {
   // Non-admins see only their own tasks; admins see all.
@@ -57,7 +63,9 @@ currency = 'AUD';
 ```
 
 ### Lifecycle Hooks
+
 Comment the business rule, not the hook mechanism:
+
 ```typescript
 @Entity('tasks', {
   // Auto-assign creator on insert; immutable after creation.
@@ -68,7 +76,9 @@ Comment the business rule, not the hook mechanism:
 ```
 
 ### BackendMethods
+
 JSDoc only when the business logic is non-obvious:
+
 ```typescript
 /**
  * Archives all completed tasks older than 90 days.
@@ -83,7 +93,9 @@ Trivial BackendMethods (toggleCompleted, simple setters) need no JSDoc.
 ## Angular Component Comments
 
 ### Signal State
+
 Signals are self-documenting. Do NOT comment:
+
 ```typescript
 // BAD
 /** The list of tasks */
@@ -91,17 +103,21 @@ protected readonly tasks = signal<Task[]>([]);
 ```
 
 Comment only when the signal's role is non-obvious:
+
 ```typescript
 /** Draft state — resets when the source entity reloads. */
 protected readonly editableUser = linkedSignal(() => this.userResource.value());
 ```
 
 ### inject() Calls
+
 Do not comment service injections — the type name is the documentation.
 
 ### Control Flow
+
 `@if`, `@for`, `@defer` are self-documenting. Comment only when the condition
 encodes a business rule:
+
 ```html
 <!-- Only show edit button for task owners; admins bypass via API permissions. -->
 @if (task.createdBy === currentUserId()) {
@@ -112,6 +128,7 @@ encodes a business rule:
 ## Hono Middleware Comments
 
 Comment the WHY of middleware configuration, not the what:
+
 ```typescript
 // Allow anonymous access to health check; all other routes require auth.
 app.use('/api/*', jwt({ secret: env.JWT_SECRET, alg: 'HS256' }));
@@ -120,6 +137,7 @@ app.use('/api/*', jwt({ secret: env.JWT_SECRET, alg: 'HS256' }));
 ## Inline Comments
 
 Inline comments (`//`) are rare and intentional. Use them only for:
+
 - Permission rationale (why this role, why this prefilter)
 - Non-obvious error handling or edge cases
 - Business rules that drive the code
@@ -130,6 +148,7 @@ Never use inline comments to narrate what the code does.
 ## British English
 
 All comments must use British English spelling:
+
 - colour, behaviour, initialise, serialise, organisation, licence (noun), defence
 - "ise" not "ize" (standardise, normalise, optimise)
 

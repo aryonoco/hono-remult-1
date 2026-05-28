@@ -1,6 +1,7 @@
-import { Allow, Entity, Fields } from 'remult';
+import { Allow, Entity, Fields, Validators } from 'remult';
 
 import { Roles } from '../auth/roles';
+import { LIMITS } from './helpers';
 
 @Entity<District>('districts', {
   id: 'id',
@@ -11,16 +12,16 @@ import { Roles } from '../auth/roles';
   defaultOrderBy: { name: 'asc' },
 })
 export class District {
-  @Fields.integer()
+  @Fields.integer({ validate: Validators.range([LIMITS.districtIdMin, LIMITS.districtIdMax]) })
   id = 0;
 
-  @Fields.string()
+  @Fields.string({ validate: [Validators.required, Validators.maxLength(LIMITS.shortText)] })
   name = '';
 
-  @Fields.integer()
+  @Fields.integer({ validate: Validators.required })
   regionId = 0;
 
-  @Fields.string()
+  @Fields.string({ validate: [Validators.required, Validators.maxLength(LIMITS.shortText)] })
   regionName = '';
 
   @Fields.boolean()

@@ -11,6 +11,7 @@ const repo = remult.repo(Task);
 ## Querying
 
 ### find — filtered, sorted, paginated
+
 ```typescript
 await repo.find({
   where: { completed: false, priority: { $gte: 2 } },
@@ -23,6 +24,7 @@ await repo.find({
 ```
 
 ### findFirst / findId / findOne
+
 ```typescript
 await repo.findFirst({ title: 'My Task' });
 await repo.findFirst({ email }, { createIfNotFound: true });
@@ -31,11 +33,13 @@ await repo.findOne({ where: { id: 'uuid' } });
 ```
 
 ### count
+
 ```typescript
 await repo.count({ completed: false });
 ```
 
 ### query — large dataset iteration
+
 ```typescript
 for await (const tasks of repo.query({ pageSize: 100 })) {
   // Process batch
@@ -65,22 +69,26 @@ for await (const tasks of repo.query({ pageSize: 100 })) {
 ## Mutations
 
 ### insert
+
 ```typescript
 await repo.insert({ title: 'New Task' });
 await repo.insert([{ title: 'A' }, { title: 'B' }]);  // Batch
 ```
 
 ### update
+
 ```typescript
 await repo.update(taskId, { completed: true });
 ```
 
 ### upsert — insert or update
+
 ```typescript
 await repo.upsert({ where: { externalId: 'ext-123' }, set: { title: 'Updated' } });
 ```
 
 ### save — insert if new, update if existing
+
 ```typescript
 const task = repo.create();
 task.title = 'Draft';
@@ -88,12 +96,14 @@ await repo.save(task);
 ```
 
 ### delete
+
 ```typescript
 await repo.delete(taskId);
 await repo.delete(task);
 ```
 
 ### updateMany / deleteMany — bulk operations
+
 ```typescript
 await repo.updateMany({
   where: { completed: true },
@@ -105,6 +115,7 @@ await repo.deleteMany({ where: 'all' });  // Delete all (caution!)
 ```
 
 ### Performance: suppress result return
+
 ```typescript
 await repo.save(task, { select: 'none' });
 await repo.updateMany({ where: {...}, set: {...}, select: 'none' });
@@ -115,6 +126,7 @@ await repo.updateMany({ where: {...}, set: {...}, select: 'none' });
 ## Aggregation
 
 ### aggregate — sum, avg, min, max
+
 ```typescript
 const totals = await repo.aggregate({
   sum: { amount: true },
@@ -126,6 +138,7 @@ const totals = await repo.aggregate({
 ```
 
 ### groupBy — grouped aggregation
+
 ```typescript
 const byStatus = await repo.groupBy({
   by: { status: true },

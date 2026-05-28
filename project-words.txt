@@ -113,3 +113,16 @@ oderwat
 azuretools
 oven
 sqltools
+
+# Atlas migration directives
+nolint
+
+# Phase 2 — fire showcase domain enum vocabulary
+Overrun
+Windrow
+Relight
+Sawmill
+Mischievous
+Infringement
+Hectares
+spinifex

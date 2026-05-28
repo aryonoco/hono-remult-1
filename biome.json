@@ -22,10 +22,22 @@
       "a11y": "error",
       "complexity": "error",
       "correctness": "error",
-      "nursery": "error",
+      "nursery": {
+        "useExplicitType": "error",
+        "noTernary": "error",
+        "noUselessReturn": "error"
+      },
       "performance": "error",
-      "security": "error",
-      "style": "error",
+      "security": {
+        "recommended": true,
+        "noSecrets": "error"
+      },
+      "style": {
+        "recommended": true,
+        "noMagicNumbers": "error",
+        "useNamingConvention": "error",
+        "useExportsLast": "error"
+      },
       "suspicious": "error"
     }
   },
