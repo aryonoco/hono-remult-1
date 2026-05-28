@@ -1,77 +1,67 @@
 # Implementation Plan
 
-## Current State
-
-A standalone Angular 21 app in `test-app-1/` with biome, Tailwind, and strict TypeScript. No monorepo, no backend, no Remult.
+A living view of the hono-remult-1 platform — what is in place today, what is queued next, what is deliberately excluded. See `00-foundation1.md` for the architecture rationale, `01-emi-stack-comparison.md` for the comparison against the existing EMI stack, and `02-fire-showcase-overview.md` for the specification of the first real domain.
 
 ---
 
-## Stage 1: Convert to NX Monorepo ✅
+## In Place
 
-- Initialized NX workspace
-- Moved Angular app into `apps/web/`
-- Configured `tsconfig.base.json` with `@workspace/shared-domain` path alias
+### Monorepo, tooling, module boundaries
 
-## Stage 2: Create the Shared Domain Library ✅
+NX workspace on the Bun runtime. TypeScript in ultra-strict mode. Biome handles lint and format for TS, CSS, and JSON with every rule category set to error; Prettier handles HTML templates only; ESLint is scoped to `neverthrow/must-use-result` and `@nx/enforce-module-boundaries`. Runtime versions pinned via `mise`. `bun run check:ci` is the single CI gate.
 
-- Created `libs/shared/domain/` with `project.json`, `tsconfig`, and barrel `index.ts`
-- Tagged `scope:shared` in NX
+Three NX scopes — `scope:shared`, `scope:web`, `scope:api` — with dependency rules and `bannedExternalImports` that stop Angular code reaching the API, Hono code reaching the browser, and platform-specific code reaching the shared domain in either direction.
 
-## Stage 3: Add Hono API Application ✅
+### Hono API shell
 
-- Installed `hono`, created `apps/api/` with Hono + Bun server
-- Tagged `scope:api`
+A thin Hono application on `Bun.serve`. Mounts Remult with a role-gated admin panel and resolves the current user from the request. Carries no business logic. Non-Remult routes will only ever be added for things Remult cannot handle (OAuth callbacks, webhooks, file uploads).
 
-## Stage 4: Add Remult and Create First Entity ✅
+### Angular application
 
-- Installed `remult`, defined `Task` entity in shared domain
-- Mounted Remult on Hono, connected Angular via `HttpClient` adapter
-- Angular CRUD working through auto-generated endpoints
+Zoneless Angular 21 — standalone components, signals, `inject()`, built-in control flow, Tailwind v4. Remult is wired through an app initializer that hands Angular's `HttpClient` to the Remult client; a dev-server proxy forwards `/api` to the API. `core/` holds singletons (Remult provider, dev-auth service, dev-auth interceptor); `shared/components/` holds reusable UI. The root `App` component temporarily hosts the Task CRUD inline — it shrinks to a routed shell once feature routes exist.
 
-## Stage 5: Set Up Module Boundary Enforcement ✅
+### Shared domain library
 
-- Installed `@nx/eslint-plugin`
-- Configured `@nx/enforce-module-boundaries` in ESLint flat config
-- `depConstraints`: shared → shared only, web → shared+web, api → shared+api
-- `bannedExternalImports` on shared: `@angular/*`, `hono`, `hono/*`
-- Validated with `bun run check:ci` and negative boundary test
+`libs/shared/domain/` is the source of truth for entities. Currently holds one example entity (`Task`) that exercises the full decorator surface end-to-end: granular CRUD permissions, owner-or-admin row-level update, admin-only delete, `apiPrefilter` for row visibility, a `saving` lifecycle hook for audit population, and field-level read-only protection. Real domain content lands with the fire showcase.
 
-## Stage 6: Dev Auth with Switchable Users ✅
+### Error handling convention
 
-Chose header-based dev auth over a full IDAM integration — lets us build features with real permissions now, swap to Entra ID later by changing only the middleware.
+All expected failures flow through `neverthrow` `Result` / `ResultAsync`. The `must-use-result` ESLint rule guarantees no Result is silently discarded. Throwing is reserved for genuine bugs and unrecoverable failures.
 
-- Defined `Roles` constants in `libs/shared/domain/src/auth/roles.ts` (temporary — delete/modify when real IDAM comes))
-- Defined 3 dev users in `libs/shared/domain/src/auth/dev-users.ts` (temporary — delete when real IDAM comes)
-  - Admin (admin + user roles), User (user role), Viewer (authenticated, no roles), plus anonymous (no header)
-- Added `getUser` to Remult API config — reads `X-Dev-User` header, looks up dev user
-- Restricted admin panel: `admin: () => remult.isAllowed(Roles.admin)`
-- Added permissions to Task entity: authenticated read, authenticated insert, owner-or-admin update, admin-only delete, row-level `apiPrefilter`, `createdBy` field auto-set via `saving` hook
-- Created Angular `DevAuthService` with signal state + localStorage persistence
-- Created functional `HttpInterceptorFn` to attach `X-Dev-User` header
-- Wired `remult.initUser()` in `provideAppInitializer`
-- Created dev user switcher UI component (fixed bottom-right, amber styling)
-- App reloads data on user switch via `remult.subscribeAuth()`
+### Dev authentication
 
-**What changes when Entra ID comes:** Replace `getUser` body with JWT/OIDC verification, replace `DevAuthService` + interceptor with token-based auth, delete dev-users.ts and switcher component. All entity permissions stay untouched.
+Header-based scaffold that provides real permission enforcement without standing up an IDAM integration. Three preset users (Admin, User, Viewer) plus anonymous, swappable via a floating switcher and persisted to localStorage. The browser sends `X-Dev-User`; the API maps it to a user record; `remult.subscribeAuth` reloads scoped data on switch.
 
-## Stage 7: Build Out Angular Feature Structure
+This entire layer is transitional. When real authentication lands, the roles constants, dev users array, dev-auth service, interceptor, switcher component, and the `getUser` body all go. Entity permissions stay untouched.
 
-- Set up `core/`, `shared/`, `features/` folders under `apps/web/src/app/`
-- Create lazy-loaded feature routes
-- Adopt modern Angular patterns: signals, `input()`, `inject()`, `@if`/`@for`, zoneless
+---
 
-## Stage 8: Expand the Domain
+## To Build
 
-- Add more entities grouped by domain (projects, users, etc.)
-- Add `@BackendMethod` operations on entities
-- Add cross-entity operations files where needed
-- Add relations, lifecycle hooks, field-level permissions
+### Persistence
 
-## Stage 9: Wire Up Real Authentication (Entra ID)
+No database is configured — Remult is using its default in-process store. Plan: SQLite via Remult's data provider configuration at the API mount. Migration strategy to be agreed once more than one entity is in play. Immediate precursor to the fire showcase.
 
-- Replace dev auth middleware with JWT/OIDC verification in Hono
-- Add MSAL or equivalent auth library to Angular
-- Replace `DevAuthService` with real auth service
-- Replace dev interceptor with Bearer token interceptor
-- Delete dev-users.ts and dev user switcher component
-- Add login/logout flow
+### Fire incident showcase
+
+The first real domain, fully specified in `02-fire-showcase-overview.md`: two entities (`FireIncident`, `SituationReport`), seven enums, four roles with a 15-row permission matrix, district-scoped row filtering, and business rules covering fire numbering, next-report-due cadence, status transitions, and sign-off lifecycle. Four backend operations: `getNextFireNumber`, `escalate`, `softDelete`, `submitForFire`. Frontend: incident list, detail with sitrep timeline, incident form, sitrep form. Closes with the "add one field, two files, no codegen" demo — the headline argument for the stack.
+
+The four-role permission story requires extending the dev users array with one user per role per district so row filtering can be exercised.
+
+### Angular feature structure
+
+`features/` folder with lazy-loaded routes. Introduced alongside the fire showcase rather than as standalone work — `features/fire-incidents/` is the first to land. The root `App` component becomes a routed shell at the same time.
+
+### Backend operations, relations, cross-entity logic
+
+`@BackendMethod`s (instance and static), entity relations (`Relations.toOne`, `Relations.toMany`), and `*.operations.ts` files for cross-entity work. Same patterns then repeat for every subsequent domain.
+
+### Real authentication (Entra ID)
+
+Replace `getUser` in the Hono mount with JWT/OIDC verification. Add MSAL or equivalent to the Angular app. Replace `DevAuthService`, the interceptor, the switcher component, and `DEV_USERS` with real auth and a login/logout flow. Entity-level permissions stay as-is — the swap is contained to the middleware and the Angular auth shell.
+
+---
+
+## Deliberately Out of Scope
+
+Async job processing (today handled by Azure Functions in EMI), scheduled work, PDF generation, mapping integrations, external messaging. These belong to the broader migration conversation, not the platform proof. Revisit once the fire showcase has landed and the team has agreed on direction.

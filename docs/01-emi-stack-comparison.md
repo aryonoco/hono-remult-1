@@ -22,7 +22,7 @@ Adding `estimatedContainmentDate` to a fire incident touches approximately:
 3. AutoMapper profile to map between them
 4. Repository update if Cosmos query logic is involved
 5. Service interface and implementation update
-6. Controller method update (if exposed differently)
+6. Controller method update 
 7. Run `swagger` Nx target to regenerate the OpenAPI spec
 8. Run `codegen` Nx target to regenerate the TypeScript client (requires Java)
 9. Consume the new field from the regenerated client in Angular
