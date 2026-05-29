@@ -1147,6 +1147,9 @@ Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts` (a Phase 4 de
 `libs/shared/domain/src/fire/enum-display.ts` (a Phase 4 deliverable) exports one `Record<EnumValue, string>` per enum
 (using the Display Names from *Enums*), imported directly by Angular components.
 
+The exact `Record` literals for both `ui.ts` and `enum-display.ts` are specified in
+*Frontend Architecture (Phase 4) → §3 Shared-domain UI files*.
+
 ---
 
 ## Domain Operations
@@ -1353,6 +1356,706 @@ and `scope:shared` may import only `remult`/`neverthrow`.
 
 ---
 
+## Frontend Architecture (Phase 4)
+
+This section specifies the Angular frontend in enough detail that Phase 4 is mechanical: every screen, component,
+provider, form, dialog, and the Task teardown is pinned. The backend sections above remain the source of truth for
+data, permissions, and business rules; the frontend only *surfaces* them. The goal is an exemplar of modern Angular
+(v21, standalone, signals, zoneless), Angular Material M3, Tailwind v4, and full accessibility.
+
+**Stack decisions (locked).** Angular Material (M3, default azure palette) for all interactive components; Tailwind v4
+for layout/spacing utilities only; **Typed Reactive Forms** driven by a metadata-driven engine; a reusable
+`<app-datetime-field>` composing Material's date + time pickers; light/dark theming following the OS with a persisted
+manual toggle. The `.claude/rules/angular-conventions.md` rules apply throughout (signals, `inject()`, built-in control
+flow, `resource()`/`liveQuery`, `ResultAsync` wrapping, `DestroyRef` cleanup, `protected`/`readonly`).
+
+### 1. Workspace tooling, dependencies & setup
+
+> **Status: implemented.** The build tooling and Material setup in this section are done and verified — `@nx/angular`
+> adopted, `nx.json` generator defaults, Material theme/providers/fonts, and biome `tailwindDirectives`. The
+> `check:ci`, `nx build web`, and `nx test` gates all pass with no warnings. §2 onward (shell, features, forms, Task
+> teardown) is pending.
+
+#### 1.1 Adopt `@nx/angular`
+
+This is an NX workspace, so Angular tooling is added the idiomatic NX way — the **`@nx/angular`** plugin — rather than
+the bare Angular CLI. (The plain `ng add @angular/material` no-ops here: with no `angular.json`, its schematic cannot
+resolve the project. `@nx/angular` provides the bridge that fixes that, plus first-class generators.) Install the
+plugin at the version matching NX (22.6) and run its init; it registers the plugin, works purely with the existing
+`project.json` files (it does **not** create an `angular.json`), and leaves the build targets untouched:
+
+```bash
+bun add -D @nx/angular@~22.6     # @nx/angular major MUST track the nx major on every upgrade
+bunx nx g @nx/angular:init       # registers the plugin + generators; no angular.json created
+```
+
+(`nx add @nx/angular` also works and auto-selects the matching version, but it may shell out to npm; installing with
+`bun` then running `init` keeps the package manager consistent with `bun.lock`.)
+
+**Executors — keep `@angular/build`.** Leave the web app's `build` / `serve` / `test` targets on the
+`@angular/build:application` / `:dev-server` / `:unit-test` executors; adopt `@nx/angular` for its **generators and the
+Angular-schematic bridge only**. Migrating `build` to `@nx/angular:application` was trialled and **reverted**: Angular's
+`@angular/build:unit-test` runner (NX's recommended Angular Vitest runner) only supports an `@angular/build:application`
+build target and prints `buildTarget … @nx/angular:application … is not supported … failures may occur` on every
+`nx test` when the build is on the wrapper. Keeping `@angular/build` avoids that warning entirely, **still gets NX task
+caching** (the `build` entry in `nx.json` `targetDefaults` applies by target name, regardless of executor), and forgoes
+only the `@nx/angular:application` extras (esbuild-plugin hooks, `indexHtmlTransformer`, module federation) — none of
+which this app needs. If those are ever required, migrate `build` **and** `serve` together (the dev-server falls back to
+webpack otherwise) **and** move the test target to `@nx/vite:test` to keep it warning-free.
+
+**Generator defaults.** Add a `generators` block to `nx.json` so `nx g` always emits conformant code:
+
+```json
+"generators": {
+  "@nx/angular:component": {
+    "standalone": true,
+    "changeDetection": "OnPush",
+    "style": "css",
+    "inlineStyle": false,
+    "inlineTemplate": false,
+    "skipTests": false,
+    "prefix": "app"
+  },
+  "@nx/angular:service": { "skipTests": false },
+  "@nx/angular:directive": { "standalone": true, "skipTests": false },
+  "@nx/angular:pipe": { "standalone": true, "skipTests": false }
+}
+```
+
+**Caveat — signal inputs.** As of 2026 the `@nx/angular:component` generator still scaffolds `@Input()`/`@Output()`
+decorators, but this project's conventions require `input()`/`output()`/`model()`. So the workflow is: scaffold the
+file skeleton with `nx g`, then hand-convert any inputs/outputs to the signal forms and use `inject()`. Generated
+`.spec.ts` files are compatible with the existing `@angular/build:unit-test` (Vitest) runner — no test-framework change.
+Scaffold feature components into the app's `features/` folder via the `--path` flag, e.g. `nx g @nx/angular:component
+--path=apps/web/src/app/features/fire-incidents/incident-list/incident-list`. (For a small app, keeping the feature in
+`apps/web` is fine; splitting into `@nx/angular:library` feature libs is an optional later scaling step.)
+
+#### 1.2 Material setup (theme, providers, fonts)
+
+Dependencies — `@angular/material` + `@angular/cdk` plus **`@angular/animations`** (required by
+`provideAnimationsAsync`):
+
+```bash
+bun add @angular/material@^21 @angular/cdk@^21 @angular/animations@^21
+```
+
+With `@nx/angular` installed, `nx g @angular/material:ng-add --project=web` does now resolve the workspace — but its
+output (a prebuilt-style theme, fonts, and a possibly Zone-based animations provider) is mostly overwritten by the
+reconciliation below, so this project sets Material up **directly** to the exact end-state:
+
+1. **Styles — two files (Material in SCSS, Tailwind in CSS).** Material M3 theming needs Sass
+   (`@use '@angular/material'`), but Tailwind v4's `@import 'tailwindcss'` **cannot** be imported from a Sass file
+   (dart-sass tries to resolve it as a Sass import and fails). So split the global styles into two entries, both listed
+   in `apps/web/project.json` `build.options.styles` (order matters — the cascade-layer declaration must come first).
+
+   `apps/web/src/styles.scss` (Material theme + cascade-layer order; replaces `styles.css`):
+
+   ```scss
+   @use '@angular/material' as mat;
+
+   /* later layers win regardless of specificity; Material sits below tailwind/utilities */
+   @layer base, material, tailwind, utilities;
+
+   @layer material {
+     html {
+       color-scheme: light dark; // follow the OS; ThemeService flips data-theme to override
+       @include mat.theme((color: mat.$azure-palette, typography: Roboto, density: 0));
+     }
+     html[data-theme='light'] { color-scheme: light; }
+     html[data-theme='dark'] { color-scheme: dark; }
+   }
+   ```
+
+   `apps/web/src/tailwind.css`:
+
+   ```css
+   @import 'tailwindcss';
+   /* Tailwind must also scan libs holding class strings — STATUS_BADGE_CLASSES (Phase 4) will live in
+      libs/shared/domain/src/fire/ui.ts — or those classes are purged from the production build. */
+   @source '../../../libs/shared/domain/src';
+   ```
+
+   Set `"styles": ["apps/web/src/styles.scss", "apps/web/src/tailwind.css"]`. `@angular/build` compiles SCSS with no
+   extra config; the `anyComponentStyle` budget (4 kB warn / 8 kB error) stays. Because `@source` is Tailwind-specific
+   syntax, enable it for biome so `biome ci` parses the file — add `"css": { "parser": { "tailwindDirectives": true } }`
+   to `biome.json`. `mat.theme()` with one palette emits both light and dark token values keyed off `color-scheme`, so
+   the toggle only flips `data-theme`. **Tailwind is layout-only; all controls are Material.**
+
+2. **Providers (zoneless).** In `apps/web/src/app/app.config.ts`, after the existing providers add the **zoneless-safe**
+   `provideAnimationsAsync()` (from `@angular/platform-browser/animations/async` — *not* the Zone-based
+   `provideAnimations()`), `provideNativeDateAdapter()` (shared by `MatDatepicker` + `MatTimepicker`), and
+   `{ provide: MAT_DATE_LOCALE, useValue: 'en-AU' }`.
+
+3. **Fonts.** Add the Roboto and Material Symbols Outlined `<link>`s to `apps/web/src/index.html`.
+
+4. **Palette.** The theme uses the default `mat.$azure-palette`.
+
+### 2. App shell
+
+Convert the root `App` (currently the inline Task CRUD) into a routed shell:
+
+- **Layout:** a skip link (`<a href="#main">`) → `MatToolbar` (app title, `ThemeToggleComponent`, and the relocated
+  `<app-dev-user-switcher>`) → `MatSidenavContainer`; the sidenav holds nav links (`Incidents`), `<router-outlet>` sits
+  in `<mat-sidenav-content>` wrapped in `<main id="main">`. Sidenav mode is `side` on desktop, `over` on handset
+  (driven by `BreakpointObserver`, see §10).
+- **Component:** standalone; imports `RouterOutlet`, `RouterLink`, `RouterLinkActive`, `MatToolbarModule`,
+  `MatSidenavModule`, `MatListModule`, `MatButtonModule`, `MatIconModule`, `DevUserSwitcherComponent`,
+  `ThemeToggleComponent`. Drops `FormsModule`, the `Task` import, and all task signals/methods. Injects
+  `DevAuthService` and exposes `protected readonly currentUser` for nav.
+- **`apps/web/src/app/app.routes.ts`:**
+
+  ```ts
+  export const routes: Routes = [
+    { path: '', pathMatch: 'full', redirectTo: 'incidents' },
+    {
+      path: 'incidents',
+      loadChildren: () =>
+        import('./features/fire-incidents/fire-incidents.routes').then((m) => m.fireIncidentRoutes),
+    },
+  ];
+  ```
+
+- **Anonymous/empty-user state:** the dev-user switcher's "Anonymous" option leaves `remult.user` undefined, so every
+  `apiPrefilter` returns `{ id: ['__never__'] }` and all lists are empty. The **list screen** owns the empty-state
+  message ("Select a dev user to begin"); the shell must render without error when `currentUser()` is `undefined`.
+- **`ThemeService`** (`core/theme.service.ts`, `providedIn: 'root'`): a `signal<'light' | 'dark' | 'system'>` persisted
+  to `localStorage` (key `fire-theme`), plus an `effect()` that sets/removes `data-theme` on `document.documentElement`
+  (`'system'` removes the attribute → falls back to `color-scheme: light dark`). Mirrors the existing `DevAuthService`
+  localStorage+signal idiom. **`ThemeToggleComponent`** is a `mat-icon-button` cycling the signal.
+
+### 3. Shared-domain UI files (`scope:shared`)
+
+Two new files in `libs/shared/domain/src/fire/`. They import only TypeScript/`remult` types — **no `@angular/*`** (the
+NX boundary forbids it). Both use exhaustive `Readonly<Record<Enum, string>>` so the compiler guarantees every enum
+value is covered. Re-export both from `libs/shared/domain/src/index.ts` (named exports, matching the file's style).
+
+**`ui.ts`** (status badge classes — Tailwind utilities consumed by the `StatusBadgeComponent`):
+
+```ts
+import type { FireStatus } from './enums';
+
+export const STATUS_BADGE_BASE = 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium';
+
+export const STATUS_BADGE_CLASSES: Readonly<Record<FireStatus, string>> = {
+  going: 'bg-red-100 text-red-800 border-red-300',
+  contained: 'bg-amber-100 text-amber-800 border-amber-300',
+  underControlFirst: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  underControlSecond: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  safe: 'bg-green-100 text-green-800 border-green-300',
+  safeOverrun: 'bg-green-100 text-green-800 border-green-300',
+  safeNotFound: 'bg-gray-100 text-gray-800 border-gray-300',
+  safeFalseAlarm: 'bg-gray-100 text-gray-800 border-gray-300',
+  notFound: 'bg-orange-100 text-orange-800 border-orange-300',
+};
+```
+
+**`enum-display.ts`** (human-readable labels; one `Record` per enum, labels verbatim from the *Enums* section):
+
+```ts
+import type {
+  CauseSource, ControlAgency, CostClass, FireDetectionMethod, FireStatus, FuelType,
+  IncidentLevel, InvestigationType, LegalActionStatus, Potential, YesNo,
+} from './enums';
+
+export const FIRE_STATUS_LABELS: Readonly<Record<FireStatus, string>> = {
+  going: 'Going',
+  contained: 'Contained',
+  underControlFirst: 'Under Control - 1',
+  underControlSecond: 'Under Control - 2',
+  safe: 'Safe',
+  safeOverrun: 'Safe - Overrun',
+  safeNotFound: 'Safe - Not Found',
+  safeFalseAlarm: 'Safe - False Alarm',
+  notFound: 'Not Found',
+};
+
+export const INCIDENT_LEVEL_LABELS: Readonly<Record<IncidentLevel, string>> = {
+  levelOne: 'Level 1',
+  levelTwo: 'Level 2',
+  levelThree: 'Level 3',
+};
+
+export const CAUSE_SOURCE_LABELS: Readonly<Record<CauseSource, string>> = {
+  burningBuilding: 'Burning Building',
+  burningHouseStoveFlue: 'Burning House, Stove, Flue',
+  burningOffDepartmentalPrescribed: 'Burning Off (Departmental Prescribed)',
+  burningOffStubbleGrassScrub: 'Burning Off, Stubble, Grass, Scrub',
+  burningOffWindrowHeap: 'Burning Off, Windrow, Heap',
+  burningVehicleMachine: 'Burning Vehicle, Machine',
+  burningVehicleMachineMalicious: 'Burning Vehicle, Machine - Malicious',
+  campfireBarbeque: 'Campfire, Barbeque',
+  deliberateLightingMalicious: 'Deliberate Lighting (Malicious)',
+  exhaustChainsaw: 'Exhaust, Chainsaw',
+  exhaustOther: 'Exhaust, Other',
+  fireworks: 'Fireworks',
+  lightning: 'Lightning',
+  nonDeliberateLightingMischievous: 'Non-Deliberate Lighting (Mischievous)',
+  other: 'Other',
+  pipeCigaretteMatch: 'Pipe, Cigarette, Match',
+  powerTransmission: 'Power Transmission',
+  relightBurningOff: 'Relight - Burning Off',
+  relightPrescribedFire: 'Relight - Prescribed Fire',
+  relightWildfire: 'Relight - Wildfire',
+  sniggingHauling: 'Snigging, Hauling',
+  train: 'Train',
+  unattendedCampfireContainedWithinBoundary: 'Unattended Campfire - Contained Within Boundary',
+  unknown: 'Unknown',
+  wasteDisposalDomestic: 'Waste Disposal, Domestic',
+  wasteDisposalIndustrialSawmillTip: 'Waste Disposal, Industrial, Sawmill, Tip',
+};
+
+export const CONTROL_AGENCY_LABELS: Readonly<Record<ControlAgency, string>> = {
+  deeca: 'DEECA',
+  cfa: 'CFA',
+  frv: 'FRV',
+  interstate: 'Interstate',
+};
+
+export const FUEL_TYPE_LABELS: Readonly<Record<FuelType, string>> = {
+  grassland: 'Grassland',
+  woodland: 'Woodland',
+  spinifex: 'Spinifex',
+  malleeHeath: 'Mallee-heath',
+  shrubland: 'Shrubland',
+  buttongrass: 'Buttongrass',
+  forest: 'Forest',
+  pine: 'Pine',
+};
+
+export const POTENTIAL_LABELS: Readonly<Record<Potential, string>> = {
+  low: 'Low',
+  moderate: 'Moderate',
+  high: 'High',
+};
+
+export const COST_CLASS_LABELS: Readonly<Record<CostClass, string>> = {
+  lessThanThousand: 'Less Than $1,000',
+  thousandToFourNineNineNine: '$1,000 - $4,999',
+  fiveThousandToNineNineNineNine: '$5,000 - $9,999',
+  tenThousandToNineteenNineNineNine: '$10,000 - $19,999',
+  twentyThousandToFortyNineNineNineNine: '$20,000 - $49,999',
+  fiftyThousandToNinetyNineNineNineNine: '$50,000 - $99,999',
+  hundredThousandOrGreater: '$100,000 Or Greater',
+};
+
+export const FIRE_DETECTION_METHOD_LABELS: Readonly<Record<FireDetectionMethod, string>> = {
+  fireTower: 'Fire Tower',
+  ground: 'Ground',
+  aircraftPatrol: 'Aircraft Patrol',
+  aircraftNonPatrol: 'Aircraft (Non-Patrol)',
+  forestIndustryEmployee: 'Forest Industry Employee',
+  otherIndustryEmployee: 'Other Industry Employee',
+  landownerResident: 'Landowner / Resident',
+  traveller: 'Traveller',
+  unknown: 'Unknown',
+  other: 'Other',
+  fireLookout: 'Fire Lookout',
+  departmentPatrolAircraft: 'Department Patrol Aircraft',
+  departmentGroundPersonnel: 'Department Ground Personnel',
+};
+
+export const YES_NO_LABELS: Readonly<Record<YesNo, string>> = {
+  yes: 'Yes',
+  no: 'No',
+};
+
+export const INVESTIGATION_TYPE_LABELS: Readonly<Record<InvestigationType, string>> = {
+  accreditedInvestigatorReportAttended: 'Accredited Investigator Report (Attended)',
+  accreditedInvestigatorReportNotAttended: 'Accredited Investigator Report (Not Attended)',
+  firstAttackReport: 'First Attack Report',
+  notInvestigated: 'Not Investigated',
+};
+
+export const LEGAL_ACTION_STATUS_LABELS: Readonly<Record<LegalActionStatus, string>> = {
+  noAction: 'No Action',
+  deptInvestigationContinuing: 'Dept Investigation Continuing',
+  deptPoliceInvestigationContinuing: 'Dept/Police Investigation Continuing',
+  deptOtherAgencyInvestigation: 'Dept/Other Agency Investigation',
+  referredToPolice: 'Referred To Police',
+  referredToDeptProsecutions: 'Referred To Dept Prosecutions',
+  educationAwarenessWarningLetter: 'Education / Awareness / Warning Letter',
+  civilActionBeingUndertaken: 'Civil Action Being Undertaken',
+  infringementNoticeIssued: 'Infringement Notice Issued',
+};
+```
+
+**Backend prerequisite:** export the existing private `TIMESTAMP_PAIRS` (and its `TimestampField` type) from
+`libs/shared/domain/src/fire/helpers.ts` so the form's cross-field validator and the server's
+`validateAdjacentTimestamps` share one list. `LIMITS`, `TERMINAL_STATUSES`, `SAFE_VARIANT_STATUSES`, `LEVEL_ORDER`,
+and `POTENTIAL_ORDER` are already exported.
+
+### 4. Metadata-driven forms engine (`apps/web/src/app/shared/forms/`)
+
+A small, typed, signal-friendly engine that builds a Typed Reactive `FormGroup` from a Remult repository plus a
+per-entity config. Adding a field to an entity surfaces it automatically (this is what keeps the Phase 5 demo at
+~2 files).
+
+#### 4.1 Contract (`form-engine.types.ts`)
+
+```ts
+export type WidgetKind =
+  | 'text' | 'textarea' | 'number' | 'integer'
+  | 'checkbox' | 'slideToggle' | 'select' | 'datetime';
+
+export interface SelectOption { value: string | number; label: string; }
+
+export interface FieldHint<TEntity> {
+  field: keyof TEntity & string;
+  widget?: WidgetKind;                         // force a widget
+  enumValues?: readonly string[];              // REQUIRED for enum fields (see 4.3 caveat)
+  enumLabels?: Readonly<Record<string, string>>;
+  optionsSignal?: Signal<readonly SelectOption[]>; // data-driven select (e.g. districts)
+  label?: string;                              // overrides metadata caption
+  hint?: string;                               // mat-hint text
+  rows?: number;                               // textarea rows
+  readonly?: boolean;                          // render disabled (prefilled identity)
+  min?: number; max?: number; step?: number;
+  maxNow?: boolean;                            // datetime: clamp max to "now"
+  exclude?: true;                              // drop a field the engine would include
+}
+
+export interface FieldGroup<TEntity> { title: string; fields: readonly (keyof TEntity & string)[]; }
+
+export interface EntityFormConfig<TEntity> {
+  groups: readonly FieldGroup<TEntity>[];      // ordering + section headers
+  hints?: readonly FieldHint<TEntity>[];       // sparse overrides keyed by field
+  groupValidators?: readonly ValidatorFn[];    // cross-field rules (4.5)
+}
+```
+
+#### 4.2 `buildForm(repo, config, mode, seed?)`
+
+1. Iterate `repo.metadata.fields`. **Exclude** a field when `field.options.allowApiUpdate === false`, OR it is
+   `id`/`createdAt`/`updatedAt` (auto read-only), OR a relation field, OR `exclude` is set in hints. The same
+   exclusion applies in both `'create'` and `'edit'` (server-managed stays server-managed).
+2. For each included field, resolve the widget (4.3) and create a typed `FormControl` seeded from `seed` (edit) or
+   `repo.create()` defaults (create).
+3. Attach Angular validators (4.4).
+4. Partition controls into nested `FormGroup`s by `config.groups`; a dev-time unit test asserts **every** included
+   field appears in exactly one group (no implicit "Other" bucket).
+5. Apply `config.groupValidators` to the root group (4.5).
+
+A `<app-dynamic-form>` component renders the built form: `@for` over groups → section header (`<h2>` / `mat-card`) →
+`@for` over fields → `@switch (widget)` rendering the matching Material control inside a `<mat-form-field>` (with
+`<mat-label>`, `<mat-hint>`, `<mat-error>`).
+
+#### 4.3 Widget resolution (first match wins)
+
+| # | Condition | Widget | Control |
+|---|---|---|---|
+| 1 | `hint.widget` present | that kind | per kind |
+| 2 | `hint.optionsSignal` present | `select` (data-driven) | `FormControl<number \| string \| null>` |
+| 3 | `hint.enumValues` present | `select` (`mat-select`) | `FormControl<string \| null>` |
+| 4 | `field.valueType === Date` | `datetime` (`<app-datetime-field>`) | `FormControl<Date \| null>` |
+| 5 | `field.valueType === Boolean` | `checkbox` (or `slideToggle` if hinted) | `FormControl<boolean>` |
+| 6 | `field.valueType === Number` + integer hint | `integer` (number input, `step=1`) | `FormControl<number \| null>` |
+| 7 | `field.valueType === Number` | `number` | `FormControl<number \| null>` |
+| 8 | `field.valueType === String` + `maxLength ≥ TEXTAREA_THRESHOLD` | `textarea` | `FormControl<string>` |
+| 9 | `field.valueType === String` (fallback) | `text` | `FormControl<string>` |
+
+**Critical caveat (state in doc):** `Fields.literal(() => VALUES)` reports `valueType: String`, so an enum field is
+**not** auto-detectable from metadata. Therefore **every enum field MUST carry an `enumValues` + `enumLabels` hint**
+(rule 3); without it the field falls through to a plain text input. `TEXTAREA_THRESHOLD` is a named constant
+(`= LIMITS.paragraph`, i.e. 1000) — not a magic number.
+
+#### 4.4 Validator mapping
+
+The engine adds Angular validators from metadata best-effort, for instant UX only:
+
+- `required` ← `field.options.allowNull === false` on a non-defaulted field (and for required enums `status`,
+  `incidentLevel`).
+- `maxLength` / `min` / `max` ← from the field `hint` (the engine does **not** introspect Remult's `validate` array —
+  that is version-fragile).
+- Everything else (custom + cross-field) is **not** duplicated client-side. The authoritative isomorphic pass is
+  `repo.validate()` at submit (4.6). The doc states plainly: the entity validators are the contract; the client mapping
+  is sugar, never a second source of truth.
+
+#### 4.5 Cross-field group validators (`cross-field-validators.ts`)
+
+Mirror the server saving-hook rules so users see errors pre-submit (advisory; the server re-enforces):
+
+- **isMajor conditional:** if `isMajor === true`, require `declaredBySource` (1–200 chars) and `declaredByTimestamp`
+  (non-null, ≤ now); set the error on the respective control.
+- **Adjacent timestamps:** import the shared `TIMESTAMP_PAIRS`; for each pair, when both are non-null, require
+  `earlier ≤ later` and set the error on the **later** control (matches `validateAdjacentTimestamps`).
+- **safeOverrun:** when `status === safeOverrun`, disable the `fireAreaHectares` control and show it as 0 (the server
+  zeroes it authoritatively).
+
+#### 4.6 Submit flow
+
+1. Map the `FormGroup` value onto a `repo.create()` (create) or the loaded instance (edit).
+2. `const errors = await repo.validate(instance)` — push each field error onto the matching `FormControl`
+   (`setErrors({ server: msg })`) → surfaced via `<mat-error>`. This is the same validator code the server runs.
+3. If clean, wrap the actual `repo.insert/update` (or BackendMethod) in `ResultAsync.fromPromise` (per conventions).
+   On `isErr`, surface the message: field-attributable → the control's `<mat-error>`; otherwise an inline form-level
+   alert **and** a `MatSnackBar`. Server-only failures (DB-backed hook checks, lock cancels, thrown BackendMethod
+   `Error`s) arrive here as thrown errors — **show the message text as-is** (the entities author precise messages).
+
+#### 4.7 The three form configs
+
+Field lists are the entity fields minus the auto-excluded server-managed/relation fields. Excluded from **all** forms:
+`id`, `createdAt`, `updatedAt`, and every `allowApiUpdate:false` field (FireIncident: `financialYear`, `fireNumber`,
+`globalIncidentId`, `createdBy`, `statusAsAt`, `totalPersonnel`, `totalVehicles`, `totalAircraft`, `nextReportDue`,
+`isDeleted`, `deletionReason`; SituationReport: `reportNumber`, `districtId`, `isParentDeleted`, `submittedBy`,
+`submittedAt`; FinalReport: `districtId`, `isParentDeleted`, all `signedOff*`/`signOffRemoved*` audit fields).
+
+**FireIncident — create & edit, grouped sections** (decision: grouped sections). `incidentLevel` is **excluded** by
+config (escalate-only; defaults to `levelOne` on create):
+
+| Group | Fields (widget) |
+|---|---|
+| Identity & Location | `name` (text, required) · `districtId` (select, `optionsSignal` from District repo) · `locationDescription` (textarea ≤500) · `latitude` (number, −90..90) · `longitude` (number, −180..180) |
+| Status & Classification | `status` (select FireStatus, required) · `isMajor` (slideToggle) · `declaredBySource` (text ≤200) · `declaredByTimestamp` (datetime, `maxNow`) |
+| Timeline | `reportedAt` (datetime, required, `maxNow`) · `fireStartedAt` · `fireDetectedAt` · `firstCrewSentAt` · `firstCrewArrivedAt` (all datetime) · `detectionMethod` (select FireDetectionMethod) |
+| Cause | `causeSource` (select CauseSource) · `causeSourceOther` (textarea ≤500) · `isCauseConfirmed` (checkbox) |
+| Initial Response | `isLandManagerNotified` (select YesNo) · `isControlAgencyNotified` (select YesNo) · `isFireMapAttached` (checkbox) · `controlAgency` (select ControlAgency) · `fuelType` (select FuelType) |
+| Area | `fireAreaHectares` (number ≥0) · `burntAreaHectares` (number ≥0) |
+
+The `districtId` `optionsSignal` is fed from `remult.repo(District).find()` (active districts) loaded via `resource()`.
+For an IncidentEditor the create form locks `districtId` to the user's own district (matches the server insert rule).
+Enum hints required (rule 3): `status`, `detectionMethod`, `causeSource`, `isLandManagerNotified`,
+`isControlAgencyNotified`, `controlAgency`, `fuelType`.
+
+**SituationReport — single grouped form** (no datetime fields):
+
+| Group | Fields (widget) |
+|---|---|
+| Identity (read-only) | `fireIncidentId` (prefilled from route, `readonly`) · `fireName` (text ≤255; placeholder = parent name) |
+| Status & Area | `status` (select FireStatus, required) · `fireAreaHectares` (number ≥0) |
+| Narrative | `weatherConditions` · `currentStrategy` · `predictedBehaviour` · `controlProgress` · `communityImpact` (textarea ≤1000 each) · `significantEvents` (textarea ≤5000) |
+| Potential | `potentialLoss` (select Potential) · `potentialSpread` (select Potential) |
+| Resources | `personnel` · `vehicles` · `aircraft` (integer ≥0) |
+
+Enum hints: `status`, `potentialLoss`, `potentialSpread`.
+
+**FinalReport — single grouped form** (no datetime fields):
+
+| Group | Fields (widget) |
+|---|---|
+| Losses | `stockLost` · `homesLost` · `shedsLost` (integer ≥0) · `fencingLostKm` · `cropLossHectares` (number ≥0) · `infrastructureLosses` · `otherLosses` (text ≤500) |
+| Investigation | `investigationType` (select) · `investigationBy` (text ≤200) · `isOffenceSuspected` (checkbox) · `legalActionStatus` (select) |
+| Cost | `costClass` (select) |
+| Burnt Land | `burntStateForest` · `burntNationalPark` · `burntPrivateProperty` · `burntPlantation` · `burntOther` (number ≥0) |
+| Sign-off | `isSignedOff` (slideToggle) — **create form only**; hidden on edit (sign-off toggled via the detail button) |
+
+`fireIncidentId` is prefilled (read-only) from the route. Enum hints: `investigationType`, `legalActionStatus`,
+`costClass`.
+
+### 5. `<app-datetime-field>` component (`shared/components/datetime-field/`)
+
+Standalone, signal-based, implements `ControlValueAccessor` so it slots into reactive forms like any control.
+
+- **Inputs:** `value = model<Date | null>(null)` · `label = input<string>('')` · `min = input<Date | null>(null)` ·
+  `max = input<Date | null>(null)` · `required = input(false)` · `disabled = input(false)` · `hint = input<string>('')`.
+- **Composition:** one `<mat-form-field>` containing a `matDatepicker` date input and an official `matTimepicker` time
+  input, each bound to internal signals (`datePart`, `timePart`) and recombined into a single `Date` via `computed()`.
+  Both share the app `DateAdapter` (native, provided in `app.config.ts`).
+- **Semantics:** emits `null` until a date is chosen; when only the date is set, time defaults to `00:00`. `[min]`/`[max]`
+  forward to the date input; `maxNow` callers pass `max = new Date()`.
+- **a11y:** associated `<mat-label>`, `aria-describedby` wired to hint/error, both pickers keyboard-navigable (Material
+  default), participates in the host form's focus order.
+- **Display:** native adapter + `MAT_DATE_LOCALE='en-AU'` → dd/mm/yyyy; time in 24-hour format. The model is always a
+  JS `Date`; serialisation to the API is Remult's concern.
+
+### 6. Permission gating (`shared/auth/permissions.ts`)
+
+A single source of truth for UI affordances. Pure functions take the entity (and helper flags) plus the
+`CurrentUser`, and reconcile the **coarse** entity `allowApi*` predicates with the **fine** saving-hook rules (which do
+not run client-side). They import `Roles`, `TERMINAL_STATUSES`, and `LEVEL_ORDER` from `@workspace/shared-domain` so
+they cannot drift from the server. Client gating is advisory — the server re-enforces everything.
+
+```ts
+canCreateIncident(user)                       // incidentEditor | stateOfficer | admin
+canEditFire(fire, user, hasSitreps, hasFinalReport, isSignedOff)
+canEscalate(fire, user, isSignedOff)          // SO/admin; !isDeleted && !isSignedOff && level<3
+canCreateSitrep(fire, user, hasFinalReport, isSignedOff) // editor+; !isDeleted && !isSignedOff && !hasFinalReport
+canCreateFinalReport(fire, user, hasFinalReport)         // editor+; terminal status && !isDeleted && !hasFinalReport
+canSoftDelete(fire, user, isSignedOff)        // SO/admin; terminal && !isSignedOff && !isDeleted
+canSignOff(finalReport, parentStatus, user)   // editor+; !isSignedOff && terminal(parentStatus)
+canRemoveSignOff(finalReport, user)           // SO/admin; isSignedOff
+```
+
+`canEditFire` encodes the editor restriction: for `incidentEditor` (not SO/admin) it is true only when
+`fire.createdBy === user.id` AND `!hasSitreps` AND `!hasFinalReport` AND `!isSignedOff` AND `!isDeleted`; SO/admin may
+edit unless signed-off or deleted. The doc includes the hook-line → helper mapping so the gating provably matches
+`fire-incident.ts`/`final-report.ts`.
+
+### 7. Incident List (`features/fire-incidents/incident-list/`)
+
+- **Data:** `repo.liveQuery({ include: { district: true }, orderBy })` subscribed into a `signal<FireIncident[]>`,
+  cleaned up with `DestroyRef.onDestroy`. LiveQuery (not `resource()`) because sitrep saves mutate parent rows
+  server-side and the list should reflect that live. District scoping is server-side via `apiPrefilter` — the client
+  sends no district filter.
+- **Table:** `MatTable` + `MatSort` + `MatPaginator`. Columns: `name`, `district.name`, `fireNumber` (zero-padded to 3),
+  `status` (via `StatusBadgeComponent`), `fireAreaHectares`, `incidentLevel` (label), `isMajor` (icon/chip),
+  `statusAsAt` (the "last report date" column), `nextReportDue`. Sort keys: name, district, fireNumber, statusAsAt
+  (re-query `liveQuery` on `sortChange`). Default order `createdAt desc` (entity default). If server `orderBy` on the
+  `district` relation is unsupported, client-sort that one column.
+- **Actions:** "New Incident" button shown only when `canCreateIncident(currentUser())`.
+- **Responsive:** inject `BreakpointObserver` as a signal (`toSignal(observe(Breakpoints.Handset))`); on handset
+  render a stacked `MatCard` list instead of the table (same signal data).
+- **States:** loading → `MatProgressBar`; empty → `MatCard` empty-state ("No incidents in your district" / "Select a
+  dev user to begin" when anonymous); error → inline alert + snackbar.
+
+### 8. Incident Detail (`features/fire-incidents/incident-detail/`)
+
+- **Data:** route param `:id`; `resource()` loading the fire with
+  `include: { district: true, situationReports: true, finalReport: true }`, with an explicit reload after any action.
+- **Layout:** header `MatCard` (name, `globalIncidentId`, status badge, level, isMajor, district, key timestamps) + an
+  action button bar; a **sitrep timeline** as `MatExpansionPanel`s newest-first (`reportNumber desc`) each showing the
+  sitrep's status/area/resources/narrative; a **final-report subpanel** (`MatCard`) shown only when a FinalReport exists
+  AND the user may read it (viewers cannot — `FinalReport.allowApiRead` excludes `viewer`).
+- **Action-button matrix** (visibility from role; enabled reconciled with the saving-hook rules; disabled predicates use
+  shared constants):
+
+  | Button | Visible | Enabled |
+  |---|---|---|
+  | Edit | `canEditFire` truthy for role | per `canEditFire` (own/pre-sitrep for editor; not signed-off/deleted) |
+  | Escalate | SO/admin | `!isDeleted && !isSignedOff && incidentLevel !== levelThree` |
+  | New Sitrep | editor+ | `!isDeleted && !isSignedOff`; **hidden** if a FinalReport exists |
+  | Create Final Report | editor+ | terminal status && `!isDeleted` && no FinalReport |
+  | Delete (soft) | SO/admin | terminal status && `!isSignedOff` && `!isDeleted` |
+  | Sign off | editor+ (subpanel) | FinalReport exists && `!isSignedOff` && terminal parent status |
+  | Remove sign-off | SO/admin (subpanel) | FinalReport exists && `isSignedOff` |
+
+  Edit/sitrep/final-report **create & edit are routed pages** (`/incidents/new`, `/incidents/:id/edit`,
+  `/incidents/:id/sitrep`, `/incidents/:id/final`, `/incidents/:id/final/edit`).
+
+### 9. Dialogs (`shared/dialogs/`, `features/fire-incidents/dialogs/`)
+
+- **`ConfirmReasonDialogComponent`** (`MatDialog`): inputs `{ title, message, confirmLabel }`; a required textarea with
+  `maxLength = LIMITS.description` (500). Returns `{ reason } | undefined`. Used by **softDelete** and **removeSignOff**;
+  the caller invokes the BackendMethod via `ResultAsync.fromPromise(FireIncident.softDelete(id, reason), …)` /
+  `FinalReport.removeSignOff(frId, reason)`.
+- **`EscalateDialogComponent`**: a `mat-radio-group`/`mat-select` of `IncidentLevel` values **above** the current level
+  (via `LEVEL_ORDER`); returns the chosen level; the caller invokes `FireIncident.escalate(id, newLevel)`. Confirm
+  disabled when already at `levelThree`.
+- All dialogs: MatDialog provides focus trap + restore; ensure a labelled title (`mat-dialog-title`). On success →
+  snackbar + detail reload.
+
+### 10. Cross-cutting patterns
+
+- **Notifications:** `NotificationService` (`core/notification.service.ts`) wrapping `MatSnackBar` (`success`, `error`).
+  All `ResultAsync` error branches call it. Promote the existing `toErrorMessage` helper (from the old `app.ts`) to
+  `shared/util/to-error-message.ts`.
+- **Loading/empty/error:** `resource()` screens use `@switch (resource.status())` → spinner / content / error panel;
+  empty handled inside the resolved branch (`@if (items().length === 0)`). LiveQuery screens use an explicit `loading`
+  signal set false on first emission.
+- **Accessibility checklist (must all hold):**
+  1. Every input has a `<mat-label>`; selects/checkboxes/toggles have accessible names.
+  2. Validation errors via `<mat-error>` (Material wires `aria-describedby` when inside `<mat-form-field>`).
+  3. Dialogs: focus trap + restore (MatDialog default), titled with `mat-dialog-title`.
+  4. CDK `LiveAnnouncer` announces async outcomes (save success/failure) and route changes (incident opened).
+  5. Status-badge colours meet WCAG AA contrast — verify the Tailwind 100/800 pairs.
+  6. Keyboard nav: sort headers, paginator, buttons, sidenav toggle all reachable and operable.
+  7. A skip link targets `#main`.
+  8. Respect `prefers-reduced-motion` (`provideAnimationsAsync` honours it; add no animations that bypass it).
+- **Responsive ("dynamic viewports"):** Tailwind responsive utilities for layout/spacing by default; CDK
+  `BreakpointObserver` (as a signal) only for **structural** shifts — list table↔cards (`Breakpoints.Handset`), and
+  sidenav `side`↔`over` mode.
+
+### 11. Component/file tree & testing
+
+```text
+apps/web/src/
+  styles.scss                                   (renamed; Material theme + cascade layers)
+  index.html                                    (+ Roboto + Material Symbols <link>)
+  app/
+    app.ts / app.html                           (routed shell: toolbar + sidenav)
+    app.config.ts                               (+ animationsAsync, native date adapter, en-AU locale)
+    app.routes.ts                               (lazy → features/fire-incidents)
+    core/
+      remult.provider.ts / dev-auth.*           (unchanged)
+      theme.service.ts                          (NEW)
+      notification.service.ts                   (NEW)
+    shared/
+      components/
+        dev-user-switcher.ts                    (relocated into toolbar)
+        theme-toggle/theme-toggle.ts            (NEW)
+        datetime-field/datetime-field.ts        (NEW: app-datetime-field, CVA)
+        status-badge/status-badge.ts            (NEW: ui.ts + enum-display)
+      forms/
+        form-engine.ts / form-engine.types.ts   (NEW)
+        cross-field-validators.ts               (NEW)
+        dynamic-form.ts                          (NEW)
+      auth/permissions.ts                       (NEW)
+      util/to-error-message.ts                  (NEW: promoted)
+      dialogs/confirm-reason-dialog.ts          (NEW)
+    features/fire-incidents/
+      fire-incidents.routes.ts                  (NEW: list / new / :id / :id/edit / :id/sitrep / :id/final[/edit])
+      incident-list/ · incident-detail/
+      incident-form/ (+ fire-incident.form-config.ts)
+      sitrep-form/ (+ situation-report.form-config.ts)
+      final-report-form/ (+ final-report.form-config.ts)
+      dialogs/escalate-dialog.ts
+libs/shared/domain/src/fire/
+  enum-display.ts · ui.ts                        (NEW, scope:shared)
+```
+
+**Testing.** Shared-domain Vitest adds exhaustiveness tests for `enum-display.ts` (every enum value has a label) and
+`ui.ts` (every `FireStatus` has a badge class). Web component tests (`@angular/build:unit-test`, Vitest + jsdom,
+`InMemoryDataProvider` + `remult.user` set as in `app.spec.ts`) cover: the `permissions.ts` table (each role × state),
+the form engine (excluded fields absent, enums→select, dates→datetime, validators attached), `<app-datetime-field>`
+(combine/clear), and list/detail button gating. Web tests do **not** re-test server rules — those are covered by the
+existing shared-domain backend suites.
+
+### 12. Task teardown (keep `bun run check:ci` green at each step)
+
+1. Replace `App`'s inline Task CRUD with the routed shell (§2); rewrite `app.spec.ts` to assert the shell renders
+   (toolbar title) instead of "Tasks". `App` no longer imports `Task`. (Green.)
+2. Delete `libs/shared/domain/src/tasks/task.ts` and its `export { Task }` line in `index.ts`.
+3. Remove `Task` from the import and the `entities` array in `apps/api/src/config.ts`.
+4. Grep for stray `Task` references; fix any. Run `bun run check:ci` — green (Task fully gone from TS).
+5. `just migrate-generate drop_tasks` (`sync-to-desired.ts` rebuilds the scratch schema from the Task-less `entities`;
+   Atlas diffs and emits `DROP TABLE "tasks"`), then `bun run migrate:hash`; commit the SQL. Steps 1–4 are pure TS and
+   stay green; step 5 is the one local-DB step (the committed SQL is what CI sees).
+
+### 13. Build order, acceptance, and end-to-end verification
+
+**Sub-phases** (each independently green):
+
+- **4a** Adopt `@nx/angular` (init + `nx.json` generator defaults; keep `@angular/build` executors) → Material
+  theme/providers/fonts (two-file styles + biome `tailwindDirectives`) + theme toggle → routed shell → Task teardown →
+  app boots to an empty `incidents`, theme toggle persists and follows the OS, no `Task` anywhere, `just ci` green
+  (drop migration committed).
+- **4b** `enum-display.ts` + `ui.ts` + barrel + forms engine + `<app-datetime-field>` + `StatusBadgeComponent` +
+  `permissions.ts` + `NotificationService` → unit tests green.
+- **4c** Incident List (scoping, badges, responsive cards, gating, states).
+- **4d** Incident Detail + dialogs (the action matrix wired to the BackendMethods).
+- **4e** the three forms via the engine (`repo.validate()` flow, server-error surfacing).
+
+**Per-screen acceptance.** *List:* `dev-editor-otway` sees only Otway incidents, `dev-admin` sees all, "New Incident"
+hidden for viewers, sort + responsive cards work, badges colour-correct, list updates live when a sitrep changes a
+fire. *Detail:* viewer sees no final-report panel and no edit/escalate/delete; editor sees Edit only on own pre-sitrep
+fires; SO/admin see Escalate (disabled at level 3), Delete (disabled unless terminal & not signed-off), Remove
+sign-off (only when signed-off); New Sitrep hidden once a final report exists. *Forms:* required errors block submit;
+enum dropdowns show display labels; datetime composes correctly; toggling `isMajor` requires
+`declaredBySource`/`declaredByTimestamp`; a timestamp-order violation shows on the later field; a server-rejected case
+(e.g. an editor editing another's fire) surfaces the exact hook message in a snackbar.
+
+**End-to-end recipe.** `just dev` (api + web, Postgres up, `just migrate-apply`); click through all 8 dev users plus
+"Anonymous", verifying list scoping and button gating; exercise each BackendMethod from the UI (create → sitrep → move
+to terminal status → create + sign off final report → remove sign-off → soft delete); confirm `just ci` is green
+(watch the 8 kB `anyComponentStyle` budget on Material-themed components).
+
+### 14. Resolved defaults (change here if needed)
+
+**`@nx/angular` adopted** (init + generators + Angular-schematic bridge; `nx.json` generator defaults) with
+`build`/`serve`/`test` **kept on `@angular/build:*`** — migrating `build` to `@nx/angular:application` makes the
+`@angular/build:unit-test` runner emit an unsupported-buildTarget warning, so it was reverted; Material set up directly
+(two-file `styles.scss` + `tailwind.css`, biome `tailwindDirectives`) · Azure default palette · forms engine
+derives `required`/`min`/`max`/`maxLength` from `allowNull` + hints (no
+`validate`-array introspection), authoritative pass is `repo.validate()` · `incidentLevel` excluded from the incident
+form (escalate-only) · `TIMESTAMP_PAIRS` exported from `helpers.ts` and shared · district select via `optionsSignal` ·
+`isSignedOff` on FinalReport **create** only · datetime defaults time to 00:00 · 24-hour time, `en-AU` · list "last
+report date" = `statusAsAt` · list uses `liveQuery`, detail uses `resource()` · sitrep/final-report create/edit are
+routed pages, only confirm-reason and escalate are dialogs. **Third-party combined datetime pickers were evaluated and
+rejected:** the only signals/zoneless-native option is not Material-styled and immature; the mature, Material-styled
+ones are not signals/zoneless-native and would undercut the modern-Angular showcase — so native `MatDatepicker` +
+`MatTimepicker` (wrapped) is used.
+
+---
+
 ## Resource Tracking Model
 
 The full resource tracking system (not in scope for this showcase) tracks resources per agency and per type across many
@@ -1459,20 +2162,27 @@ suite (`bunx nx test shared-domain`) covers the `helpers.ts` cadence math and al
 
 **Status: Pending.**
 
-Build the incident list, incident detail with sitrep timeline + final-report subpanel, incident form, and sitrep form as
-a lazy-loaded feature route under `apps/web/src/app/features/fire-incidents/`. Add
-`libs/shared/domain/src/fire/enum-display.ts` (one `Record<EnumValue, string>` per enum for human-readable labels) and
-`libs/shared/domain/src/fire/ui.ts` (`STATUS_BADGE_CLASSES` Tailwind classes per *UI Display*). Convert the root `App`
-component into a routed shell (`RouterOutlet` + nav) and remove the inline `Task` CRUD; delete the `Task` entity from
-`libs/shared/domain`, drop its registration in `apps/api/src/config.ts`, and generate the Atlas migration that drops the
-`tasks` table.
+The Angular frontend feature, specified in full under *Frontend Architecture (Phase 4)* above: the lazy-loaded
+`apps/web/src/app/features/fire-incidents/` route (incident list, incident detail with sitrep timeline + final-report
+subpanel, and routed create/edit pages for incidents, situation reports, and final reports), built on Angular Material
+M3 + Tailwind v4 with a metadata-driven forms engine, the `<app-datetime-field>`, light/dark theming, and full
+accessibility. It also adds the `scope:shared` `enum-display.ts` + `ui.ts`, converts the root `App` into a routed shell
+(toolbar + sidenav), and retires the `Task` example (entity, `apps/api/src/config.ts` registration, and a
+`DROP TABLE tasks` Atlas migration).
+
+Delivered in sub-phases — **4a** (Material + theme + shell + Task teardown), **4b** (shared UI files + forms engine +
+datetime field + permissions), **4c** (incident list), **4d** (incident detail + dialogs), **4e** (the three forms).
+See *Frontend Architecture §12–§13* for the teardown sequence, build order, acceptance criteria, and the end-to-end
+verification recipe.
 
 ### Phase 5: The Demo Moment
 
 **Status: Pending.**
 
 Add a new field to `FireIncident` — e.g. `estimatedContainmentDate` with a date validator. Show it working: field
-appears in API response, validates on both client and server, renders in form. Two files touched. Zero codegen.
+appears in API response, validates on both client and server, and renders in the form. Because the forms engine
+(*Frontend Architecture §4*) reads entity metadata, the field surfaces as an `<app-datetime-field>` automatically — the
+only frontend touch is one line adding it to a group in `fire-incident.form-config.ts`. Two files touched. Zero codegen.
 
 **This is the mic drop. The team has lived the 13-step version. Seeing it in 2 steps lands differently.**
 

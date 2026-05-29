@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+/* Tailwind must also scan libs that hold class strings — STATUS_BADGE_CLASSES (a Phase 4
+   deliverable) will live in libs/shared/domain/src/fire/ui.ts — or those classes are purged from
+   the production build. */
+@source '../../../libs/shared/domain/src';

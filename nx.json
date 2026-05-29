@@ -19,5 +19,19 @@
       "cache": true
     }
   },
+  "generators": {
+    "@nx/angular:component": {
+      "standalone": true,
+      "changeDetection": "OnPush",
+      "style": "css",
+      "inlineStyle": false,
+      "inlineTemplate": false,
+      "skipTests": false,
+      "prefix": "app"
+    },
+    "@nx/angular:service": { "skipTests": false },
+    "@nx/angular:directive": { "standalone": true, "skipTests": false },
+    "@nx/angular:pipe": { "standalone": true, "skipTests": false }
+  },
   "analytics": false
 }

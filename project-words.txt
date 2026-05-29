@@ -127,3 +127,11 @@ Mischievous
 Infringement
 Hectares
 spinifex
+
+# Phase 4 — frontend (Angular Material / a11y, docs/02 Frontend Architecture)
+datepicker
+timepicker
+sidenav
+teardown
+dialogs
+wcag

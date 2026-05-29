@@ -19,7 +19,7 @@
             "input": "apps/web/public"
           }
         ],
-        "styles": ["apps/web/src/styles.css"]
+        "styles": ["apps/web/src/styles.scss", "apps/web/src/tailwind.css"]
       },
       "configurations": {
         "production": {

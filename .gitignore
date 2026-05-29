@@ -458,3 +458,8 @@ cache/
 **/Desktop.ini
 **/.directory
 **/._*
+
+.angular
+
+.nx/polygraph
+.nx/self-healing

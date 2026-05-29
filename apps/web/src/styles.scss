@@ -1,0 +1,28 @@
+@use '@angular/material' as mat;
+
+/* Cascade order: later layers win regardless of specificity. Material (theme tokens and, later,
+   component styles) sits below `tailwind`/`utilities` so Tailwind utilities can override Material
+   without `!important`. Tailwind itself is loaded from tailwind.css (it cannot be @import-ed from
+   Sass). */
+@layer base, material, tailwind, utilities;
+
+@layer material {
+  html {
+    color-scheme: light dark; // follow the OS by default; ThemeService flips data-theme to override
+    @include mat.theme(
+      (
+        color: mat.$azure-palette,
+        typography: Roboto,
+        density: 0,
+      )
+    );
+  }
+
+  html[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
+}

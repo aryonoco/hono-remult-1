@@ -2,3 +2,5 @@
 # Biome handles everything else.
 **/*
 !**/*.html
+
+.angular
