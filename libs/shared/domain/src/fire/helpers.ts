@@ -86,6 +86,8 @@ export const MS_PER_DAY: number = 86_400_000;
 export const MS_PER_MONTH_NOMINAL: number = 2_592_000_000;
 export const INITIAL_REPORT_MS = 1_800_000; // 30 minutes
 
+export const toError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
+
 export interface ComputeNextReportDueArgs {
   previousStatus: FireStatus;
   newStatus: FireStatus;

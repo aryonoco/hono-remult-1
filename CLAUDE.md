@@ -27,6 +27,10 @@ from the subject by a blank line.
 
 No AI/LLM attribution should appear in the git message.
 
+## Development Environment
+
+You are running in the devcontainer. Tool versions are pinned in `.mise.toml` — the single source of truth.
+
 ## TypeScript
 
 TypeScript 5.9 strict mode plus: `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
@@ -39,32 +43,32 @@ TypeScript 5.9 strict mode plus: `exactOptionalPropertyTypes`, `noUncheckedIndex
 ## Error Handling
 
 Rust/OCaml-style: use `neverthrow` `Result<T, E>` / `ResultAsync<T, E>` for expected errors — never throw. The
-`must-use-result` ESLint rule enforces all Results are handled. Only throw for bugs or unrecoverable failures.
+`must-use-result` ESLint rule enforces all Results are handled. Throw only for bugs, unrecoverable failures, or at a
+BackendMethod's RPC boundary (a `Result` cannot cross it) — see `.claude/skills/neverthrow/remult-integration.md`.
 
 ## Rules
 
-- Run `bun run check:ci` before committing — it must pass clean
-- **Biome** — primary linter and formatter for TS, CSS, JSON. All rule categories set to `error`
-- **ESLint** — scoped to `neverthrow/must-use-result` only (`@bufferings/eslint-plugin-neverthrow`). Runs as part of the
-  unified `lint` target alongside Biome
-- **Prettier** — HTML templates only (`bun run format:html`). Biome excludes `*.html`
-- Import organisation handled by Biome assist (`organizeImports`)
-- Test files (`*.spec.ts`) relax `noExplicitAny` and `noNonNullAssertion` only
+- `bun run check:ci` must pass before committing (pre-commit enforces it). `just ci` is the full gate — it adds
+  cspell, markdownlint, tests, and build
+- **Biome** — primary linter and formatter for TS, CSS, JSON. All rule categories set to `error`; import organisation
+  via Biome assist (`organizeImports`)
+- **ESLint** — `neverthrow/must-use-result` and `@nx/enforce-module-boundaries`, run in the unified `lint` target
+  alongside Biome
+- **Prettier** — Angular HTML templates only (`bun run format:html`). Biome excludes `*.html`
+- **cspell** (en-GB; custom words in `project-words.txt`) and **markdownlint** guard spelling and Markdown
+- Test files (`*.spec.ts`) relax `noExplicitAny`, `noNonNullAssertion`, `noMagicNumbers`, `useExplicitType`, and
+  `noExcessiveLinesPerFunction`
 
 ## Commands
 
 ```bash
-bun run check:ci                    # CI gate — lint + format check (run before committing)
-bun run check                       # lint + format with auto-fix
-bun run lint                        # Biome lint only
-bun run format                      # Biome format with write
-bun run format:html                 # Prettier for Angular HTML templates
-bunx nx build web                   # build Angular app
-bunx nx serve web                   # dev server (port 4200)
-bunx nx test web                    # run tests (Vitest)
-bunx nx serve api                   # Hono dev server (port 3000)
-bunx nx build api                   # bundle API for production
-bunx nx graph                       # visualise dependency graph
+just ci                          # full gate: check + HTML-format + spell + markdownlint + test + build
+bun run check:ci                 # fast gate: biome ci + eslint + tsc -b (pre-commit enforces this)
+bun run check                    # biome check (lint + format + imports) with auto-fix
+bunx nx serve web                # Angular dev server (port 4200)
+bunx nx serve api                # Hono dev server (port 3000)
+bunx nx run-many -t test         # run all tests (Vitest)
+just migrate-generate <name>     # generate an Atlas migration after an entity change
 ```
 
 ## Architecture
@@ -80,7 +84,13 @@ Three layers:
 
 NX module boundaries enforce separation: `scope:shared` cannot import Angular or Hono code.
 
-Full architecture guide: `docs/00-foundation1.md`. Implementation plan: `docs/00-plan.md`.
+Full architecture guide: `docs/00-foundation1.md`. Living plan: `docs/00-plan.md`. Worked domain example:
+`docs/02-fire-showcase-overview.md`.
+
+## Persistence
+
+Postgres via `remult/postgres` with `ensureSchema: false` — Remult never runs DDL. Atlas owns the schema; migrations
+live in `apps/api/src/migrations/`. After changing an entity, run `just migrate-generate <name>` and commit the SQL.
 
 ## Angular Conventions
 
@@ -97,6 +107,7 @@ Full architecture guide: `docs/00-foundation1.md`. Implementation plan: `docs/00
 Entity conventions: `.claude/rules/entity-conventions.md`
 Angular conventions: `.claude/rules/angular-conventions.md`
 API conventions: `.claude/rules/api-conventions.md`
+Pattern skills (invoke on demand): `.claude/skills/remult/` and `.claude/skills/neverthrow/`
 
 When creating new entities, follow `.claude/rules/entity-conventions.md` (rules load on Read, not Write — reference the
 rule when creating files).

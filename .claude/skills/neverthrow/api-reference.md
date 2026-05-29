@@ -140,6 +140,10 @@ const result = safeTry(async function* () {
 });
 ```
 
+> **Lint caveat:** the project's `must-use-result` rule
+> (`@bufferings/eslint-plugin-neverthrow@0.3.0`) has no model for `yield*` and false-positives, so
+> each `yield* ResultAsync.fromPromise(...)` needs `// eslint-disable-next-line neverthrow/must-use-result`.
+
 **When to use safeTry vs andThen:**
 
 - `safeTry`: Multi-step sequences (3+ steps), reads like imperative code

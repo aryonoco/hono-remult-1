@@ -60,7 +60,8 @@ paths: ["libs/shared/domain/**/*.ts"]
 
 ## Error Handling
 
-- Complex BackendMethod logic: wrap in `neverthrow` `ResultAsync` for explicit error handling
+- Complex BackendMethod logic: model expected errors with `Result`/`safeTry`, throw only at the RPC boundary — see
+  `.claude/skills/neverthrow/remult-integration.md`
 - Simple validation: use Remult's built-in validator mechanism
 
 ## Module Boundary

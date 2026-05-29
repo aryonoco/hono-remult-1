@@ -1,4 +1,13 @@
-import { Entity, Fields, type LifecycleEvent, Relations, remult, Validators } from 'remult';
+import { err, ok, ResultAsync, safeTry } from 'neverthrow';
+import {
+  BackendMethod,
+  Entity,
+  Fields,
+  type LifecycleEvent,
+  Relations,
+  remult,
+  Validators,
+} from 'remult';
 
 import type { CurrentUser } from '../auth/current-user';
 import { Roles } from '../auth/roles';
@@ -11,7 +20,16 @@ import {
   type LegalActionStatus,
 } from './enums';
 import { FireIncident } from './fire-incident';
-import { isServerInternal, LIMITS, TERMINAL_STATUSES, withServerInternal } from './helpers';
+import {
+  computeNextReportDue,
+  INITIAL_REPORT_MS,
+  isServerInternal,
+  LIMITS,
+  TERMINAL_STATUSES,
+  toError,
+  withServerInternal,
+} from './helpers';
+import { SituationReport } from './situation-report';
 
 async function finalReportSaving(fr: FinalReport, e: LifecycleEvent<FinalReport>): Promise<void> {
   if (e.isNew) {
@@ -110,6 +128,38 @@ async function finalReportSaved(fr: FinalReport, e: LifecycleEvent<FinalReport>)
   }
   await withServerInternal(async () => {
     await remult.repo(FireIncident).update(fr.fireIncidentId, { nextReportDue: null });
+  });
+}
+
+function resolveNextReportDue(
+  fireIncidentId: string,
+  recent: SituationReport[],
+): ResultAsync<Date | null, Error> {
+  // must-use-result lacks yield* support; safeTry consumes the Result.
+  return safeTry(async function* () {
+    const lastSitrep = recent[0];
+    const prevSitrep = recent[1];
+    if (!lastSitrep) {
+      return ok(new Date(Date.now() + INITIAL_REPORT_MS));
+    }
+    // eslint-disable-next-line neverthrow/must-use-result
+    const parent = yield* ResultAsync.fromPromise(
+      remult.repo(FireIncident).findId(fireIncidentId),
+      toError,
+    );
+    if (!parent) {
+      return err(new Error('Parent fire not found'));
+    }
+    return ok(
+      computeNextReportDue({
+        previousStatus: prevSitrep?.status ?? parent.status,
+        newStatus: lastSitrep.status,
+        prevLoss: prevSitrep?.potentialLoss,
+        prevSpread: prevSitrep?.potentialSpread,
+        newLoss: lastSitrep.potentialLoss,
+        newSpread: lastSitrep.potentialSpread,
+      }),
+    );
   });
 }
 
@@ -215,6 +265,9 @@ export class FinalReport {
   @Fields.string({ allowApiUpdate: false })
   signOffRemovedBy = '';
 
+  @Fields.string({ allowApiUpdate: false, validate: Validators.maxLength(LIMITS.description) })
+  signOffRemovedReason = '';
+
   @Fields.string({ allowApiUpdate: false })
   createdBy = '';
 
@@ -223,6 +276,68 @@ export class FinalReport {
 
   @Fields.updatedAt()
   updatedAt?: Date;
+
+  @BackendMethod({ allowed: [Roles.stateOfficer, Roles.admin] })
+  static async removeSignOff(finalReportId: string, reason: string): Promise<void> {
+    // must-use-result lacks yield* support; safeTry consumes each Result.
+    const result = await safeTry(async function* () {
+      if (reason.length < 1 || reason.length > LIMITS.description) {
+        return err(new Error('reason must be 1-500 chars'));
+      }
+      const user = remult.user as CurrentUser | undefined;
+      if (!user) {
+        return err(new Error('Authenticated user required'));
+      }
+      // eslint-disable-next-line neverthrow/must-use-result
+      const fr = yield* ResultAsync.fromPromise(
+        remult.repo(FinalReport).findId(finalReportId),
+        toError,
+      );
+      if (!fr) {
+        return err(new Error('FinalReport not found'));
+      }
+      if (!fr.isSignedOff) {
+        return err(new Error('FinalReport is not signed off'));
+      }
+      // eslint-disable-next-line neverthrow/must-use-result
+      yield* ResultAsync.fromPromise(
+        withServerInternal(() =>
+          remult.repo(FinalReport).update(finalReportId, {
+            isSignedOff: false,
+            signOffRemovedAt: new Date(),
+            signOffRemovedBy: user.id,
+            signOffRemovedReason: reason,
+          }),
+        ),
+        toError,
+      );
+      // eslint-disable-next-line neverthrow/must-use-result
+      const recent = yield* ResultAsync.fromPromise(
+        remult.repo(SituationReport).find({
+          where: { fireIncidentId: fr.fireIncidentId },
+          orderBy: { reportNumber: 'desc' },
+          limit: 2,
+        }),
+        toError,
+      );
+      // eslint-disable-next-line neverthrow/must-use-result
+      const nextReportDue = yield* resolveNextReportDue(fr.fireIncidentId, recent);
+      // eslint-disable-next-line neverthrow/must-use-result
+      yield* ResultAsync.fromPromise(
+        withServerInternal(() =>
+          remult.repo(FireIncident).update(fr.fireIncidentId, { nextReportDue }),
+        ),
+        toError,
+      );
+      return ok(undefined);
+    });
+    result.match(
+      () => undefined,
+      (e) => {
+        throw e;
+      },
+    );
+  }
 }
 
 export const finalReportSchemaExtras: readonly string[] = [

@@ -231,9 +231,8 @@ dev-auth interceptor in development, JWT parser when real auth lands) changes, n
 
 ## Entities
 
-The decorators and field tables below specify the target form of each entity. `District` is implemented exactly as
-specified. `FireIncident`, `SituationReport`, and `FinalReport` are identity + audit stubs in the current code; Phase 2
-widens them to match the spec here. See *Implementation Phases → Phase 1* for the current stub field sets.
+The decorators and field tables below specify each entity. All four — `District`, `FireIncident`, `SituationReport`,
+and `FinalReport` — are implemented exactly as specified here.
 
 ### FireIncident
 
@@ -449,7 +448,7 @@ Decorator:
 
 ```typescript
 @Entity<FinalReport>('finalReports', {
-  allowApiRead: Allow.authenticated,
+  allowApiRead: [Roles.incidentEditor, Roles.stateOfficer, Roles.admin],
   allowApiInsert: [Roles.incidentEditor, Roles.stateOfficer, Roles.admin],
   allowApiUpdate: [Roles.incidentEditor, Roles.stateOfficer, Roles.admin],
   allowApiDelete: false,
@@ -520,9 +519,10 @@ Decorator:
 |---|---|---|
 | isSignedOff | boolean, default false | Sign-off flag. While true, all writes to parent FireIncident and to this FinalReport are rejected. Toggle false→true via standard PATCH (any of incidentEditor/stateOfficer/admin). Toggle true→false only via `removeSignOff` BackendMethod (stateOfficer/admin). |
 | signedOffAt | datetime, optional, `allowApiUpdate: false` | Set in saving hook when transitioning false→true. |
-| signedOffBy | string, optional, `allowApiUpdate: false` | Set in saving hook when transitioning false→true. |
+| signedOffBy | string, default '', `allowApiUpdate: false` | Set in saving hook when transitioning false→true. |
 | signOffRemovedAt | datetime, optional, `allowApiUpdate: false` | Set by `removeSignOff` BackendMethod. |
-| signOffRemovedBy | string, optional, `allowApiUpdate: false` | Set by `removeSignOff` BackendMethod. |
+| signOffRemovedBy | string, default '', `allowApiUpdate: false` | Set by `removeSignOff` BackendMethod. |
+| signOffRemovedReason | string, default '', `allowApiUpdate: false` | Reason captured by `removeSignOff` (1–500 chars). Mirrors `FireIncident.deletionReason`. |
 
 These five sign-off fields capture only the most recent event of each kind. No separate event-history entity.
 
@@ -568,17 +568,17 @@ Enum values in code use `as const` string-literal unions:
 ```typescript
 // libs/shared/domain/src/fire/enums.ts (one example shape)
 export const FireStatus = {
-  Going: 'going',
-  Contained: 'contained',
-  UnderControlFirst: 'underControlFirst',
-  UnderControlSecond: 'underControlSecond',
-  Safe: 'safe',
-  SafeOverrun: 'safeOverrun',
-  SafeNotFound: 'safeNotFound',
-  SafeFalseAlarm: 'safeFalseAlarm',
-  NotFound: 'notFound',
+  going: 'going',
+  contained: 'contained',
+  underControlFirst: 'underControlFirst',
+  underControlSecond: 'underControlSecond',
+  safe: 'safe',
+  safeOverrun: 'safeOverrun',
+  safeNotFound: 'safeNotFound',
+  safeFalseAlarm: 'safeFalseAlarm',
+  notFound: 'notFound',
 } as const;
-export type FireStatus = typeof FireStatus[keyof typeof FireStatus];
+export type FireStatus = (typeof FireStatus)[keyof typeof FireStatus];
 ```
 
 ### FireStatus (9 values)
@@ -750,27 +750,27 @@ Located in `libs/shared/domain/src/fire/helpers.ts`:
 
 ```typescript
 export const TERMINAL_STATUSES: readonly FireStatus[] = [
-  FireStatus.Safe, FireStatus.SafeOverrun, FireStatus.SafeNotFound,
-  FireStatus.SafeFalseAlarm, FireStatus.NotFound,
+  FireStatus.safe, FireStatus.safeOverrun, FireStatus.safeNotFound,
+  FireStatus.safeFalseAlarm, FireStatus.notFound,
 ] as const;
 
 export const SAFE_VARIANT_STATUSES: readonly FireStatus[] = [
-  FireStatus.Safe, FireStatus.SafeOverrun, FireStatus.SafeNotFound,
-  FireStatus.SafeFalseAlarm,
+  FireStatus.safe, FireStatus.safeOverrun, FireStatus.safeNotFound,
+  FireStatus.safeFalseAlarm,
 ] as const;
 
 export const ACTIVE_CONTAINED_STATUSES: readonly FireStatus[] = [
-  FireStatus.Contained, FireStatus.UnderControlFirst,
-  FireStatus.UnderControlSecond,
+  FireStatus.contained, FireStatus.underControlFirst,
+  FireStatus.underControlSecond,
 ] as const;
 
 export const POTENTIAL_ORDER: Record<Potential, number> = {
-  [Potential.Low]: 1, [Potential.Moderate]: 2, [Potential.High]: 3,
+  [Potential.low]: 1, [Potential.moderate]: 2, [Potential.high]: 3,
 };
 
 export const LEVEL_ORDER: Record<IncidentLevel, number> = {
-  [IncidentLevel.LevelOne]: 1, [IncidentLevel.LevelTwo]: 2,
-  [IncidentLevel.LevelThree]: 3,
+  [IncidentLevel.levelOne]: 1, [IncidentLevel.levelTwo]: 2,
+  [IncidentLevel.levelThree]: 3,
 };
 
 export const MS_PER_MINUTE = 60_000;
@@ -800,19 +800,19 @@ export function computeGlobalIncidentId(
 
 ### Server-internal flag
 
-The SituationReport `saved` hook and the `softDelete` / `escalate` / `removeSignOff` BackendMethods need to update
-`FireIncident` rows server-side without triggering the pre-sitrep-edit restriction in `FireIncident.saving`. Remult's
-`allowApi*` predicates are synchronous (`AllowedForInstance<T>` returns `boolean`), so all multi-row state checks live
-in `saving` hooks; the bypass is a per-request flag:
+The SituationReport `saved` hook and the `softDelete` / `escalate` / `removeSignOff` BackendMethods update
+`FireIncident` and `FinalReport` rows server-side without tripping the locks in those entities' `saving` hooks (the
+pre-sitrep-edit restriction, the sign-off lock, the soft-delete lock). Remult's `allowApi*` predicates are synchronous
+(`AllowedForInstance<T>` returns `boolean`), so all multi-row state checks live in `saving` hooks; the bypass is a
+per-request flag managed by two `helpers.ts` functions:
 
 ```typescript
-(remult as { __serverInternal?: boolean }).__serverInternal = true;
-try { /* repo.update(...) */ } finally {
-  (remult as { __serverInternal?: boolean }).__serverInternal = false;
-}
+export async function withServerInternal<T>(fn: () => Promise<T>): Promise<T>; // set flag, run fn, clear in finally
+export function isServerInternal(): boolean; // read flag
 ```
 
-`FireIncident.saving` (update path) reads this flag at the top and skips the pre-sitrep restriction when it is set.
+Each `saving` update path calls `isServerInternal()` near the top and skips the lock checks when it returns true;
+server-side writes wrap their `repo.update(...)` calls in `withServerInternal(...)`.
 
 ### FireIncident — `saving` hook
 
@@ -832,7 +832,7 @@ If `e.isNew === true` (insert):
 9. `fire.nextReportDue = new Date(Date.now() + 30 * MS_PER_MINUTE)`.
 10. `fire.isDeleted = false`; `fire.deletionReason = ''`.
 11. `fire.totalPersonnel = 0; fire.totalVehicles = 0; fire.totalAircraft = 0`.
-12. If `fire.status === FireStatus.SafeOverrun` → `fire.fireAreaHectares = 0`.
+12. If `fire.status === FireStatus.safeOverrun` → `fire.fireAreaHectares = 0`.
 13. If `fire.isMajor === true`: validate `fire.declaredBySource` 1–200 chars AND `fire.declaredByTimestamp` non-null AND
     `fire.declaredByTimestamp ≤ new Date()`; else cancel.
 14. Validate adjacent-pair timestamp ordering (each pair only if both non-null): `(fireStartedAt, fireDetectedAt)`,
@@ -850,7 +850,7 @@ If `e.isNew === false` (update):
 4. If `e.fields.isMajor.originalValue === true && fire.isMajor === false` → cancel with `"isMajor is one-way; cannot be
    set back to false"`.
 5. If `e.fields.status.originalValue !== fire.status` → `fire.statusAsAt = new Date()`.
-6. If `fire.status === FireStatus.SafeOverrun` → `fire.fireAreaHectares = 0`.
+6. If `fire.status === FireStatus.safeOverrun` → `fire.fireAreaHectares = 0`.
 7. If `fire.isMajor === true`: same validation as insert step 13.
 8. Same adjacent-pair timestamp ordering validation as insert step 14.
 9. **Pre-sitrep edit restriction:** if `__serverInternal` flag is not set AND user roles do NOT include
@@ -882,7 +882,7 @@ If `e.isNew === true` (insert):
 8. `sitrep.districtId = parent.districtId`.
 9. `sitrep.isParentDeleted = false`.
 10. If `sitrep.fireName.trim() === ''` → `sitrep.fireName = parent.name`.
-11. If `sitrep.status === FireStatus.SafeOverrun` → `sitrep.fireAreaHectares = 0`.
+11. If `sitrep.status === FireStatus.safeOverrun` → `sitrep.fireAreaHectares = 0`.
 
 (No `nextReportDue` computation here; that lives in the `saved` hook so the sitrep row is durable in the DB first.)
 
@@ -1054,8 +1054,8 @@ values are non-null):
 
 **Removing a sign-off** (`removeSignOff` BackendMethod; StateOfficer or Admin only):
 
-1. Records `signOffRemovedAt` + `signOffRemovedBy`. `reason` is validated for length but emitted only to logs (no
-   audit-history entity in this showcase).
+1. Records `signOffRemovedAt` + `signOffRemovedBy` + `signOffRemovedReason` (the `reason`, 1–500 chars; mirrors
+   `FireIncident.deletionReason`).
 2. `isSignedOff = false`.
 3. Parent `nextReportDue` recomputed from the latest SituationReport using the cadence rules, or `now + 30 min` if no
    sitreps exist.
@@ -1112,7 +1112,7 @@ list:
 | infrastructureLosses, otherLosses | 0–500 chars |
 | investigationBy | 0–200 chars |
 | fireIncidentId | required, unique (DB UNIQUE constraint + saving hook check on insert) |
-| districtId, isParentDeleted, signedOffAt, signedOffBy, signOffRemovedAt, signOffRemovedBy | server-managed |
+| districtId, isParentDeleted, signedOffAt, signedOffBy, signOffRemovedAt, signOffRemovedBy, signOffRemovedReason | server-managed |
 
 ### District
 
@@ -1130,8 +1130,8 @@ list:
 
 ### Status Colour Palette
 
-Tailwind utility classes applied to a `<span class="...">` badge. Implemented as `STATUS_BADGE_CLASSES:
-Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts`:
+Tailwind utility classes applied to a `<span class="...">` badge, exposed as `STATUS_BADGE_CLASSES:
+Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts` (a Phase 4 deliverable):
 
 | Status | Classes |
 |---|---|
@@ -1144,15 +1144,24 @@ Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts`:
 
 ### Enum Display Location
 
-`libs/shared/domain/src/fire/enum-display.ts` exports one `Record<EnumValue, string>` per enum (using the Display Names
-from Enums), imported directly by Angular components.
+`libs/shared/domain/src/fire/enum-display.ts` (a Phase 4 deliverable) exports one `Record<EnumValue, string>` per enum
+(using the Display Names from *Enums*), imported directly by Angular components.
 
 ---
 
 ## Domain Operations
 
-Four `@BackendMethod`s on the relevant entity classes. The previous spec's `submitForFire` is removed — the standard
-REST `POST /api/situationReports` already exercises the `SituationReport.saving` hook end-to-end.
+Four `@BackendMethod`s on the relevant entity classes. Creating a situation report needs no dedicated method — the
+standard REST `POST /api/situationReports` exercises the `SituationReport.saving` hook end-to-end.
+
+**Implementation notes.** Each method reuses the `withServerInternal()` helper (not an inline `__serverInternal`
+cast) to bypass entity lifecycle locks for its own writes, and models expected errors with `neverthrow`
+(`safeTry` with `err` / `ok`) internally — converting to a thrown `Error` only at the RPC boundary
+(`result.match(() => …, (e) => { throw e })`), because a `Result` cannot cross Remult's RPC boundary. The
+`must-use-result` lint rule has no model for `safeTry`'s `yield*`, so each `yield* ResultAsync.fromPromise(...)`
+carries an `// eslint-disable-next-line neverthrow/must-use-result`. `softDelete` cascades to children **before**
+marking the fire deleted, because `finalReportUpdateSaving` rejects any FinalReport update once the parent is
+soft-deleted.
 
 ### `FireIncident.getNextFireNumber(districtId: number): Promise<number>`
 
@@ -1171,22 +1180,42 @@ Counts include `isDeleted` rows (EMI parity).
 ```typescript
 @BackendMethod({ allowed: [Roles.stateOfficer, Roles.admin] })
 static async escalate(fireId: string, newLevel: IncidentLevel): Promise<void> {
-  const fire = await remult.repo(FireIncident).findId(fireId);
-  if (!fire) throw new Error('Fire not found');
-  if (fire.isDeleted) throw new Error('Fire is soft-deleted');
-  const fr = await remult.repo(FinalReport).findFirst({ fireIncidentId: fireId });
-  if (fr?.isSignedOff) throw new Error('Fire is signed off; call removeSignOff first');
-  if (LEVEL_ORDER[newLevel] <= LEVEL_ORDER[fire.incidentLevel]) {
-    throw new Error('newLevel must be strictly greater than current level');
-  }
-  (remult as { __serverInternal?: boolean }).__serverInternal = true;
-  try {
-    await remult.repo(FireIncident).update(fireId, {
-      incidentLevel: newLevel, statusAsAt: new Date(),
-    });
-  } finally {
-    (remult as { __serverInternal?: boolean }).__serverInternal = false;
-  }
+  // must-use-result lacks yield* support; safeTry consumes each Result.
+  const result = await safeTry(async function* () {
+    // eslint-disable-next-line neverthrow/must-use-result
+    const fire = yield* ResultAsync.fromPromise(remult.repo(FireIncident).findId(fireId), toError);
+    if (!fire) {
+      return err(new Error('Fire not found'));
+    }
+    if (fire.isDeleted) {
+      return err(new Error('Fire is soft-deleted'));
+    }
+    // eslint-disable-next-line neverthrow/must-use-result
+    const fr = yield* ResultAsync.fromPromise(
+      remult.repo(FinalReport).findFirst({ fireIncidentId: fireId }),
+      toError,
+    );
+    if (fr?.isSignedOff) {
+      return err(new Error('Fire is signed off; call removeSignOff first'));
+    }
+    if (LEVEL_ORDER[newLevel] <= LEVEL_ORDER[fire.incidentLevel]) {
+      return err(new Error('newLevel must be strictly greater than current level'));
+    }
+    // eslint-disable-next-line neverthrow/must-use-result
+    yield* ResultAsync.fromPromise(
+      withServerInternal(() =>
+        remult.repo(FireIncident).update(fireId, { incidentLevel: newLevel, statusAsAt: new Date() }),
+      ),
+      toError,
+    );
+    return ok(undefined);
+  });
+  result.match(
+    () => undefined,
+    (e) => {
+      throw e;
+    },
+  );
 }
 ```
 
@@ -1195,35 +1224,55 @@ static async escalate(fireId: string, newLevel: IncidentLevel): Promise<void> {
 ```typescript
 @BackendMethod({ allowed: [Roles.stateOfficer, Roles.admin] })
 static async softDelete(fireId: string, reason: string): Promise<void> {
-  if (!reason || reason.length < 1 || reason.length > 500) {
-    throw new Error('reason must be 1-500 chars');
-  }
-  const fire = await remult.repo(FireIncident).findId(fireId);
-  if (!fire) throw new Error('Fire not found');
-  if (!TERMINAL_STATUSES.includes(fire.status)) {
-    throw new Error('Fire must be in a terminal status to be soft-deleted');
-  }
-  const fr = await remult.repo(FinalReport).findFirst({ fireIncidentId: fireId });
-  if (fr?.isSignedOff) {
-    throw new Error('Fire is signed off; call removeSignOff first');
-  }
-  (remult as { __serverInternal?: boolean }).__serverInternal = true;
-  try {
-    await remult.repo(FireIncident).update(fireId, {
-      isDeleted: true, deletionReason: reason, nextReportDue: null,
-    });
-    const sitreps = await remult.repo(SituationReport).find({
-      where: { fireIncidentId: fireId },
-    });
-    for (const s of sitreps) {
-      await remult.repo(SituationReport).update(s.id, { isParentDeleted: true });
+  // must-use-result lacks yield* support; safeTry consumes each Result.
+  const result = await safeTry(async function* () {
+    if (reason.length < 1 || reason.length > LIMITS.description) {
+      return err(new Error('reason must be 1-500 chars'));
     }
-    if (fr) {
-      await remult.repo(FinalReport).update(fr.id, { isParentDeleted: true });
+    // eslint-disable-next-line neverthrow/must-use-result
+    const fire = yield* ResultAsync.fromPromise(remult.repo(FireIncident).findId(fireId), toError);
+    if (!fire) {
+      return err(new Error('Fire not found'));
     }
-  } finally {
-    (remult as { __serverInternal?: boolean }).__serverInternal = false;
-  }
+    if (!TERMINAL_STATUSES.includes(fire.status)) {
+      return err(new Error('Fire must be in a terminal status to be soft-deleted'));
+    }
+    // eslint-disable-next-line neverthrow/must-use-result
+    const fr = yield* ResultAsync.fromPromise(
+      remult.repo(FinalReport).findFirst({ fireIncidentId: fireId }),
+      toError,
+    );
+    if (fr?.isSignedOff) {
+      return err(new Error('Fire is signed off; call removeSignOff first'));
+    }
+    // eslint-disable-next-line neverthrow/must-use-result
+    yield* ResultAsync.fromPromise(
+      withServerInternal(async () => {
+        // Children FIRST (parent still not-deleted), parent LAST — finalReportUpdateSaving
+        // rejects any FinalReport update once the parent is soft-deleted.
+        const sitreps = await remult.repo(SituationReport).find({ where: { fireIncidentId: fireId } });
+        await Promise.all(
+          sitreps.map((s) => remult.repo(SituationReport).update(s.id, { isParentDeleted: true })),
+        );
+        if (fr) {
+          await remult.repo(FinalReport).update(fr.id, { isParentDeleted: true });
+        }
+        await remult.repo(FireIncident).update(fireId, {
+          isDeleted: true,
+          deletionReason: reason,
+          nextReportDue: null,
+        });
+      }),
+      toError,
+    );
+    return ok(undefined);
+  });
+  result.match(
+    () => undefined,
+    (e) => {
+      throw e;
+    },
+  );
 }
 ```
 
@@ -1235,48 +1284,72 @@ independently. Production code would wrap in a transaction.
 ```typescript
 @BackendMethod({ allowed: [Roles.stateOfficer, Roles.admin] })
 static async removeSignOff(finalReportId: string, reason: string): Promise<void> {
-  if (!reason || reason.length < 1 || reason.length > 500) {
-    throw new Error('reason must be 1-500 chars');
-  }
-  const fr = await remult.repo(FinalReport).findId(finalReportId);
-  if (!fr) throw new Error('FinalReport not found');
-  if (!fr.isSignedOff) throw new Error('FinalReport is not signed off');
-  (remult as { __serverInternal?: boolean }).__serverInternal = true;
-  try {
-    await remult.repo(FinalReport).update(finalReportId, {
-      isSignedOff: false,
-      signOffRemovedAt: new Date(),
-      signOffRemovedBy: remult.user!.id,
-    });
-    const lastSitrep = await remult.repo(SituationReport).findFirst(
-      { fireIncidentId: fr.fireIncidentId },
-      { orderBy: { reportNumber: 'desc' }, limit: 1 },
-    );
-    let nextReportDue: Date | null;
-    if (!lastSitrep) {
-      nextReportDue = new Date(Date.now() + 30 * MS_PER_MINUTE);
-    } else {
-      const prevSitrep = await remult.repo(SituationReport).findFirst(
-        { fireIncidentId: fr.fireIncidentId, reportNumber: { '!=': lastSitrep.reportNumber } },
-        { orderBy: { reportNumber: 'desc' }, limit: 1 },
-      );
-      const parent = await remult.repo(FireIncident).findId(fr.fireIncidentId);
-      const previousStatus = prevSitrep?.status ?? parent!.status;
-      nextReportDue = computeNextReportDue({
-        previousStatus, newStatus: lastSitrep.status,
-        prevLoss: prevSitrep?.potentialLoss, prevSpread: prevSitrep?.potentialSpread,
-        newLoss: lastSitrep.potentialLoss, newSpread: lastSitrep.potentialSpread,
-      });
+  // must-use-result lacks yield* support; safeTry consumes each Result.
+  const result = await safeTry(async function* () {
+    if (reason.length < 1 || reason.length > LIMITS.description) {
+      return err(new Error('reason must be 1-500 chars'));
     }
-    await remult.repo(FireIncident).update(fr.fireIncidentId, { nextReportDue });
-  } finally {
-    (remult as { __serverInternal?: boolean }).__serverInternal = false;
-  }
+    const user = remult.user as CurrentUser | undefined;
+    if (!user) {
+      return err(new Error('Authenticated user required'));
+    }
+    // eslint-disable-next-line neverthrow/must-use-result
+    const fr = yield* ResultAsync.fromPromise(remult.repo(FinalReport).findId(finalReportId), toError);
+    if (!fr) {
+      return err(new Error('FinalReport not found'));
+    }
+    if (!fr.isSignedOff) {
+      return err(new Error('FinalReport is not signed off'));
+    }
+    // eslint-disable-next-line neverthrow/must-use-result
+    yield* ResultAsync.fromPromise(
+      withServerInternal(() =>
+        remult.repo(FinalReport).update(finalReportId, {
+          isSignedOff: false,
+          signOffRemovedAt: new Date(),
+          signOffRemovedBy: user.id,
+          signOffRemovedReason: reason,
+        }),
+      ),
+      toError,
+    );
+    // eslint-disable-next-line neverthrow/must-use-result
+    const recent = yield* ResultAsync.fromPromise(
+      remult.repo(SituationReport).find({
+        where: { fireIncidentId: fr.fireIncidentId },
+        orderBy: { reportNumber: 'desc' },
+        limit: 2,
+      }),
+      toError,
+    );
+    // eslint-disable-next-line neverthrow/must-use-result
+    const nextReportDue = yield* resolveNextReportDue(fr.fireIncidentId, recent);
+    // eslint-disable-next-line neverthrow/must-use-result
+    yield* ResultAsync.fromPromise(
+      withServerInternal(() =>
+        remult.repo(FireIncident).update(fr.fireIncidentId, { nextReportDue }),
+      ),
+      toError,
+    );
+    return ok(undefined);
+  });
+  result.match(
+    () => undefined,
+    (e) => {
+      throw e;
+    },
+  );
 }
 ```
 
-`reason` is validated for length but stored only in logs (the entity keeps only `signOffRemovedAt` +
-`signOffRemovedBy`).
+`removeSignOff` loads the two most recent situation reports with a single `find({ limit: 2 })`; `reportNumber` is
+unique per fire, so `recent[0]` is the latest and `recent[1]` the previous. `resolveNextReportDue(fireId, recent)`,
+extracted to keep `removeSignOff` within the 50-line lint cap, returns `new Date(Date.now() + INITIAL_REPORT_MS)` when
+there are no situation reports, otherwise `computeNextReportDue({ previousStatus: recent[1]?.status ?? parent.status,
+newStatus: recent[0].status, … })`.
+
+`reason` is persisted to `signOffRemovedReason` (mirrors `FireIncident.deletionReason`); no logging facility exists
+and `scope:shared` may import only `remult`/`neverthrow`.
 
 ---
 
@@ -1326,73 +1399,59 @@ community impact, potentials, and resource snapshot. After submission the sitrep
 
 ## Implementation Phases
 
-The *Entities*, *Enums*, *Lifecycle Hooks*, *Business Rules*, *Validation Rules*, *UI Display*, and *Domain Operations*
-sections describe the target form of the showcase. The phases below carve that target into deliverables and record
-current implementation status.
+The sections above (*Entities*, *Enums*, *Lifecycle Hooks*, *Business Rules*, *Validation Rules*, *UI Display*,
+*Domain Operations*) specify the showcase in full. The phases below carve it into deliverables and record current
+status — what is built and what remains.
 
 ### Phase 1: Infrastructure
 
-**Status: Implemented.**
+**Status: Complete.**
 
 `libs/shared/domain/src/auth/roles.ts` defines the four showcase roles (`viewer`, `incidentEditor`, `stateOfficer`,
-`admin`). `libs/shared/domain/src/auth/current-user.ts` exports `CurrentUser` (`UserInfo & { districtId: number | null
-}`). `libs/shared/domain/src/auth/dev-users.ts` carries the eight `CurrentUser` identities from *Dev Users* and the
-`DEV_DISTRICT_NAMES` lookup. `apps/web/src/app/shared/components/dev-user-switcher.ts` renders each user's role and
-district inline in both the dropdown options and the active-user detail line.
-`apps/web/src/app/core/dev-auth.service.ts` and `apps/api/src/main.ts`'s `getUser` callback both work in `CurrentUser`
-terms.
+`admin`). `current-user.ts` exports `CurrentUser` (`UserInfo & { districtId: number | null }`). `dev-users.ts` carries
+the eight `CurrentUser` identities from *Dev Users* and the `DEV_DISTRICT_NAMES` lookup.
+`apps/web/src/app/shared/components/dev-user-switcher.ts` renders each user's role and district inline in both the
+dropdown options and the active-user detail line. `apps/web/src/app/core/dev-auth.service.ts` and
+`apps/api/src/main.ts`'s `getUser` callback both work in `CurrentUser` terms.
 
-`libs/shared/domain/src/fire/district.ts` defines the `District` entity at its target form (decorator and column set per
-*Entities → District*), plus the `districtSchemaExtras` array (UNIQUE on `name`).
-`libs/shared/domain/src/fire/fire-incident.ts`, `situation-report.ts`, and `final-report.ts` define the other three
-entities as identity + foreign-key + audit + denormalised-state stubs:
+The four fire tables and the district seed data live in Postgres, owned by Atlas migrations:
+`apps/api/src/migrations/20260528125801_add_fire_entities.sql` creates the `districts`, `fireIncidents`,
+`situationReports`, and `finalReports` tables (with their UNIQUE constraints inlined), and
+`20260528125802_seed_districts.sql` inserts the five Victorian districts from *Districts*.
 
-- `FireIncident` — `id`, `districtId`, `createdBy`, `createdAt`, `updatedAt`.
-- `SituationReport` — `id`, `fireIncidentId`, `reportNumber`, `districtId`, `isParentDeleted`, `submittedBy`,
-  `submittedAt`, `createdAt`.
-- `FinalReport` — `id`, `fireIncidentId`, `districtId`, `isParentDeleted`, `isSignedOff`, `signedOffAt`, `signedOffBy`,
-  `signOffRemovedAt`, `signOffRemovedBy`, `createdBy`, `createdAt`, `updatedAt`.
-
-All three stubs use `Roles.admin` uniformly across `allowApiRead` / `allowApiInsert` / `allowApiUpdate` /
-`allowApiDelete`; no `apiPrefilter`, no lifecycle hooks, no `Relations` decorators, no cross-field validators.
-`final-report.ts` also exports `finalReportSchemaExtras` (UNIQUE on `fireIncidentId`).
-
-The per-entity `SchemaExtras` convention is established: each entity that needs DB-level DDL beyond `CREATE TABLE
-columns + PRIMARY KEY` exports a sibling `readonly string[]` of raw SQL fragments. `apps/api/src/config.ts` registers
-the four fire entities and collates the extras into a single `schemaExtras` export. `apps/api/src/db/sync-to-desired.ts`
-runs them against the Atlas scratch DB after `ensureSchema` so Atlas inspects the constraints and emits them in the
-diff.
-
-Two Atlas migrations cover Phase 1: `apps/api/src/migrations/20260528125801_add_fire_entities.sql` (auto-generated, four
-`CREATE TABLE` statements with both UNIQUE constraints inlined) and
-`apps/api/src/migrations/20260528125802_seed_districts.sql` (hand-written, inserts the five Victorian districts from
-*Districts*).
+The per-entity `SchemaExtras` convention is established: each entity that needs DB-level DDL beyond `CREATE TABLE`
+columns + `PRIMARY KEY` exports a sibling `readonly string[]` of raw SQL fragments (`districtSchemaExtras`,
+`fireIncidentSchemaExtras`, `finalReportSchemaExtras`). `apps/api/src/config.ts` registers the entities and collates the
+extras into a single `schemaExtras` export; `apps/api/src/db/sync-to-desired.ts` runs them against the Atlas scratch DB
+after `ensureSchema`, so Atlas inspects the constraints and emits them in each diff.
 
 ### Phase 2: Domain Entities
 
-**Status: Pending.**
+**Status: Complete.**
 
-Widen the three stubs to the target field schemas in *Entities*. Define the eleven enums as string-literal unions in
-`libs/shared/domain/src/fire/enums.ts`. Create `libs/shared/domain/src/fire/helpers.ts` with `TERMINAL_STATUSES`,
-`SAFE_VARIANT_STATUSES`, `ACTIVE_CONTAINED_STATUSES`, `POTENTIAL_ORDER`, `LEVEL_ORDER`, the time constants, and the
-three exported computations (`computeFinancialYear`, `computeGlobalIncidentId`, `computeNextReportDue`). Replace the
-uniform admin-only stub permissions with the role-based predicates per the *Permission Matrix*; add district-scoped
-`apiPrefilter` to all four entities; add `saving` / `saved` lifecycle hooks per *Lifecycle Hooks* (including the
-`__serverInternal` flag pattern for server-side parent updates); add cross-field validators from *Validation Rules* that
-field-level decorators cannot express; add `Relations.toOne` / `Relations.toMany` decorators. Any new DB-level
-constraints flow through the per-entity `SchemaExtras` arrays. Generate the follow-up Atlas migration for the added
-columns. All added columns carry Remult's standard defaults (`NOT NULL DEFAULT '' / 0 / false` for non-nullable types;
-`NULL` for `Date | undefined`), so Atlas's `data_depend` MF103 check does not trigger.
+The three fire entities carry their full field schemas from *Entities*, with role-based permissions per the *Permission
+Matrix*, district-scoped `apiPrefilter`, `saving` / `saved` lifecycle hooks per *Lifecycle Hooks* (using the
+server-internal flag for server-side parent updates), cross-field validators from *Validation Rules* that field-level
+decorators cannot express, and `Relations.toOne` / `Relations.toMany` decorators. The eleven enums are string-literal
+unions in `libs/shared/domain/src/fire/enums.ts`. `helpers.ts` holds `TERMINAL_STATUSES`, `SAFE_VARIANT_STATUSES`,
+`ACTIVE_CONTAINED_STATUSES`, `POTENTIAL_ORDER`, `LEVEL_ORDER`, the time constants, and the three computations
+(`computeFinancialYear`, `computeGlobalIncidentId`, `computeNextReportDue`). The
+`20260528143632_widen_fire_entities.sql` and `20260528145650_make_optional_fields_nullable.sql` migrations add the
+columns; every column carries a Remult default (`NOT NULL DEFAULT '' / 0 / false` for non-nullable types, `NULL` for
+`Date | undefined`), so Atlas's `data_depend` MF103 check does not trigger.
 
 **Demo moment: four entity files produce a full API with auth, district-scoped row filtering, and business rules. No
 controllers written.**
 
 ### Phase 3: Domain Operations
 
-**Status: Pending.**
+**Status: Complete.**
 
-Add the four BackendMethods from *Domain Operations*: `getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`.
-Business logic lives on the entities.
+The four BackendMethods from *Domain Operations* live on their entities — `getNextFireNumber`, `escalate`, and
+`softDelete` on `FireIncident`, `removeSignOff` on `FinalReport`. Each models expected errors with `neverthrow`
+internally and throws only at the RPC boundary. `FinalReport.signOffRemovedReason`, added by
+`20260529022315_add_signoff_removed_reason.sql`, records the reason supplied to `removeSignOff`. A shared-domain Vitest
+suite (`bunx nx test shared-domain`) covers the `helpers.ts` cadence math and all four BackendMethods.
 
 **Demo moment: business logic on the entity, callable from frontend with type safety.**
 

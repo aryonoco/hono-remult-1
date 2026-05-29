@@ -107,7 +107,39 @@ export class TaskListComponent {
 
 ---
 
-## Wrapping BackendMethod Calls
+## Inside the BackendMethod (server)
+
+Model expected errors with `safeTry`/`Result`, then convert to a thrown `Error` **only at the RPC
+boundary** — a `Result` cannot cross Remult's RPC boundary (it serialises to a bare
+`{value}`/`{error}` and loses its class; Remult's error transport *is* exceptions).
+
+```typescript
+@BackendMethod({ allowed: [Roles.stateOfficer, Roles.admin] })
+static async escalate(fireId: string, newLevel: IncidentLevel): Promise<void> {
+  const result = await safeTry(async function* () {
+    // eslint-disable-next-line neverthrow/must-use-result -- yield* consumes the Result
+    const fire = yield* ResultAsync.fromPromise(remult.repo(FireIncident).findId(fireId), toError);
+    if (!fire) {
+      return err(new Error('Fire not found'));
+    }
+    // …more guards return err(new Error(...))…
+    return ok(undefined);
+  });
+  result.match(
+    () => undefined,
+    (e) => {
+      throw e; // single boundary throw
+    },
+  );
+}
+```
+
+The `eslint-disable` on each `yield*` is required because `must-use-result` cannot see through `safeTry` — see
+*safeTry* in `api-reference.md`.
+
+---
+
+## Wrapping BackendMethod Calls (frontend)
 
 ```typescript
 // BackendMethods are also Promises
@@ -158,7 +190,8 @@ ResultAsync.fromPromise(repo.find(), toError)
 | Cross-field validation | Remult `validation` lifecycle hook |
 | Component-level error display | neverthrow `ResultAsync` + signal |
 | Chaining multiple Remult operations | neverthrow `safeTry` or `.andThen()` |
-| BackendMethod error handling | neverthrow on the frontend call |
+| BackendMethod errors (server) | model with `safeTry`/`Result` inside; throw only at the RPC boundary |
+| BackendMethod errors (frontend) | wrap the call in `ResultAsync.fromPromise` |
 | LiveQuery errors | Remult's built-in subscription error handling |
 
 **Rule of thumb:** Remult handles validation and auth errors at the entity level. neverthrow handles error propagation

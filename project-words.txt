@@ -79,6 +79,7 @@ Barwon
 Gippsland
 Dedjtr
 Dept
+AEST
 
 # Software / codebase terms
 codegen

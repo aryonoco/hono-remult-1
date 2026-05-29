@@ -24,7 +24,6 @@
       "correctness": "error",
       "nursery": {
         "useExplicitType": "error",
-        "noTernary": "error",
         "noUselessReturn": "error"
       },
       "performance": "error",
@@ -85,7 +84,7 @@
       }
     },
     {
-      "includes": ["*.config.mjs"],
+      "includes": ["*.config.mjs", "**/vitest.config.ts"],
       "linter": {
         "rules": {
           "style": {
@@ -111,11 +110,18 @@
       },
       "linter": {
         "rules": {
+          "complexity": {
+            "noExcessiveLinesPerFunction": "off"
+          },
+          "nursery": {
+            "useExplicitType": "off"
+          },
           "suspicious": {
             "noExplicitAny": "off"
           },
           "style": {
-            "noNonNullAssertion": "off"
+            "noNonNullAssertion": "off",
+            "noMagicNumbers": "off"
           }
         }
       }

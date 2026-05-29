@@ -13,7 +13,8 @@ against the existing EMI stack, and `02-fire-showcase-overview.md` for the speci
 NX workspace on the Bun runtime. TypeScript in ultra-strict mode. Biome handles lint and format for TS, CSS, and JSON
 with every rule category set to error; Prettier handles HTML templates only; ESLint is scoped to
 `neverthrow/must-use-result` and `@nx/enforce-module-boundaries`. Runtime versions pinned via `mise`. `bun run check:ci`
-is the single CI gate.
+is the single CI gate. Unit tests run on Vitest via `bun run test` (`nx run-many -t test`); the shared-domain library
+is the first suite (cadence helpers + the fire BackendMethods).
 
 Three NX scopes — `scope:shared`, `scope:web`, `scope:api` — with dependency rules and `bannedExternalImports` that stop
 Angular code reaching the API, Hono code reaching the browser, and platform-specific code reaching the shared domain in
@@ -35,18 +36,22 @@ routes exist.
 
 ### Shared domain library
 
-`libs/shared/domain/` is the source of truth for entities. Holds the `Task` example entity that exercises the full
-decorator surface end-to-end (granular CRUD permissions, owner-or-admin row-level update, admin-only delete,
-`apiPrefilter` for row visibility, a `saving` lifecycle hook for audit population, field-level read-only protection),
-the `District` fire-showcase entity in its target form, and three identity-only stubs (`FireIncident`,
-`SituationReport`, `FinalReport`) that Phase 2 of the fire showcase widens to their full field schemas, role-based
-permissions, lifecycle hooks, and relations. The `Task` entity is removed in Phase 4 of the showcase when the root `App`
-component becomes a routed shell.
+`libs/shared/domain/` is the source of truth for entities. It holds the `Task` example entity, which exercises the
+full decorator surface (granular CRUD permissions, owner-or-admin row-level update, admin-only delete, `apiPrefilter`
+for row visibility, a `saving` lifecycle hook for audit population, field-level read-only protection); the four
+fire-showcase entities — `District`, `FireIncident`, `SituationReport`, `FinalReport` — each with its full field
+schema, role-based and row-level permissions, district-scoped `apiPrefilter`, `saving` / `saved` lifecycle hooks, and
+relations; the eleven fire-domain enums; the `helpers.ts` computation module (financial-year, global-incident-id, and
+report-cadence math, plus the shared `withServerInternal` lock helper); and the four fire BackendMethods
+(`getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`). A Vitest suite covers the cadence helpers and every
+BackendMethod. `02-fire-showcase-overview.md` is the full specification.
 
 ### Error handling convention
 
 All expected failures flow through `neverthrow` `Result` / `ResultAsync`. The `must-use-result` ESLint rule guarantees
-no Result is silently discarded. Throwing is reserved for genuine bugs and unrecoverable failures.
+no Result is silently discarded. Throwing is reserved for genuine bugs and unrecoverable failures — and for the single
+RPC boundary inside each BackendMethod, where a modelled `Result` is converted to a thrown error because that is the
+form Remult's transport carries across the wire.
 
 ### Dev authentication
 
@@ -83,32 +88,32 @@ Remult by design does not express DB-level constraints (UNIQUE, INDEX, CHECK) in
 convention is per-entity `SchemaExtras` arrays: each entity that needs additional DDL exports a `readonly string[]` of
 raw SQL fragments alongside the class; `apps/api/src/db/sync-to-desired.ts` collates and applies them to the scratch DB
 after `ensureSchema`, so Atlas sees the constraints in the desired state and auto-generates them in the next migration
-diff. Established with the fire showcase in Phase 1.
+diff. Every fire-showcase entity that needs DB-level constraints uses this convention.
 
 ---
 
 ## To Build
 
-### Fire incident showcase
+### Fire incident showcase — frontend and demo
 
-Specified in detail in `02-fire-showcase-overview.md`. The Phase 1 platform-level groundwork (four roles, eight dev
-users with `CurrentUser` district carriage, the `District` entity, identity stubs for the other three fire entities, the
-per-entity `SchemaExtras` convention, the schema and seed migrations) is reflected in the *In Place* sections above.
-Phases 2–5 remain: business columns and lifecycle hooks on the three stubbed entities, the eleven enums plus the
-`helpers.ts` computation module, role-based permission predicates and district-scoped `apiPrefilter`, four
-BackendMethods (`getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`), the lazy-loaded Angular feature (list,
-detail with sitrep timeline, incident form, sitrep form), and the closing "add one field, two files, no codegen" demo —
-the headline argument for the stack. See `02-fire-showcase-overview.md` *Implementation Phases* for per-phase scope.
+The fire domain layer is complete — see *Shared domain library* above and `02-fire-showcase-overview.md` for the full
+specification. What remains is the user-facing feature and the closing demo: a lazy-loaded Angular feature under
+`features/fire-incidents/` (incident list, incident detail with situation-report timeline and final-report panel,
+incident form, situation-report form); the human-readable enum labels (`enum-display.ts`) and status-badge classes
+(`ui.ts`) those screens consume; and the "add one field, two files, no codegen" demo that is the headline argument for
+the stack. See `02-fire-showcase-overview.md` *Implementation Phases (Phase 4–5)* for per-phase scope.
 
 ### Angular feature structure
 
-`features/` folder with lazy-loaded routes. Introduced alongside the fire showcase rather than as standalone work —
-`features/fire-incidents/` is the first to land. The root `App` component becomes a routed shell at the same time.
+`features/` folder with lazy-loaded routes, landing with the fire feature (`features/fire-incidents/` is the first).
+The root `App` component becomes a routed shell at the same time, and the `Task` example entity — currently hosted
+inline in `App` — is retired.
 
-### Backend operations, relations, cross-entity logic
+### Cross-entity operations
 
-`@BackendMethod`s (instance and static), entity relations (`Relations.toOne`, `Relations.toMany`), and `*.operations.ts`
-files for cross-entity work. Same patterns then repeat for every subsequent domain.
+Static `@BackendMethod`s and entity relations (`Relations.toOne` / `Relations.toMany`) are in place in the fire domain.
+Logic that belongs to no single entity will live in `*.operations.ts` files; none is needed yet. The same entity-first
+patterns repeat for every subsequent domain.
 
 ### Real authentication (Entra ID)
 

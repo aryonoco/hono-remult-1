@@ -9,6 +9,7 @@ versions:
     @echo "just:       $(just --version)"
     @echo "pre-commit: $(pre-commit --version)"
     @echo "cspell:     $(cspell --version 2>/dev/null || echo not-found)"
+    @echo "mdlint:     $(markdownlint-cli2 --version 2>/dev/null || echo not-found)"
 
 setup:
     bun install --frozen-lockfile
@@ -29,12 +30,16 @@ fmt:
     bun run format
 fmt-check:
     bun run format:check
+fmt-html-check:
+    bun run format:html:check
 lint:
     bun run lint
 typecheck:
-    bunx tsc --noEmit
+    bun run typecheck
 spell:
-    bunx cspell --no-progress "**/*.{ts,html,md,json}"
+    cspell --no-progress "**/*.{ts,html,md,json}"
+markdownlint:
+    markdownlint-cli2 "**/*.md" "#node_modules" "#.nx" "#.angular" "#dist" "#coverage" "#tmp"
 
 # Tests
 test:
@@ -48,8 +53,10 @@ build:
 clean:
     rm -rf dist tmp .nx/cache .angular/cache coverage
 
-# CI gate
-ci: fmt-check lint typecheck spell test build
+# CI gate — pre-commit hooks plus every correctness check. No DB needed (tests use InMemory).
+# `pre-commit-run` can auto-fix (biome/whitespace/EOF) and then fail; re-run after it tidies the tree.
+# `check` = biome ci (lint + format + import organisation) + eslint + tsc -b --noEmit.
+ci: pre-commit-run check fmt-html-check spell markdownlint test build
 
 # Pre-commit
 pre-commit-run:

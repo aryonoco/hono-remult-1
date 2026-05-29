@@ -153,22 +153,11 @@ async changeOwner(newOwnerId: string) {
 
 ---
 
-## Integration with neverthrow
+## Error handling
 
-**Pattern:** Wrap BackendMethod calls in `ResultAsync.fromPromise()` on the frontend.
-
-```typescript
-// Frontend component
-const result = await ResultAsync.fromPromise(
-  task.toggleCompleted(),
-  (error) => ({ tag: 'INTERNAL' as const, message: String(error) }),
-);
-
-result.match(
-  () => { /* success — UI already updated */ },
-  (error) => errorSignal.set(error.message),
-);
-```
+For logic with multiple expected-error branches, model them with `neverthrow` inside the method and throw once at the
+RPC boundary; the frontend wraps the call in `ResultAsync.fromPromise`. Full pattern and example:
+`neverthrow/remult-integration.md`.
 
 ---
 

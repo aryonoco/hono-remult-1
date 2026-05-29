@@ -1,5 +1,7 @@
+import { err, ok, ResultAsync, safeTry } from 'neverthrow';
 import {
   Allow,
+  BackendMethod,
   Entity,
   Fields,
   type LifecycleEvent,
@@ -35,8 +37,12 @@ import {
   computeGlobalIncidentId,
   INITIAL_REPORT_MS,
   isServerInternal,
+  LEVEL_ORDER,
   LIMITS,
+  TERMINAL_STATUSES,
+  toError,
   validateAdjacentTimestamps,
+  withServerInternal,
 } from './helpers';
 import { SituationReport } from './situation-report';
 
@@ -376,6 +382,117 @@ export class FireIncident {
     fields: { fireIncidentId: 'id' },
   } as RelationOptions<FireIncident, FinalReport, FireIncident>)
   finalReport?: FinalReport;
+
+  @BackendMethod({ allowed: Allow.authenticated })
+  static async getNextFireNumber(districtId: number): Promise<number> {
+    const fy = computeFinancialYear(new Date());
+    return (await remult.repo(FireIncident).count({ districtId, financialYear: fy })) + 1;
+  }
+
+  @BackendMethod({ allowed: [Roles.stateOfficer, Roles.admin] })
+  static async escalate(fireId: string, newLevel: IncidentLevel): Promise<void> {
+    // must-use-result lacks yield* support; safeTry consumes each Result.
+    const result = await safeTry(async function* () {
+      // eslint-disable-next-line neverthrow/must-use-result
+      const fire = yield* ResultAsync.fromPromise(
+        remult.repo(FireIncident).findId(fireId),
+        toError,
+      );
+      if (!fire) {
+        return err(new Error('Fire not found'));
+      }
+      if (fire.isDeleted) {
+        return err(new Error('Fire is soft-deleted'));
+      }
+      // eslint-disable-next-line neverthrow/must-use-result
+      const fr = yield* ResultAsync.fromPromise(
+        remult.repo(FinalReport).findFirst({ fireIncidentId: fireId }),
+        toError,
+      );
+      if (fr?.isSignedOff) {
+        return err(new Error('Fire is signed off; call removeSignOff first'));
+      }
+      if (LEVEL_ORDER[newLevel] <= LEVEL_ORDER[fire.incidentLevel]) {
+        return err(new Error('newLevel must be strictly greater than current level'));
+      }
+      // eslint-disable-next-line neverthrow/must-use-result
+      yield* ResultAsync.fromPromise(
+        withServerInternal(() =>
+          remult
+            .repo(FireIncident)
+            .update(fireId, { incidentLevel: newLevel, statusAsAt: new Date() }),
+        ),
+        toError,
+      );
+      return ok(undefined);
+    });
+    result.match(
+      () => undefined,
+      (e) => {
+        throw e;
+      },
+    );
+  }
+
+  @BackendMethod({ allowed: [Roles.stateOfficer, Roles.admin] })
+  static async softDelete(fireId: string, reason: string): Promise<void> {
+    // must-use-result lacks yield* support; safeTry consumes each Result.
+    const result = await safeTry(async function* () {
+      if (reason.length < 1 || reason.length > LIMITS.description) {
+        return err(new Error('reason must be 1-500 chars'));
+      }
+      // eslint-disable-next-line neverthrow/must-use-result
+      const fire = yield* ResultAsync.fromPromise(
+        remult.repo(FireIncident).findId(fireId),
+        toError,
+      );
+      if (!fire) {
+        return err(new Error('Fire not found'));
+      }
+      if (!TERMINAL_STATUSES.includes(fire.status)) {
+        return err(new Error('Fire must be in a terminal status to be soft-deleted'));
+      }
+      // eslint-disable-next-line neverthrow/must-use-result
+      const fr = yield* ResultAsync.fromPromise(
+        remult.repo(FinalReport).findFirst({ fireIncidentId: fireId }),
+        toError,
+      );
+      if (fr?.isSignedOff) {
+        return err(new Error('Fire is signed off; call removeSignOff first'));
+      }
+      // eslint-disable-next-line neverthrow/must-use-result
+      yield* ResultAsync.fromPromise(
+        withServerInternal(async () => {
+          // Children FIRST (while the parent is still not-deleted), parent LAST —
+          // finalReportUpdateSaving rejects any update once parent.isDeleted, even when internal.
+          const sitreps = await remult
+            .repo(SituationReport)
+            .find({ where: { fireIncidentId: fireId } });
+          await Promise.all(
+            sitreps.map((s) =>
+              remult.repo(SituationReport).update(s.id, { isParentDeleted: true }),
+            ),
+          );
+          if (fr) {
+            await remult.repo(FinalReport).update(fr.id, { isParentDeleted: true });
+          }
+          await remult.repo(FireIncident).update(fireId, {
+            isDeleted: true,
+            deletionReason: reason,
+            nextReportDue: null,
+          });
+        }),
+        toError,
+      );
+      return ok(undefined);
+    });
+    result.match(
+      () => undefined,
+      (e) => {
+        throw e;
+      },
+    );
+  }
 }
 
 export const fireIncidentSchemaExtras: readonly string[] = [
