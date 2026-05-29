@@ -4,6 +4,15 @@ import { remult } from 'remult';
 import { FireStatus, IncidentLevel, Potential } from './enums';
 import type { FireIncident } from './fire-incident';
 
+// Augment remult's request-scoped context (its documented extensibility point) with a server-internal marker, so
+// entity lifecycle hooks can relax API guards during trusted server-side work. `remult.context` is isolated per
+// request, and the typed property needs no cast onto the remult object.
+declare module 'remult' {
+  interface RemultContext {
+    serverInternal?: boolean;
+  }
+}
+
 const RAPID_REPORT_MS = 900_000; // 15 minutes
 const ACTIVE_GOING_MS = 7_200_000; // 2 hours
 const ACTIVE_CONTAINED_MS = 86_400_000; // 24 hours
@@ -11,10 +20,6 @@ const FY_BOUNDARY_MONTH = 6;
 const TWO_DIGIT_MOD = 100;
 const FIRE_NUMBER_DIGITS = 3;
 const RADIX_DECIMAL = 10;
-
-interface WithInternal {
-  __serverInternal?: boolean;
-}
 
 export type TimestampField =
   | 'fireStartedAt'
@@ -158,17 +163,16 @@ export function computeNextReportDue(args: ComputeNextReportDueArgs): Date | nul
 }
 
 export async function withServerInternal<T>(fn: () => Promise<T>): Promise<T> {
-  const r = remult as unknown as WithInternal;
-  r.__serverInternal = true;
+  remult.context.serverInternal = true;
   try {
     return await fn();
   } finally {
-    r.__serverInternal = false;
+    remult.context.serverInternal = false;
   }
 }
 
 export function isServerInternal(): boolean {
-  return (remult as unknown as WithInternal).__serverInternal === true;
+  return remult.context.serverInternal === true;
 }
 
 export function validateAdjacentTimestamps(

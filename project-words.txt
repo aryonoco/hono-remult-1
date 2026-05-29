@@ -135,3 +135,6 @@ sidenav
 teardown
 dialogs
 wcag
+labelledby
+describedby
+maxlength

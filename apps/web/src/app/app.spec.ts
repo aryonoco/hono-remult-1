@@ -1,6 +1,6 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
+import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { App } from './app';
@@ -15,7 +15,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideRouter([]),
-        provideNoopAnimations(),
+        { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
         { provide: BreakpointObserver, useValue: breakpointStub },
       ],
     }).compileComponents();
@@ -51,7 +51,7 @@ describe('App (anonymous user)', () => {
       imports: [App],
       providers: [
         provideRouter([]),
-        provideNoopAnimations(),
+        { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
         { provide: BreakpointObserver, useValue: breakpointStub },
         { provide: DevAuthService, useValue: anonymousDevAuth },
       ],
