@@ -1131,7 +1131,8 @@ list:
 ### Status Colour Palette
 
 Tailwind utility classes applied to a `<span class="...">` badge, exposed as `STATUS_BADGE_CLASSES:
-Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts` (a Phase 4 deliverable):
+Readonly<Record<FireStatus, string>>` in `libs/shared/domain/src/fire/ui.ts` (with the shared `STATUS_BADGE_BASE` base
+class):
 
 | Status | Classes |
 |---|---|
@@ -1144,8 +1145,8 @@ Record<FireStatus, string>` in `libs/shared/domain/src/fire/ui.ts` (a Phase 4 de
 
 ### Enum Display Location
 
-`libs/shared/domain/src/fire/enum-display.ts` (a Phase 4 deliverable) exports one `Record<EnumValue, string>` per enum
-(using the Display Names from *Enums*), imported directly by Angular components.
+`libs/shared/domain/src/fire/enum-display.ts` exports one `Readonly<Record<EnumValue, string>>` per enum (using the
+Display Names from *Enums*), re-exported from the barrel for direct import by Angular components.
 
 The exact `Record` literals for both `ui.ts` and `enum-display.ts` are specified in
 *Frontend Architecture (Phase 4) → §3 Shared-domain UI files*.
@@ -1373,16 +1374,17 @@ flow, `resource()`/`liveQuery`, `ResultAsync` wrapping, `DestroyRef` cleanup, `p
 
 > **Status: implemented.** The build tooling and Material setup in this section are done and verified — `@nx/angular`
 > adopted, `nx.json` generator defaults, Material theme/providers/fonts, and biome `tailwindDirectives`. The
-> `check:ci`, `nx build web`, and `nx test` gates all pass with no warnings. §2 onward (shell, features, forms, Task
-> teardown) is pending.
+> `check:ci`, `nx build web`, and `nx test` gates all pass. Each subsection below carries its own status: §2 (app
+> shell), §3 (shared-domain UI files), and §12 (Task teardown) are implemented; §4 (forms engine) onward and the
+> feature screens remain pending.
 
 #### 1.1 Adopt `@nx/angular`
 
 This is an NX workspace, so Angular tooling is added the idiomatic NX way — the **`@nx/angular`** plugin — rather than
 the bare Angular CLI. (The plain `ng add @angular/material` no-ops here: with no `angular.json`, its schematic cannot
-resolve the project. `@nx/angular` provides the bridge that fixes that, plus first-class generators.) Install the
-plugin at the version matching NX (22.6) and run its init; it registers the plugin, works purely with the existing
-`project.json` files (it does **not** create an `angular.json`), and leaves the build targets untouched:
+resolve the project. `@nx/angular` provides the bridge that fixes that, plus first-class generators.) The plugin is
+installed at the version matching NX (22.6) and initialised; it registers the plugin, works purely with the existing
+`project.json` files (no `angular.json`), and leaves the build targets untouched. The commands that reproduce this:
 
 ```bash
 bun add -D @nx/angular@~22.6     # @nx/angular major MUST track the nx major on every upgrade
@@ -1392,9 +1394,9 @@ bunx nx g @nx/angular:init       # registers the plugin + generators; no angular
 (`nx add @nx/angular` also works and auto-selects the matching version, but it may shell out to npm; installing with
 `bun` then running `init` keeps the package manager consistent with `bun.lock`.)
 
-**Executors — keep `@angular/build`.** Leave the web app's `build` / `serve` / `test` targets on the
-`@angular/build:application` / `:dev-server` / `:unit-test` executors; adopt `@nx/angular` for its **generators and the
-Angular-schematic bridge only**. Migrating `build` to `@nx/angular:application` was trialled and **reverted**: Angular's
+**Executors — `@angular/build` retained.** The web app's `build` / `serve` / `test` targets stay on the
+`@angular/build:application` / `:dev-server` / `:unit-test` executors; `@nx/angular` is adopted for its **generators and
+the Angular-schematic bridge only**. Migrating `build` to `@nx/angular:application` was trialled and **reverted**: Angular's
 `@angular/build:unit-test` runner (NX's recommended Angular Vitest runner) only supports an `@angular/build:application`
 build target and prints `buildTarget … @nx/angular:application … is not supported … failures may occur` on every
 `nx test` when the build is on the wrapper. Keeping `@angular/build` avoids that warning entirely, **still gets NX task
@@ -1403,7 +1405,7 @@ only the `@nx/angular:application` extras (esbuild-plugin hooks, `indexHtmlTrans
 which this app needs. If those are ever required, migrate `build` **and** `serve` together (the dev-server falls back to
 webpack otherwise) **and** move the test target to `@nx/vite:test` to keep it warning-free.
 
-**Generator defaults.** Add a `generators` block to `nx.json` so `nx g` always emits conformant code:
+**Generator defaults.** `nx.json` carries a `generators` block so `nx g` always emits conformant code:
 
 ```json
 "generators": {
@@ -1439,16 +1441,16 @@ Dependencies — `@angular/material` + `@angular/cdk` plus **`@angular/animation
 bun add @angular/material@^21 @angular/cdk@^21 @angular/animations@^21
 ```
 
-With `@nx/angular` installed, `nx g @angular/material:ng-add --project=web` does now resolve the workspace — but its
-output (a prebuilt-style theme, fonts, and a possibly Zone-based animations provider) is mostly overwritten by the
-reconciliation below, so this project sets Material up **directly** to the exact end-state:
+With `@nx/angular` installed, `nx g @angular/material:ng-add --project=web` resolves the workspace, but its output (a
+prebuilt-style theme, fonts, and a possibly Zone-based animations provider) would be overwritten by the end state
+below, so this project configures Material **directly**:
 
 1. **Styles — two files (Material in SCSS, Tailwind in CSS).** Material M3 theming needs Sass
    (`@use '@angular/material'`), but Tailwind v4's `@import 'tailwindcss'` **cannot** be imported from a Sass file
-   (dart-sass tries to resolve it as a Sass import and fails). So split the global styles into two entries, both listed
-   in `apps/web/project.json` `build.options.styles` (order matters — the cascade-layer declaration must come first).
+   (dart-sass tries to resolve it as a Sass import and fails). The global styles are split into two entries, both listed
+   in `apps/web/project.json` `build.options.styles` (order matters — the cascade-layer declaration comes first).
 
-   `apps/web/src/styles.scss` (Material theme + cascade-layer order; replaces `styles.css`):
+   `apps/web/src/styles.scss` (Material theme + cascade-layer order):
 
    ```scss
    @use '@angular/material' as mat;
@@ -1470,38 +1472,43 @@ reconciliation below, so this project sets Material up **directly** to the exact
 
    ```css
    @import 'tailwindcss';
-   /* Tailwind must also scan libs holding class strings — STATUS_BADGE_CLASSES (Phase 4) will live in
+   /* Tailwind must also scan libs holding class strings — STATUS_BADGE_CLASSES lives in
       libs/shared/domain/src/fire/ui.ts — or those classes are purged from the production build. */
    @source '../../../libs/shared/domain/src';
    ```
 
-   Set `"styles": ["apps/web/src/styles.scss", "apps/web/src/tailwind.css"]`. `@angular/build` compiles SCSS with no
-   extra config; the `anyComponentStyle` budget (4 kB warn / 8 kB error) stays. Because `@source` is Tailwind-specific
-   syntax, enable it for biome so `biome ci` parses the file — add `"css": { "parser": { "tailwindDirectives": true } }`
-   to `biome.json`. `mat.theme()` with one palette emits both light and dark token values keyed off `color-scheme`, so
+   `build.options.styles` is `["apps/web/src/styles.scss", "apps/web/src/tailwind.css"]`. `@angular/build` compiles SCSS
+   with no extra config; the `anyComponentStyle` budget (4 kB warn / 8 kB error) applies. Because `@source` is
+   Tailwind-specific syntax, `biome.json` carries `"css": { "parser": { "tailwindDirectives": true } }` so `biome ci`
+   parses the file. `mat.theme()` with one palette emits both light and dark token values keyed off `color-scheme`, so
    the toggle only flips `data-theme`. **Tailwind is layout-only; all controls are Material.**
 
-2. **Providers (zoneless).** In `apps/web/src/app/app.config.ts`, after the existing providers add the **zoneless-safe**
+2. **Providers (zoneless).** `apps/web/src/app/app.config.ts` provides the **zoneless-safe**
    `provideAnimationsAsync()` (from `@angular/platform-browser/animations/async` — *not* the Zone-based
    `provideAnimations()`), `provideNativeDateAdapter()` (shared by `MatDatepicker` + `MatTimepicker`), and
    `{ provide: MAT_DATE_LOCALE, useValue: 'en-AU' }`.
 
-3. **Fonts.** Add the Roboto and Material Symbols Outlined `<link>`s to `apps/web/src/index.html`.
+3. **Fonts.** `apps/web/src/index.html` links the Roboto and Material Symbols Outlined fonts.
 
 4. **Palette.** The theme uses the default `mat.$azure-palette`.
 
 ### 2. App shell
 
-Convert the root `App` (currently the inline Task CRUD) into a routed shell:
+> **Status: implemented.**
 
-- **Layout:** a skip link (`<a href="#main">`) → `MatToolbar` (app title, `ThemeToggleComponent`, and the relocated
-  `<app-dev-user-switcher>`) → `MatSidenavContainer`; the sidenav holds nav links (`Incidents`), `<router-outlet>` sits
-  in `<mat-sidenav-content>` wrapped in `<main id="main">`. Sidenav mode is `side` on desktop, `over` on handset
-  (driven by `BreakpointObserver`, see §10).
-- **Component:** standalone; imports `RouterOutlet`, `RouterLink`, `RouterLinkActive`, `MatToolbarModule`,
-  `MatSidenavModule`, `MatListModule`, `MatButtonModule`, `MatIconModule`, `DevUserSwitcherComponent`,
-  `ThemeToggleComponent`. Drops `FormsModule`, the `Task` import, and all task signals/methods. Injects
-  `DevAuthService` and exposes `protected readonly currentUser` for nav.
+The root `App` is a routed Material shell:
+
+- **Layout:** a skip link (`<a href="#main">`) → `MatToolbar` (app title "Fire Incidents", `ThemeToggleComponent`, and
+  the toolbar-embedded `<app-dev-user-switcher>`) → `MatSidenavContainer`; the sidenav holds a nav link (`Incidents`)
+  and a "Signed in as …" / "Not signed in" line, and `<router-outlet>` sits in `<mat-sidenav-content>` wrapped in
+  `<main id="main">`. Sidenav mode is `side` on desktop, `over` on handset (driven by `BreakpointObserver`, see §10).
+- **Component:** standalone; imports `RouterOutlet`, `RouterLink`, `MatToolbarModule`, `MatSidenavModule`,
+  `MatListModule`, `MatButtonModule`, `MatIconModule`, `DevUserSwitcherComponent`, and `ThemeToggleComponent` — and no
+  `FormsModule` or `Task`. It injects `DevAuthService` and `BreakpointObserver`, exposing `protected readonly
+  currentUser` and `isHandset` signals.
+- **Material Symbols:** `app.config.ts` registers `material-symbols-outlined` as the default `<mat-icon>` font set
+  (`provideEnvironmentInitializer` + `MatIconRegistry.setDefaultFontSetClass`), so icon ligatures render against the
+  font linked in `index.html`.
 - **`apps/web/src/app/app.routes.ts`:**
 
   ```ts
@@ -1516,18 +1523,22 @@ Convert the root `App` (currently the inline Task CRUD) into a routed shell:
   ```
 
 - **Anonymous/empty-user state:** the dev-user switcher's "Anonymous" option leaves `remult.user` undefined, so every
-  `apiPrefilter` returns `{ id: ['__never__'] }` and all lists are empty. The **list screen** owns the empty-state
-  message ("Select a dev user to begin"); the shell must render without error when `currentUser()` is `undefined`.
-- **`ThemeService`** (`core/theme.service.ts`, `providedIn: 'root'`): a `signal<'light' | 'dark' | 'system'>` persisted
-  to `localStorage` (key `fire-theme`), plus an `effect()` that sets/removes `data-theme` on `document.documentElement`
-  (`'system'` removes the attribute → falls back to `color-scheme: light dark`). Mirrors the existing `DevAuthService`
-  localStorage+signal idiom. **`ThemeToggleComponent`** is a `mat-icon-button` cycling the signal.
+  `apiPrefilter` returns `{ id: ['__never__'] }` and all lists are empty. The shell renders without error when
+  `currentUser()` is `undefined` (the sidenav shows "Not signed in"); the **list screen** (pending) owns the richer
+  empty-state message ("Select a dev user to begin").
+- **`ThemeService`** (`core/theme.service.ts`, `providedIn: 'root'`) holds a `signal<'light' | 'dark' | 'system'>`
+  persisted to `localStorage` (key `fire-theme`), plus an `effect()` that sets/removes `data-theme` on
+  `document.documentElement` (`'system'` removes the attribute → falls back to `color-scheme: light dark`). It mirrors
+  the `DevAuthService` localStorage+signal idiom. **`ThemeToggleComponent`** is a `mat-icon-button` that cycles the
+  signal `light → dark → system`.
 
 ### 3. Shared-domain UI files (`scope:shared`)
 
-Two new files in `libs/shared/domain/src/fire/`. They import only TypeScript/`remult` types — **no `@angular/*`** (the
-NX boundary forbids it). Both use exhaustive `Readonly<Record<Enum, string>>` so the compiler guarantees every enum
-value is covered. Re-export both from `libs/shared/domain/src/index.ts` (named exports, matching the file's style).
+> **Status: implemented.**
+
+Two files in `libs/shared/domain/src/fire/`, both re-exported from `libs/shared/domain/src/index.ts` (named exports,
+matching the file's style). They import only TypeScript/`remult` types — **no `@angular/*`** (the NX boundary forbids
+it). Both use exhaustive `Readonly<Record<Enum, string>>` so the compiler guarantees every enum value is covered.
 
 **`ui.ts`** (status badge classes — Tailwind utilities consumed by the `StatusBadgeComponent`):
 
@@ -1679,12 +1690,14 @@ export const LEGAL_ACTION_STATUS_LABELS: Readonly<Record<LegalActionStatus, stri
 };
 ```
 
-**Backend prerequisite:** export the existing private `TIMESTAMP_PAIRS` (and its `TimestampField` type) from
-`libs/shared/domain/src/fire/helpers.ts` so the form's cross-field validator and the server's
-`validateAdjacentTimestamps` share one list. `LIMITS`, `TERMINAL_STATUSES`, `SAFE_VARIANT_STATUSES`, `LEVEL_ORDER`,
-and `POTENTIAL_ORDER` are already exported.
+**Shared with the backend:** `TIMESTAMP_PAIRS` (and its `TimestampField` type) is exported from
+`libs/shared/domain/src/fire/helpers.ts` and re-exported from the barrel, so the form's cross-field validator and the
+server's `validateAdjacentTimestamps` share one list. `LIMITS`, `TERMINAL_STATUSES`, `SAFE_VARIANT_STATUSES`,
+`LEVEL_ORDER`, and `POTENTIAL_ORDER` are exported alongside it.
 
 ### 4. Metadata-driven forms engine (`apps/web/src/app/shared/forms/`)
+
+> **Status: pending.** `apps/web/src/app/shared/forms/` does not exist yet.
 
 A small, typed, signal-friendly engine that builds a Typed Reactive `FormGroup` from a Remult repository plus a
 per-entity config. Adding a field to an entity surfaces it automatically (this is what keeps the Phase 5 demo at
@@ -1843,6 +1856,8 @@ Enum hints: `status`, `potentialLoss`, `potentialSpread`.
 
 ### 5. `<app-datetime-field>` component (`shared/components/datetime-field/`)
 
+> **Status: pending.**
+
 Standalone, signal-based, implements `ControlValueAccessor` so it slots into reactive forms like any control.
 
 - **Inputs:** `value = model<Date | null>(null)` · `label = input<string>('')` · `min = input<Date | null>(null)` ·
@@ -1858,6 +1873,8 @@ Standalone, signal-based, implements `ControlValueAccessor` so it slots into rea
   JS `Date`; serialisation to the API is Remult's concern.
 
 ### 6. Permission gating (`shared/auth/permissions.ts`)
+
+> **Status: pending.**
 
 A single source of truth for UI affordances. Pure functions take the entity (and helper flags) plus the
 `CurrentUser`, and reconcile the **coarse** entity `allowApi*` predicates with the **fine** saving-hook rules (which do
@@ -1882,6 +1899,8 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
 ### 7. Incident List (`features/fire-incidents/incident-list/`)
 
+> **Status: pending.** Only a placeholder `IncidentListComponent` (an inline "coming soon" message) exists today.
+
 - **Data:** `repo.liveQuery({ include: { district: true }, orderBy })` subscribed into a `signal<FireIncident[]>`,
   cleaned up with `DestroyRef.onDestroy`. LiveQuery (not `resource()`) because sitrep saves mutate parent rows
   server-side and the list should reflect that live. District scoping is server-side via `apiPrefilter` — the client
@@ -1898,6 +1917,8 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
   dev user to begin" when anonymous); error → inline alert + snackbar.
 
 ### 8. Incident Detail (`features/fire-incidents/incident-detail/`)
+
+> **Status: pending.**
 
 - **Data:** route param `:id`; `resource()` loading the fire with
   `include: { district: true, situationReports: true, finalReport: true }`, with an explicit reload after any action.
@@ -1923,6 +1944,8 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
 ### 9. Dialogs (`shared/dialogs/`, `features/fire-incidents/dialogs/`)
 
+> **Status: pending.**
+
 - **`ConfirmReasonDialogComponent`** (`MatDialog`): inputs `{ title, message, confirmLabel }`; a required textarea with
   `maxLength = LIMITS.description` (500). Returns `{ reason } | undefined`. Used by **softDelete** and **removeSignOff**;
   the caller invokes the BackendMethod via `ResultAsync.fromPromise(FireIncident.softDelete(id, reason), …)` /
@@ -1935,9 +1958,10 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
 ### 10. Cross-cutting patterns
 
+> **Status: pending.** (`ThemeService` from §2 is built; the services and patterns below are not.)
+
 - **Notifications:** `NotificationService` (`core/notification.service.ts`) wrapping `MatSnackBar` (`success`, `error`).
-  All `ResultAsync` error branches call it. Promote the existing `toErrorMessage` helper (from the old `app.ts`) to
-  `shared/util/to-error-message.ts`.
+  All `ResultAsync` error branches call it. Add a `toErrorMessage` helper at `shared/util/to-error-message.ts`.
 - **Loading/empty/error:** `resource()` screens use `@switch (resource.status())` → spinner / content / error panel;
   empty handled inside the resolved branch (`@if (items().length === 0)`). LiveQuery screens use an explicit `loading`
   signal set false on first emission.
@@ -1958,71 +1982,71 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
 ```text
 apps/web/src/
-  styles.scss                                   (renamed; Material theme + cascade layers)
-  index.html                                    (+ Roboto + Material Symbols <link>)
+  styles.scss                                   (built: Material theme + cascade layers)
+  index.html                                    (built: + Roboto + Material Symbols <link>)
   app/
-    app.ts / app.html                           (routed shell: toolbar + sidenav)
-    app.config.ts                               (+ animationsAsync, native date adapter, en-AU locale)
-    app.routes.ts                               (lazy → features/fire-incidents)
+    app.ts / app.html                           (built: routed shell — toolbar + sidenav)
+    app.config.ts                               (built: + animationsAsync, native date adapter, en-AU locale, icon font)
+    app.routes.ts                               (built: lazy → features/fire-incidents)
     core/
-      remult.provider.ts / dev-auth.*           (unchanged)
-      theme.service.ts                          (NEW)
-      notification.service.ts                   (NEW)
+      remult.provider.ts / dev-auth.*           (built)
+      theme.service.ts                          (built)
+      notification.service.ts                   (pending)
     shared/
       components/
-        dev-user-switcher.ts                    (relocated into toolbar)
-        theme-toggle/theme-toggle.ts            (NEW)
-        datetime-field/datetime-field.ts        (NEW: app-datetime-field, CVA)
-        status-badge/status-badge.ts            (NEW: ui.ts + enum-display)
+        dev-user-switcher.ts                    (built: embedded in toolbar)
+        theme-toggle/theme-toggle.ts            (built)
+        datetime-field/datetime-field.ts        (pending: app-datetime-field, CVA)
+        status-badge/status-badge.ts            (pending: ui.ts + enum-display)
       forms/
-        form-engine.ts / form-engine.types.ts   (NEW)
-        cross-field-validators.ts               (NEW)
-        dynamic-form.ts                          (NEW)
-      auth/permissions.ts                       (NEW)
-      util/to-error-message.ts                  (NEW: promoted)
-      dialogs/confirm-reason-dialog.ts          (NEW)
+        form-engine.ts / form-engine.types.ts   (pending)
+        cross-field-validators.ts               (pending)
+        dynamic-form.ts                          (pending)
+      auth/permissions.ts                       (pending)
+      util/to-error-message.ts                  (pending)
+      dialogs/confirm-reason-dialog.ts          (pending)
     features/fire-incidents/
-      fire-incidents.routes.ts                  (NEW: list / new / :id / :id/edit / :id/sitrep / :id/final[/edit])
-      incident-list/ · incident-detail/
-      incident-form/ (+ fire-incident.form-config.ts)
-      sitrep-form/ (+ situation-report.form-config.ts)
-      final-report-form/ (+ final-report.form-config.ts)
-      dialogs/escalate-dialog.ts
+      fire-incidents.routes.ts                  (seam built; full set pending: list / new / :id / :id/edit / :id/sitrep / :id/final[/edit])
+      incident-list/ (placeholder) · incident-detail/ (pending)
+      incident-form/ (+ fire-incident.form-config.ts)        (pending)
+      sitrep-form/ (+ situation-report.form-config.ts)       (pending)
+      final-report-form/ (+ final-report.form-config.ts)     (pending)
+      dialogs/escalate-dialog.ts                (pending)
 libs/shared/domain/src/fire/
-  enum-display.ts · ui.ts                        (NEW, scope:shared)
+  enum-display.ts · ui.ts                        (built, scope:shared)
 ```
 
-**Testing.** Shared-domain Vitest adds exhaustiveness tests for `enum-display.ts` (every enum value has a label) and
-`ui.ts` (every `FireStatus` has a badge class). Web component tests (`@angular/build:unit-test`, Vitest + jsdom,
-`InMemoryDataProvider` + `remult.user` set as in `app.spec.ts`) cover: the `permissions.ts` table (each role × state),
-the form engine (excluded fields absent, enums→select, dates→datetime, validators attached), `<app-datetime-field>`
-(combine/clear), and list/detail button gating. Web tests do **not** re-test server rules — those are covered by the
-existing shared-domain backend suites.
+**Testing.** Shared-domain Vitest includes exhaustiveness tests for `enum-display.ts` (every enum value has a label)
+and `ui.ts` (every `FireStatus` has a badge class); the web suite covers the shell (`app.spec.ts`, which stubs
+`BreakpointObserver`/`DevAuthService` and needs no Remult) and `ThemeService` (`theme.service.spec.ts`). The pending web
+component tests (`@angular/build:unit-test`, Vitest + jsdom) cover the `permissions.ts` table (each role × state), the
+form engine (excluded fields absent, enums→select, dates→datetime, validators attached), `<app-datetime-field>`
+(combine/clear), and list/detail button gating — using `InMemoryDataProvider` + a set `remult.user` for data-bound
+components. Web tests do **not** re-test server rules — those are covered by the existing shared-domain backend suites.
 
-### 12. Task teardown (keep `bun run check:ci` green at each step)
+### 12. Task teardown
 
-1. Replace `App`'s inline Task CRUD with the routed shell (§2); rewrite `app.spec.ts` to assert the shell renders
-   (toolbar title) instead of "Tasks". `App` no longer imports `Task`. (Green.)
-2. Delete `libs/shared/domain/src/tasks/task.ts` and its `export { Task }` line in `index.ts`.
-3. Remove `Task` from the import and the `entities` array in `apps/api/src/config.ts`.
-4. Grep for stray `Task` references; fix any. Run `bun run check:ci` — green (Task fully gone from TS).
-5. `just migrate-generate drop_tasks` (`sync-to-desired.ts` rebuilds the scratch schema from the Task-less `entities`;
-   Atlas diffs and emits `DROP TABLE "tasks"`), then `bun run migrate:hash`; commit the SQL. Steps 1–4 are pure TS and
-   stay green; step 5 is the one local-DB step (the committed SQL is what CI sees).
+> **Status: complete.**
+
+The `Task` example is gone end-to-end: no `tasks/task.ts` entity and no `export { Task }` in the barrel; no `Task` in
+the `apps/api/src/config.ts` import or `entities` array; and no stray references anywhere (`bun run check:ci` is green).
+The `tasks` table is dropped by `apps/api/src/migrations/20260529112903_drop_tasks.sql` (`DROP TABLE "tasks";`),
+generated from the Task-less `entities` and recorded in `atlas.sum`. `App` is the routed shell (§2), and `app.spec.ts`
+asserts the shell renders (toolbar title "Fire Incidents") rather than the old Task list.
 
 ### 13. Build order, acceptance, and end-to-end verification
 
 **Sub-phases** (each independently green):
 
-- **4a** Adopt `@nx/angular` (init + `nx.json` generator defaults; keep `@angular/build` executors) → Material
-  theme/providers/fonts (two-file styles + biome `tailwindDirectives`) + theme toggle → routed shell → Task teardown →
-  app boots to an empty `incidents`, theme toggle persists and follows the OS, no `Task` anywhere, `just ci` green
-  (drop migration committed).
-- **4b** `enum-display.ts` + `ui.ts` + barrel + forms engine + `<app-datetime-field>` + `StatusBadgeComponent` +
-  `permissions.ts` + `NotificationService` → unit tests green.
-- **4c** Incident List (scoping, badges, responsive cards, gating, states).
-- **4d** Incident Detail + dialogs (the action matrix wired to the BackendMethods).
-- **4e** the three forms via the engine (`repo.validate()` flow, server-error surfacing).
+- **4a (done)** Adopt `@nx/angular` (init + `nx.json` generator defaults; keep `@angular/build` executors) → Material
+  theme/providers/fonts (two-file styles + biome `tailwindDirectives`) + theme toggle → routed shell → Task teardown.
+  The app boots to an empty `incidents`, the theme toggle persists and follows the OS, no `Task` remains, and `just ci`
+  is green (drop migration committed).
+- **4b (in progress)** `enum-display.ts` + `ui.ts` + barrel are done; the forms engine, `<app-datetime-field>`,
+  `StatusBadgeComponent`, `permissions.ts`, and `NotificationService` remain → unit tests green.
+- **4c (pending)** Incident List (scoping, badges, responsive cards, gating, states).
+- **4d (pending)** Incident Detail + dialogs (the action matrix wired to the BackendMethods).
+- **4e (pending)** the three forms via the engine (`repo.validate()` flow, server-error surfacing).
 
 **Per-screen acceptance.** *List:* `dev-editor-otway` sees only Otway incidents, `dev-admin` sees all, "New Incident"
 hidden for viewers, sort + responsive cards work, badges colour-correct, list updates live when a sitrep changes a
@@ -2066,6 +2090,10 @@ enhancement.
 ---
 
 ## User Workflows
+
+> **Status: pending.** These describe the planned frontend feature (*Frontend Architecture* §7–§9). The screens are not
+> built yet — `features/fire-incidents/` currently holds only a placeholder list — while the backend they exercise is
+> complete.
 
 ### Incident List
 
@@ -2160,20 +2188,20 @@ suite (`bunx nx test shared-domain`) covers the `helpers.ts` cadence math and al
 
 ### Phase 4: Frontend Feature
 
-**Status: Pending.**
+**Status: In progress.**
 
-The Angular frontend feature, specified in full under *Frontend Architecture (Phase 4)* above: the lazy-loaded
-`apps/web/src/app/features/fire-incidents/` route (incident list, incident detail with sitrep timeline + final-report
-subpanel, and routed create/edit pages for incidents, situation reports, and final reports), built on Angular Material
-M3 + Tailwind v4 with a metadata-driven forms engine, the `<app-datetime-field>`, light/dark theming, and full
-accessibility. It also adds the `scope:shared` `enum-display.ts` + `ui.ts`, converts the root `App` into a routed shell
-(toolbar + sidenav), and retires the `Task` example (entity, `apps/api/src/config.ts` registration, and a
-`DROP TABLE tasks` Atlas migration).
+**Done.** Sub-phase **4a** — `@nx/angular` + Angular Material M3 (azure palette, two-file Sass/Tailwind styles, biome
+`tailwindDirectives`), the light/dark/system `ThemeService` + theme toggle, the routed Material shell (toolbar +
+responsive sidenav, the dev-user switcher embedded in the toolbar, Material Symbols icon font), and the full `Task`
+teardown (entity, `apps/api/src/config.ts` registration, and the `DROP TABLE tasks` migration
+`20260529112903_drop_tasks.sql`). Plus the `scope:shared` UI files of **4b** — `enum-display.ts` (enum labels) and
+`ui.ts` (status-badge classes), barrel-exported, with `TIMESTAMP_PAIRS`/`TimestampField` exported from `helpers.ts`.
 
-Delivered in sub-phases — **4a** (Material + theme + shell + Task teardown), **4b** (shared UI files + forms engine +
-datetime field + permissions), **4c** (incident list), **4d** (incident detail + dialogs), **4e** (the three forms).
-See *Frontend Architecture §12–§13* for the teardown sequence, build order, acceptance criteria, and the end-to-end
-verification recipe.
+**Remaining.** The rest of **4b** (the metadata-driven forms engine, `<app-datetime-field>`, `StatusBadgeComponent`,
+`permissions.ts`, `NotificationService`), then **4c** (incident list), **4d** (incident detail + dialogs wired to the
+BackendMethods), and **4e** (the incident / situation-report / final-report forms via the engine). All are specified in
+full under *Frontend Architecture (Phase 4)* above; see *§13* for the build order, acceptance criteria, and the
+end-to-end verification recipe.
 
 ### Phase 5: The Demo Moment
 

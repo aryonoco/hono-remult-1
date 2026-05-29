@@ -6,12 +6,11 @@ import { DevAuthService } from '../../core/dev-auth.service';
 @Component({
   selector: 'app-dev-user-switcher',
   template: `
-    <div
-      class="fixed bottom-4 right-4 z-50 rounded-lg border border-amber-300 bg-amber-50/95 p-3 text-xs shadow-lg backdrop-blur-sm"
-    >
-      <div class="mb-1 font-semibold text-amber-800">Dev Auth</div>
+    <div class="flex items-center gap-2 text-xs">
+      <label class="sr-only" for="dev-user-select">Dev user</label>
       <select
-        class="w-full rounded border border-amber-300 bg-white px-2 py-1 text-xs"
+        id="dev-user-select"
+        class="rounded border px-2 py-1 text-xs"
         [value]="selectedUserId()"
         (change)="onUserChange($event)"
       >
@@ -23,11 +22,11 @@ import { DevAuthService } from '../../core/dev-auth.service';
         }
       </select>
       @if (currentUserDisplay(); as user) {
-        <div class="mt-1 text-amber-700">
-          Roles: {{ user.roles?.join(', ') || 'none' }} · District: {{ formatDistrict(user) }}
-        </div>
+        <span class="hidden opacity-80 md:inline">
+          {{ user.roles?.join(', ') || 'none' }} · {{ formatDistrict(user) }}
+        </span>
       } @else {
-        <div class="mt-1 text-amber-700">Not authenticated</div>
+        <span class="hidden opacity-80 md:inline">Not authenticated</span>
       }
     </div>
   `,

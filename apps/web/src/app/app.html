@@ -1,45 +1,31 @@
-<main class="mx-auto max-w-lg p-8">
-  <h1 class="mb-6 text-2xl font-bold">Tasks</h1>
+<a
+  href="#main"
+  class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2"
+>
+  Skip to content
+</a>
 
-  @if (error()) {
-    <div class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-red-800">
-      {{ error() }}
-    </div>
-  }
+<mat-toolbar class="flex items-center gap-4">
+  <span>Fire Incidents</span>
+  <span class="flex-1"></span>
+  <app-theme-toggle />
+  <app-dev-user-switcher />
+</mat-toolbar>
 
-  <form (submit)="addTask()" class="mb-6 flex gap-2">
-    <input
-      [(ngModel)]="newTaskTitle"
-      name="newTaskTitle"
-      placeholder="New task..."
-      class="flex-1 rounded border px-3 py-2"
-    />
-    <button type="submit" class="rounded bg-blue-600 px-4 py-2 text-white">
-      Add
-    </button>
-  </form>
-
-  @for (task of tasks(); track task.id) {
-    <div class="mb-2 flex items-center gap-3 rounded border p-3">
-      <input
-        type="checkbox"
-        [checked]="task.completed"
-        (change)="toggleCompleted(task)"
-      />
-      <span [class.line-through]="task.completed" class="flex-1">
-        {{ task.title }}
-      </span>
-      <button
-        (click)="deleteTask(task)"
-        class="text-red-600 hover:text-red-800"
-      >
-        Delete
-      </button>
-    </div>
-  } @empty {
-    <p class="text-gray-500">No tasks yet. Add one above!</p>
-  }
-</main>
-
-<app-dev-user-switcher />
-<router-outlet />
+<mat-sidenav-container class="flex-1">
+  <mat-sidenav [mode]="isHandset() ? 'over' : 'side'" [opened]="!isHandset()">
+    <mat-nav-list>
+      <a mat-list-item routerLink="/incidents">Incidents</a>
+    </mat-nav-list>
+    @if (currentUser(); as user) {
+      <div class="p-4 text-xs opacity-70">Signed in as {{ user.name }}</div>
+    } @else {
+      <div class="p-4 text-xs opacity-70">Not signed in</div>
+    }
+  </mat-sidenav>
+  <mat-sidenav-content>
+    <main id="main" class="p-4">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

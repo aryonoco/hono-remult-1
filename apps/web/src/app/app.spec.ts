@@ -1,32 +1,73 @@
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { TestBed } from '@angular/core/testing';
-import { DEV_USERS } from '@workspace/shared-domain';
-import { InMemoryDataProvider, remult } from 'remult';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { App } from './app';
-import { provideRemult } from './core/remult.provider';
+import { DevAuthService } from './core/dev-auth.service';
+
+const breakpointStub = { observe: () => of({ matches: false, breakpoints: {} }) };
 
 describe('App', () => {
   beforeEach(async () => {
-    remult.dataProvider = new InMemoryDataProvider();
-    remult.user = DEV_USERS[0];
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRemult(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideNoopAnimations(),
+        { provide: BreakpointObserver, useValue: breakpointStub },
+      ],
     }).compileComponents();
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
   });
 
-  it('should render title', async () => {
+  it('creates the app', () => {
+    expect(TestBed.createComponent(App).componentInstance).toBeTruthy();
+  });
+
+  it('renders the toolbar title', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
-    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('mat-toolbar')?.textContent).toContain('Fire Incidents');
+  });
+});
+
+describe('App (anonymous user)', () => {
+  const anonymousDevAuth = {
+    currentUser: () => undefined,
+    currentUserId: undefined,
+    selectUser: async () => undefined,
+  };
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter([]),
+        provideNoopAnimations(),
+        { provide: BreakpointObserver, useValue: breakpointStub },
+        { provide: DevAuthService, useValue: anonymousDevAuth },
+      ],
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('renders the shell without a current user', () => {
+    const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Tasks');
+    expect(compiled.querySelector('mat-toolbar')).toBeTruthy();
+    expect(compiled.textContent).toContain('Not signed in');
   });
 });

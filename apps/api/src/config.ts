@@ -6,7 +6,6 @@ import {
   finalReportSchemaExtras,
   fireIncidentSchemaExtras,
   SituationReport,
-  Task,
 } from '@workspace/shared-domain';
 import type { ClassType } from 'remult';
 
@@ -14,7 +13,6 @@ import type { ClassType } from 'remult';
 // to mount the API; the Atlas schema-sync script uses it to populate the
 // scratch DB Atlas reads as the "desired" schema state.
 export const entities: ClassType<unknown>[] = [
-  Task,
   District,
   FireIncident,
   SituationReport,

@@ -16,14 +16,14 @@ interface WithInternal {
   __serverInternal?: boolean;
 }
 
-type TimestampField =
+export type TimestampField =
   | 'fireStartedAt'
   | 'fireDetectedAt'
   | 'reportedAt'
   | 'firstCrewSentAt'
   | 'firstCrewArrivedAt';
 
-const TIMESTAMP_PAIRS: readonly (readonly [TimestampField, TimestampField])[] = [
+export const TIMESTAMP_PAIRS: readonly (readonly [TimestampField, TimestampField])[] = [
   ['fireStartedAt', 'fireDetectedAt'],
   ['fireDetectedAt', 'reportedAt'],
   // biome-ignore lint/security/noSecrets: entity field names, not a secret

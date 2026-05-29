@@ -6,6 +6,13 @@
    Sass). */
 @layer base, material, tailwind, utilities;
 
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+}
+
 @layer material {
   html {
     color-scheme: light dark; // follow the OS by default; ThemeService flips data-theme to override

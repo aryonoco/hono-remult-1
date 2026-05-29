@@ -13,8 +13,9 @@ against the existing EMI stack, and `02-fire-showcase-overview.md` for the speci
 NX workspace on the Bun runtime. TypeScript in ultra-strict mode. Biome handles lint and format for TS, CSS, and JSON
 with every rule category set to error; Prettier handles HTML templates only; ESLint is scoped to
 `neverthrow/must-use-result` and `@nx/enforce-module-boundaries`. Runtime versions pinned via `mise`. `bun run check:ci`
-is the single CI gate. Unit tests run on Vitest via `bun run test` (`nx run-many -t test`); the shared-domain library
-is the first suite (cadence helpers + the fire BackendMethods).
+is the single CI gate. Unit tests run on Vitest via `bun run test` (`nx run-many -t test`): the shared-domain suite
+(cadence helpers, the fire BackendMethods, and enum-label/badge exhaustiveness) and the web suite (the app shell and
+`ThemeService`).
 
 Three NX scopes — `scope:shared`, `scope:web`, `scope:api` — with dependency rules and `bannedExternalImports` that stop
 Angular code reaching the API, Hono code reaching the browser, and platform-specific code reaching the shared domain in
@@ -28,23 +29,26 @@ callbacks, webhooks, file uploads).
 
 ### Angular application
 
-Zoneless Angular 21 — standalone components, signals, `inject()`, built-in control flow, Tailwind v4. Remult is wired
-through an app initializer that hands Angular's `HttpClient` to the Remult client; a dev-server proxy forwards `/api` to
-the API. `core/` holds singletons (Remult provider, dev-auth service, dev-auth interceptor); `shared/components/` holds
-reusable UI. The root `App` component temporarily hosts the Task CRUD inline — it shrinks to a routed shell once feature
-routes exist.
+Zoneless Angular 21 — standalone components, signals, `inject()`, built-in control flow, Angular Material (M3, azure
+palette), and Tailwind v4 for layout. Remult is wired through an app initializer that hands Angular's `HttpClient` to
+the Remult client; a dev-server proxy forwards `/api` to the API. The root `App` is a routed Material shell: a toolbar
+(app title, theme toggle, dev-user switcher) over a sidenav that switches between `side` and `over` modes on a CDK
+handset breakpoint, with a lazy-loaded `incidents` route. `core/` holds singletons (Remult provider, dev-auth service
+and interceptor, and a `ThemeService` that persists a light/dark/system preference to `localStorage` and drives a
+`data-theme` attribute); `shared/components/` holds reusable UI (theme toggle, dev-user switcher); `features/` carries
+lazy feature routes — `fire-incidents` is scaffolded with a placeholder list while its screens are built.
 
 ### Shared domain library
 
-`libs/shared/domain/` is the source of truth for entities. It holds the `Task` example entity, which exercises the
-full decorator surface (granular CRUD permissions, owner-or-admin row-level update, admin-only delete, `apiPrefilter`
-for row visibility, a `saving` lifecycle hook for audit population, field-level read-only protection); the four
-fire-showcase entities — `District`, `FireIncident`, `SituationReport`, `FinalReport` — each with its full field
-schema, role-based and row-level permissions, district-scoped `apiPrefilter`, `saving` / `saved` lifecycle hooks, and
-relations; the eleven fire-domain enums; the `helpers.ts` computation module (financial-year, global-incident-id, and
-report-cadence math, plus the shared `withServerInternal` lock helper); and the four fire BackendMethods
-(`getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`). A Vitest suite covers the cadence helpers and every
-BackendMethod. `02-fire-showcase-overview.md` is the full specification.
+`libs/shared/domain/` is the source of truth for entities. It holds the four fire-showcase entities — `District`,
+`FireIncident`, `SituationReport`, `FinalReport` — each with its full field schema, role-based and row-level
+permissions, district-scoped `apiPrefilter`, `saving` / `saved` lifecycle hooks, and relations; the eleven fire-domain
+enums; the `helpers.ts` computation module (financial-year, global-incident-id, and report-cadence math, plus the
+shared `withServerInternal` lock helper and the shared `TIMESTAMP_PAIRS` list); the four fire BackendMethods
+(`getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`); and the frontend-facing label and badge maps
+(`enum-display.ts` human-readable enum labels, `ui.ts` status-badge classes). A Vitest suite covers the cadence
+helpers, every BackendMethod, and the enum-label/badge exhaustiveness. `02-fire-showcase-overview.md` is the full
+specification.
 
 ### Error handling convention
 
@@ -57,10 +61,11 @@ form Remult's transport carries across the wire.
 
 Header-based scaffold that provides real permission enforcement without standing up an IDAM integration. Eight preset
 users — global admin, global stateOfficer, and an incidentEditor + viewer pair for each of three staffed districts
-(Otway, Latrobe, Mallee) — plus anonymous, swappable via a floating switcher and persisted to localStorage. The
-`CurrentUser` type extends Remult's `UserInfo` with `districtId: number | null`; the switcher renders role and district
-name on every option and on the active-user detail line. The browser sends `X-Dev-User`; the API maps it to a
-`CurrentUser` record; `remult.subscribeAuth` reloads scoped data on switch.
+(Otway, Latrobe, Mallee) — plus anonymous, swappable via a switcher in the app toolbar and persisted to localStorage.
+The `CurrentUser` type extends Remult's `UserInfo` with `districtId: number | null`; the switcher renders each user's
+role and district on every option, with the active user's roles and district shown alongside on wider viewports. The
+browser sends `X-Dev-User`; the API maps it to a `CurrentUser` record; `remult.subscribeAuth` reloads scoped data on
+switch.
 
 This entire layer is transitional. When real authentication lands, the roles constants, dev users array, `CurrentUser`
 type, dev-auth service, interceptor, switcher component, and the `getUser` body all go. Entity permissions stay
@@ -96,18 +101,14 @@ diff. Every fire-showcase entity that needs DB-level constraints uses this conve
 
 ### Fire incident showcase — frontend and demo
 
-The fire domain layer is complete — see *Shared domain library* above and `02-fire-showcase-overview.md` for the full
-specification. What remains is the user-facing feature and the closing demo: a lazy-loaded Angular feature under
-`features/fire-incidents/` (incident list, incident detail with situation-report timeline and final-report panel,
-incident form, situation-report form); the human-readable enum labels (`enum-display.ts`) and status-badge classes
-(`ui.ts`) those screens consume; and the "add one field, two files, no codegen" demo that is the headline argument for
-the stack. See `02-fire-showcase-overview.md` *Implementation Phases (Phase 4–5)* for per-phase scope.
-
-### Angular feature structure
-
-`features/` folder with lazy-loaded routes, landing with the fire feature (`features/fire-incidents/` is the first).
-The root `App` component becomes a routed shell at the same time, and the `Task` example entity — currently hosted
-inline in `App` — is retired.
+The fire domain layer, the shared label/badge maps, and the routed Material shell are in place — see *In Place* above
+and `02-fire-showcase-overview.md` for the full specification. What remains is the user-facing feature and the closing
+demo: the metadata-driven forms engine and the `<app-datetime-field>`; a status-badge component and the
+permission-gating and notification helpers; and the screens under `features/fire-incidents/` (incident list, incident
+detail with situation-report timeline and final-report panel, and the incident / situation-report / final-report
+forms) — `features/fire-incidents/` today holds only a placeholder list. The closing "add one field, two files, no
+codegen" demo is the headline argument for the stack. See `02-fire-showcase-overview.md` *Implementation Phases (Phase
+4–5)* and *Frontend Architecture §4–§14* for per-phase scope.
 
 ### Cross-entity operations
 
