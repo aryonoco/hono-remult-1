@@ -15,8 +15,8 @@ with every rule category set to error; Prettier handles HTML templates only; ESL
 `neverthrow/must-use-result` and `@nx/enforce-module-boundaries`. Runtime versions pinned via `mise`. `bun run check:ci`
 is the single CI gate. Unit tests run on Vitest via `bun run test` (`nx run-many -t test`): the shared-domain suite
 (cadence helpers, the fire BackendMethods, and enum-label/badge exhaustiveness) and the web suite (the app shell,
-theming, the metadata-driven forms engine and shared UI components, the UI permission predicates, and the
-notification/error helpers).
+theming, the metadata-driven forms engine and shared UI components, the UI permission predicates, the incident-list
+screen, and the notification/error helpers).
 
 Three NX scopes — `scope:shared`, `scope:web`, `scope:api` — with dependency rules and `bannedExternalImports` that stop
 Angular code reaching the API, Hono code reaching the browser, and platform-specific code reaching the shared domain in
@@ -40,8 +40,10 @@ and interceptor, a `ThemeService` that persists a light/dark/system preference t
 foundations — a metadata-driven forms engine with an `<app-dynamic-form>` renderer (`shared/forms/`), the
 `<app-datetime-field>` and status-badge components alongside the theme toggle and dev-user switcher
 (`shared/components/`), UI permission predicates that mirror the entity rules (`shared/auth/`), and a `toErrorMessage`
-helper (`shared/util/`); `features/` carries lazy feature routes — `fire-incidents` holds the three form configs and a
-placeholder list, with its screens (list, detail, dialogs, and the form components) still to be built.
+helper (`shared/util/`); `features/` carries lazy feature routes — `fire-incidents` holds the live, district-scoped
+incident-list screen (LiveQuery, status badges, responsive cards, role-gated actions, and loading/empty/error states),
+the three form configs, and placeholder detail/form screens behind the `new`/`:id` routes, with the incident detail,
+the action dialogs, and the form components still to be built.
 
 ### Shared domain library
 
@@ -106,16 +108,17 @@ diff. Every fire-showcase entity that needs DB-level constraints uses this conve
 
 ### Fire incident showcase — frontend and demo
 
-The fire domain layer, the shared label/badge maps, the routed Material shell, and the shared frontend foundations
+The fire domain layer, the shared label/badge maps, the routed Material shell, the shared frontend foundations
 (the metadata-driven forms engine, `<app-datetime-field>`, `StatusBadgeComponent`, and the permission-gating and
-notification helpers) are in place — see *In Place* above and `02-fire-showcase-overview.md` for the full
-specification. What remains is the user-facing feature and the closing demo: the screens under
-`features/fire-incidents/` (incident list, incident detail with situation-report timeline and final-report panel, and
-the incident / situation-report / final-report form components) — `features/fire-incidents/` today holds the three form
-configs and a placeholder list, but none of the screens that render them. The closing "add one field, two files, no
-codegen" demo is the headline argument for the stack. See
-`02-fire-showcase-overview.md` *Implementation Phases (Phase
-4–5)* and *Frontend Architecture §4–§14* for per-phase scope.
+notification helpers), and the incident-list screen (district-scoped LiveQuery, status badges, responsive cards,
+role-gated actions, and its loading/empty/error/anonymous states) are in place — see *In Place* above and
+`02-fire-showcase-overview.md` for the full specification. What remains is the rest of the user-facing feature and the
+closing demo: incident detail (situation-report timeline and final-report panel) with its action dialogs, and the
+incident / situation-report / final-report form components — `features/fire-incidents/` today holds the live list, the
+three form configs, and placeholder detail/form screens behind the `new`/`:id` routes, but not the detail, dialog, or
+form screens themselves. The closing "add one field, two files, no codegen" demo is the headline argument for the
+stack. See `02-fire-showcase-overview.md` *Implementation Phases (Phase 4–5)* and *Frontend Architecture §4–§14* for
+per-phase scope.
 
 ### Cross-entity operations
 

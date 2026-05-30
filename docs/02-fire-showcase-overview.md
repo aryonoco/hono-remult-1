@@ -363,7 +363,7 @@ firstCrewArrivedAt)` is checked only when both values are non-null. Same rule on
 |---|---|---|
 | district | `@Relations.toOne(() => District, 'districtId')` | The parent district. |
 | situationReports | `@Relations.toMany(() => SituationReport, 'fireIncidentId')` | All sitreps for this fire. |
-| finalReport | `@Relations.toOne(() => FinalReport, { field: 'fireIncidentId' })` | The single optional FinalReport. |
+| finalReport | `@Relations.toOne(() => FinalReport, { fields: { fireIncidentId: 'id' } })` | The single optional FinalReport. |
 
 ### SituationReport
 
@@ -841,7 +841,8 @@ If `e.isNew === true` (insert):
 
 If `e.isNew === false` (update):
 
-1. **Internal-update bypass:** if `__serverInternal === true`, skip the pre-sitrep restriction (step 9 below).
+1. **Internal-update bypass:** if `isServerInternal()` is true (the `remult.context.serverInternal` flag), skip the
+   pre-sitrep restriction (step 9 below).
 2. `finalReport = await remult.repo(FinalReport).findFirst({ fireIncidentId: fire.id })`. If `finalReport &&
    finalReport.isSignedOff === true` → cancel with `"FireIncident is locked while FinalReport is signed off; call
    removeSignOff first"`.
@@ -853,8 +854,8 @@ If `e.isNew === false` (update):
 6. If `fire.status === FireStatus.safeOverrun` → `fire.fireAreaHectares = 0`.
 7. If `fire.isMajor === true`: same validation as insert step 13.
 8. Same adjacent-pair timestamp ordering validation as insert step 14.
-9. **Pre-sitrep edit restriction:** if `__serverInternal` flag is not set AND user roles do NOT include
-   `Roles.stateOfficer` or `Roles.admin`:
+9. **Pre-sitrep edit restriction:** if the server-internal flag is not set (`!isServerInternal()`) AND user roles do
+   NOT include `Roles.stateOfficer` or `Roles.admin`:
    - Validate `fire.createdBy === remult.user!.id`; else cancel with `"IncidentEditor can only edit fires they
      created"`.
    - Validate `await remult.repo(SituationReport).count({ fireIncidentId: fire.id }) === 0`; else cancel with
@@ -897,7 +898,7 @@ Always (every successful insert):
 3. Compute `nextReportDue` from `(previousStatus = parent.status, newStatus = sitrep.status, prevLoss =
    prev?.potentialLoss, prevSpread = prev?.potentialSpread, newLoss = sitrep.potentialLoss, newSpread =
    sitrep.potentialSpread)` using the cadence precedence table (see Business Rules).
-4. Set the `__serverInternal` flag and update parent:
+4. Wrap the parent update in `withServerInternal()`:
 
    ```typescript
    await remult.repo(FireIncident).update(parent.id, {
@@ -931,21 +932,21 @@ If `e.isNew === true` (insert):
 
 If `e.isNew === false` (update):
 
-1. Internal-update bypass: same `__serverInternal` flag pattern.
+1. Internal-update bypass: same server-internal flag pattern (`isServerInternal()` / `withServerInternal()`).
 2. `parent = await remult.repo(FireIncident).findId(fr.fireIncidentId)`. If `parent.isDeleted === true` → cancel.
 3. Compute transition: `wasSignedOff = e.fields.isSignedOff.originalValue === true`, `isSignedOff = fr.isSignedOff ===
    true`.
-4. If `wasSignedOff && isSignedOff` (still signed off, field edit attempt) AND `__serverInternal` not set → cancel with
-   `"FinalReport is locked while signed off; call removeSignOff first"`.
+4. If `wasSignedOff && isSignedOff` (still signed off, field edit attempt) AND not server-internal
+   (`!isServerInternal()`) → cancel with `"FinalReport is locked while signed off; call removeSignOff first"`.
 5. If `!wasSignedOff && isSignedOff` (false → true): validate `TERMINAL_STATUSES.includes(parent.status)`; else cancel.
    Set `fr.signedOffAt = new Date()`, `fr.signedOffBy = remult.user!.id`.
-6. If `wasSignedOff && !isSignedOff` (true → false) AND `__serverInternal` not set → cancel with `"removeSignOff is only
-   available via the removeSignOff BackendMethod"`.
+6. If `wasSignedOff && !isSignedOff` (true → false) AND not server-internal (`!isServerInternal()`) → cancel with
+   `"removeSignOff is only available via the removeSignOff BackendMethod"`.
 7. Field bounds re-validated.
 
 ### FinalReport — `saved` hook
 
-Wrap the parent-update calls below in the `__serverInternal` flag.
+Wrap the parent-update calls below in `withServerInternal()`.
 
 - If `e.isNew === true && fr.isSignedOff === true`: update parent `nextReportDue = null`.
 - If `e.isNew === false && !e.fields.isSignedOff.originalValue && fr.isSignedOff === true` (transition false → true via
@@ -1158,9 +1159,10 @@ The exact `Record` literals for both `ui.ts` and `enum-display.ts` are specified
 Four `@BackendMethod`s on the relevant entity classes. Creating a situation report needs no dedicated method — the
 standard REST `POST /api/situationReports` exercises the `SituationReport.saving` hook end-to-end.
 
-**Implementation notes.** Each method reuses the `withServerInternal()` helper (not an inline `__serverInternal`
-cast) to bypass entity lifecycle locks for its own writes, and models expected errors with `neverthrow`
-(`safeTry` with `err` / `ok`) internally — converting to a thrown `Error` only at the RPC boundary
+**Implementation notes.** Each method reuses the `withServerInternal()` helper (rather than setting
+`remult.context.serverInternal` inline) to bypass entity lifecycle locks for its own writes, and models expected
+errors with `neverthrow` (`safeTry` with `err` / `ok`) internally — converting to a thrown `Error` only at the RPC
+boundary
 (`result.match(() => …, (e) => { throw e })`), because a `Result` cannot cross Remult's RPC boundary. The
 `must-use-result` lint rule has no model for `safeTry`'s `yield*`, so each `yield* ResultAsync.fromPromise(...)`
 carries an `// eslint-disable-next-line neverthrow/must-use-result`. `softDelete` cascades to children **before**
@@ -1376,8 +1378,9 @@ flow, `resource()`/`liveQuery`, `ResultAsync` wrapping, `DestroyRef` cleanup, `p
 > adopted, `nx.json` generator defaults, Material theme/providers/fonts, and biome `tailwindDirectives`. The
 > `check:ci`, `nx build web`, and `nx test` gates all pass. Each subsection below carries its own status: §2 (app
 > shell), §3 (shared-domain UI files), §12 (Task teardown), §4 (forms engine), §5 (`<app-datetime-field>`), and §6
-> (permission gating) are implemented, as are the §10 `NotificationService` and `toErrorMessage` helpers; the feature
-> screens (§7 list, §8 detail, §9 dialogs) and the remaining §10 screen-level patterns are pending.
+> (permission gating) are implemented, as are the §7 incident list, the §10 `NotificationService` and `toErrorMessage`
+> helpers, and the §10 loading/empty/error and responsive patterns the list exercises; the §8 detail and §9 dialog
+> screens (with their §10 patterns) are pending.
 
 #### 1.1 Adopt `@nx/angular`
 
@@ -1436,11 +1439,12 @@ Scaffold feature components into the app's `features/` folder via the `--path` f
 
 #### 1.2 Material setup (theme, providers, fonts)
 
-Dependencies — `@angular/material` + `@angular/cdk` plus **`@angular/animations`** (required by
-`provideAnimationsAsync`):
+Dependencies — `@angular/material` + `@angular/cdk`. Angular Material 21 animates via CSS, so the app wires **no
+animations provider**; `@angular/animations` is present in `package.json` (21.2.15) but nothing under `apps/web/src`
+imports an animations provider or module:
 
 ```bash
-bun add @angular/material@^21 @angular/cdk@^21 @angular/animations@^21
+bun add @angular/material@^21 @angular/cdk@^21
 ```
 
 With `@nx/angular` installed, `nx g @angular/material:ng-add --project=web` resolves the workspace, but its output (a
@@ -1485,10 +1489,10 @@ below, so this project configures Material **directly**:
    parses the file. `mat.theme()` with one palette emits both light and dark token values keyed off `color-scheme`, so
    the toggle only flips `data-theme`. **Tailwind is layout-only; all controls are Material.**
 
-2. **Providers (zoneless).** `apps/web/src/app/app.config.ts` provides the **zoneless-safe**
-   `provideAnimationsAsync()` (from `@angular/platform-browser/animations/async` — *not* the Zone-based
-   `provideAnimations()`), `provideNativeDateAdapter()` (shared by `MatDatepicker` + `MatTimepicker`), and
-   `{ provide: MAT_DATE_LOCALE, useValue: 'en-AU' }`.
+2. **Providers (zoneless).** `apps/web/src/app/app.config.ts` provides `provideZonelessChangeDetection()`,
+   `provideNativeDateAdapter()` (shared by `MatDatepicker` + `MatTimepicker`), and
+   `{ provide: MAT_DATE_LOCALE, useValue: 'en-AU' }`. Angular Material 21 animates via CSS, so no animations provider is
+   wired.
 
 3. **Fonts.** `apps/web/src/index.html` links the Roboto and Material Symbols Outlined fonts.
 
@@ -1526,7 +1530,7 @@ The root `App` is a routed Material shell:
 
 - **Anonymous/empty-user state:** the dev-user switcher's "Anonymous" option leaves `remult.user` undefined, so every
   `apiPrefilter` returns `{ id: ['__never__'] }` and all lists are empty. The shell renders without error when
-  `currentUser()` is `undefined` (the sidenav shows "Not signed in"); the **list screen** (pending) owns the richer
+  `currentUser()` is `undefined` (the sidenav shows "Not signed in"); the **list screen** owns the richer
   empty-state message ("Select a dev user to begin").
 - **`ThemeService`** (`core/theme.service.ts`, `providedIn: 'root'`) holds a `signal<'light' | 'dark' | 'system'>`
   persisted to `localStorage` (key `fire-theme`), plus an `effect()` that sets/removes `data-theme` on
@@ -1908,26 +1912,40 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
 ### 7. Incident List (`features/fire-incidents/incident-list/`)
 
-> **Status: pending.** Only a placeholder `IncidentListComponent` (an inline "coming soon" message) exists today.
+> **Status: implemented.** `incident-list/incident-list.ts` + `incident-list.html` (no component CSS — Tailwind
+> utilities and Material only) render the live, district-scoped list, with `incident-list.spec.ts` covering the
+> anonymous, gating, and responsive surfaces.
 
-- **Data:** `repo.liveQuery({ include: { district: true }, orderBy })` subscribed into a `signal<FireIncident[]>`,
-  cleaned up with `DestroyRef.onDestroy`. LiveQuery (not `resource()`) because sitrep saves mutate parent rows
-  server-side and the list should reflect that live. District scoping is server-side via `apiPrefilter` — the client
-  sends no district filter.
-- **Table:** `MatTable` + `MatSort` + `MatPaginator`. Columns: `name`, `district.name`, `fireNumber` (zero-padded to 3),
-  `status` (via `StatusBadgeComponent`), `fireAreaHectares`, `incidentLevel` (label), `isMajor` (icon/chip),
-  `statusAsAt` (the "last report date" column), `nextReportDue`. Sort keys: name, district, fireNumber, statusAsAt
-  (re-query `liveQuery` on `sortChange`). Default order `createdAt desc` (entity default). If server `orderBy` on the
-  `district` relation is unsupported, client-sort that one column.
-- **Actions:** "New Incident" button shown only when `canCreateIncident(currentUser())`.
-- **Responsive:** inject `BreakpointObserver` as a signal (`toSignal(observe(Breakpoints.Handset))`); on handset
-  render a stacked `MatCard` list instead of the table (same signal data).
-- **States:** loading → `MatProgressBar`; empty → `MatCard` empty-state ("No incidents in your district" / "Select a
-  dev user to begin" when anonymous); error → inline alert + snackbar.
+- **Data:** `remult.repo(FireIncident).liveQuery({ include: { district: true }, orderBy })` is opened inside a single
+  `effect()` keyed on the current dev user's id and torn down/reopened on every user or sort change (no
+  `remult.subscribeAuth` is wired, so the open query is re-scoped explicitly); the latest emission feeds a
+  `signal<FireIncident[]>`, with teardown via `DestroyRef.onDestroy`. LiveQuery (not `resource()`) because sitrep saves
+  mutate parent rows server-side and the list reflects that live. District scoping is server-side via `apiPrefilter` —
+  the client sends no district filter. Because `FireIncident.allowApiRead` is `Allow.authenticated`, an anonymous read
+  is a 403 (not an empty list), so the component skips the query entirely until a dev user is selected.
+- **Table:** `MatTable` + `MatSort` + `MatPaginator`. Columns: `name` (a `routerLink` to `/incidents/:id`),
+  `district.name`, `fireNumber` (zero-padded to 3 via `DecimalPipe '3.0-0'`), `status` (via `StatusBadgeComponent`),
+  `fireAreaHectares`, `incidentLevel` (label, resolved through a typed helper because MatTable cell contexts are `any`),
+  `isMajor` (a `local_fire_department` icon when true), `statusAsAt` (the "last report date" column), `nextReportDue`.
+  Dates render through explicit `DatePipe` format strings (`dd/MM/yy, HH:mm`) since no `LOCALE_ID` is registered.
+  Sortable headers name, fireNumber, and statusAsAt re-issue the server `orderBy`; `district` is a relation the API
+  cannot order by, so that column is sorted client-side. Default order `createdAt desc` (entity default); pagination is
+  client-side over the emitted rows.
+- **Actions:** a "New Incident" button (`routerLink="/incidents/new"`) shown only when
+  `canCreateIncident(currentUser())`.
+- **Responsive:** injects `BreakpointObserver` as a signal (`toSignal(observe(Breakpoints.Handset))`); on handset it
+  renders a stacked `MatCard` list instead of the table (same signal data; the cards keep the current order).
+- **States:** a `viewState` computed drives a `@switch` — `anonymous` ("Select a dev user to begin") → `loading`
+  (`MatProgressBar`) → `error` (inline `role="alert"` + snackbar) → `empty` (`MatCard`: "No incidents in your district"
+  for district-scoped users, "No incidents found" for cross-district) → `content`.
+- **Navigation:** the row name links to `/incidents/:id` and "New Incident" to `/incidents/new`; both targets are
+  placeholder screens (§8, §11) until 4d/4e replace them.
 
 ### 8. Incident Detail (`features/fire-incidents/incident-detail/`)
 
-> **Status: pending.**
+> **Status: pending.** A placeholder `IncidentDetailComponent` (`incident-detail/incident-detail.ts`, an inline
+> "coming soon" message) is wired to the `/incidents/:id` route so list navigation does not dead-end; the screen below
+> is unbuilt.
 
 - **Data:** route param `:id`; `resource()` loading the fire with
   `include: { district: true, situationReports: true, finalReport: true }`, with an explicit reload after any action.
@@ -1968,9 +1986,10 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 ### 10. Cross-cutting patterns
 
 > **Status: partial.** `NotificationService` (`core/notification.service.ts`, with `app-notification-success`/`-error`
-> snackbar accents in `styles.scss`) and the `toErrorMessage` helper (`shared/util/to-error-message.ts`) are built; the
-> screen-level loading/empty/error, accessibility, and responsive patterns below apply as the feature screens
-> (§7–§9) land.
+> snackbar accents in `styles.scss`) and the `toErrorMessage` helper (`shared/util/to-error-message.ts`) are built, and
+> the incident list (§7) exercises the LiveQuery loading/empty/error pattern, the structural table↔cards responsive
+> shift, and permission gating. The remaining screen-level patterns — `resource()` status handling, the dialog focus and
+> `LiveAnnouncer` accessibility items, and detail-specific responsiveness — apply as the §8–§9 screens land.
 
 - **Notifications:** `NotificationService` (`core/notification.service.ts`) wrapping `MatSnackBar` (`success`, `error`).
   All `ResultAsync` error branches call it. Add a `toErrorMessage` helper at `shared/util/to-error-message.ts`.
@@ -1985,7 +2004,7 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
   5. Status-badge colours meet WCAG AA contrast — verify the Tailwind 100/800 pairs.
   6. Keyboard nav: sort headers, paginator, buttons, sidenav toggle all reachable and operable.
   7. A skip link targets `#main`.
-  8. Respect `prefers-reduced-motion` (`provideAnimationsAsync` honours it; add no animations that bypass it).
+  8. Respect `prefers-reduced-motion` (Material's CSS animations honour it; add no animations that bypass it).
 - **Responsive ("dynamic viewports"):** Tailwind responsive utilities for layout/spacing by default; CDK
   `BreakpointObserver` (as a signal) only for **structural** shifts — list table↔cards (`Breakpoints.Handset`), and
   sidenav `side`↔`over` mode.
@@ -1998,7 +2017,7 @@ apps/web/src/
   index.html                                    (built: + Roboto + Material Symbols <link>)
   app/
     app.ts / app.html                           (built: routed shell — toolbar + sidenav)
-    app.config.ts                               (built: + animationsAsync, native date adapter, en-AU locale, icon font)
+    app.config.ts                               (built: zoneless CD, native date adapter, en-AU locale, icon font; Material CSS animations)
     app.routes.ts                               (built: lazy → features/fire-incidents)
     core/
       remult.provider.ts / dev-auth.*           (built)
@@ -2018,9 +2037,9 @@ apps/web/src/
       util/to-error-message.ts                  (built)
       dialogs/confirm-reason-dialog.ts          (pending)
     features/fire-incidents/
-      fire-incidents.routes.ts                  (seam built; full set pending: list / new / :id / :id/edit / :id/sitrep / :id/final[/edit])
-      incident-list/ (placeholder) · incident-detail/ (pending)
-      incident-form/ (form-config built; component pending)
+      fire-incidents.routes.ts                  (built: '' → list, 'new' → form placeholder, ':id' → detail placeholder; pending: :id/edit, :id/sitrep, :id/final[/edit])
+      incident-list/ (built: list.ts + .html + .spec) · incident-detail/ (placeholder component; screen pending)
+      incident-form/ (form-config built; placeholder component; routed screen pending)
       sitrep-form/ (form-config built; component pending)
       final-report-form/ (form-config built; component pending)
       dialogs/escalate-dialog.ts                (pending)
@@ -2033,20 +2052,23 @@ and `ui.ts` (every `FireStatus` has a badge class); the web suite covers the she
 `BreakpointObserver`/`DevAuthService` and needs no Remult) and `ThemeService` (`theme.service.spec.ts`). The web suite also
 covers the forms engine (`form-engine.spec.ts` — excluded fields absent, enums→select, dates→datetime, validators
 attached, create/edit submit), the cross-field validators, `<app-datetime-field>` (combine/clear), `<app-dynamic-form>`,
-the three form configs, `permissions.ts` (each role × state), `StatusBadgeComponent` (every `FireStatus`),
+the three form configs, `permissions.ts` (each role × state), `StatusBadgeComponent` (every `FireStatus`), the incident
+list (`incident-list.spec.ts` — the anonymous skip with no query opened, "New Incident" gating per role, and the
+table↔cards responsive shift; the live-query transport is stubbed so renders resolve without a server),
 `NotificationService`, and `toErrorMessage` — using `InMemoryDataProvider` + a set `remult.user` for data-bound specs.
-Still pending: the list/detail button-gating tests. Web tests do **not** re-test server rules — those are covered by
-the existing shared-domain backend suites.
+Still pending: the detail button-gating tests. Web tests do **not** re-test server rules — those are covered by the
+existing shared-domain backend suites; the list's data-dependent behaviour (district scoping, sort, pagination, live
+updates) is verified via the §13 end-to-end recipe.
 
 ### 12. Task teardown
 
 > **Status: complete.**
 
-The `Task` example is gone end-to-end: no `tasks/task.ts` entity and no `export { Task }` in the barrel; no `Task` in
-the `apps/api/src/config.ts` import or `entities` array; and no stray references anywhere (`bun run check:ci` is green).
-The `tasks` table is dropped by `apps/api/src/migrations/20260529112903_drop_tasks.sql` (`DROP TABLE "tasks";`),
-generated from the Task-less `entities` and recorded in `atlas.sum`. `App` is the routed shell (§2), and `app.spec.ts`
-asserts the shell renders (toolbar title "Fire Incidents") rather than the old Task list.
+The codebase carries no `Task` example: there is no `tasks/task.ts` entity and no `export { Task }` in the barrel; no
+`Task` in the `apps/api/src/config.ts` import or `entities` array; and no references anywhere (`bun run check:ci` is
+green). The `apps/api/src/migrations/20260529112903_drop_tasks.sql` migration (`DROP TABLE "tasks";`) — derived from the
+`entities` array and recorded in `atlas.sum` — keeps the database free of the `tasks` table. `App` is the routed shell
+(§2), and `app.spec.ts` asserts the shell renders with the toolbar title "Fire Incidents".
 
 ### 13. Build order, acceptance, and end-to-end verification
 
@@ -2059,7 +2081,10 @@ asserts the shell renders (toolbar title "Fire Incidents") rather than the old T
 - **4b (done)** `enum-display.ts` + `ui.ts` + barrel, the metadata-driven forms engine (`form-engine*`,
   `cross-field-validators`, `dynamic-form`) + the three form configs, `<app-datetime-field>`, `StatusBadgeComponent`,
   `permissions.ts`, `NotificationService`, and `toErrorMessage` — all unit-tested and green.
-- **4c (pending)** Incident List (scoping, badges, responsive cards, gating, states).
+- **4c (done)** Incident List — district-scoped LiveQuery, status badges, zero-padded fire numbers, responsive
+  table↔cards, "New Incident" gating, and the anonymous/loading/empty/error states; the row name and "New Incident"
+  navigate to placeholder `/incidents/:id` and `/incidents/new` screens. Unit tests cover the anonymous, gating, and
+  responsive surfaces; the data-dependent acceptance below is verified end-to-end.
 - **4d (pending)** Incident Detail + dialogs (the action matrix wired to the BackendMethods).
 - **4e (pending)** the three form components — each rendering its existing `*.form-config.ts` through
   `<app-dynamic-form>` (the `repo.validate()` submit flow, server-error surfacing).
@@ -2108,9 +2133,10 @@ enhancement.
 
 ## User Workflows
 
-> **Status: pending.** These describe the planned frontend feature (*Frontend Architecture* §7–§9). The screens are not
-> built yet — `features/fire-incidents/` holds a placeholder list and the three form configs, but none of the screens
-> that render them — while the backend they exercise is complete.
+> **Status: partial.** These describe the frontend feature (*Frontend Architecture* §7–§9). The incident list is built;
+> incident detail, the dialogs, and the create/edit form screens are not — `features/fire-incidents/` holds the live
+> list, the three form configs, and placeholder detail/form screens behind the `:id`/`new` routes — while the backend
+> they exercise is complete.
 
 ### Incident List
 
@@ -2215,12 +2241,15 @@ teardown (entity, `apps/api/src/config.ts` registration, and the `DROP TABLE tas
 status-badge classes, `TIMESTAMP_PAIRS`/`TimestampField` from `helpers.ts`, barrel-exported), the metadata-driven forms
 engine (`form-engine`, `form-engine.types`, `cross-field-validators`, `dynamic-form`) and the three form configs, the
 `<app-datetime-field>` component, `StatusBadgeComponent`, `permissions.ts`, `NotificationService`, and the
-`toErrorMessage` helper — each unit-tested.
+`toErrorMessage` helper — each unit-tested. Plus **4c** — the incident list (`incident-list.ts` + `.html` + `.spec.ts`):
+a district-scoped `liveQuery` table with status badges, zero-padded fire numbers, a responsive `MatCard` fallback,
+`canCreateIncident` gating, and the anonymous/loading/empty/error states, with the `new` and `:id` routes pointing at
+placeholder form/detail components so navigation does not dead-end.
 
-**Remaining.** **4c** (incident list), **4d** (incident detail + dialogs wired to the BackendMethods), and **4e** (the
-incident / situation-report / final-report form components via the engine). All are specified in
-full under *Frontend Architecture (Phase 4)* above; see *§13* for the build order, acceptance criteria, and the
-end-to-end verification recipe.
+**Remaining.** **4d** (incident detail + dialogs wired to the BackendMethods) and **4e** (the incident /
+situation-report / final-report form components via the engine). Both are specified in full under *Frontend
+Architecture (Phase 4)* above; see *§13* for the build order, acceptance criteria, and the end-to-end verification
+recipe.
 
 ### Phase 5: The Demo Moment
 
