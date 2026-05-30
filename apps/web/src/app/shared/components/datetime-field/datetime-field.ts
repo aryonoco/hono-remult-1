@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   computed,
   effect,
@@ -47,6 +48,7 @@ function combineDateTime(date: Date | null, time: Date | null): Date | null {
 
 @Component({
   selector: 'app-datetime-field',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatFormFieldModule,
     MatInputModule,
@@ -62,7 +64,13 @@ function combineDateTime(date: Date | null, time: Date | null): Date | null {
     },
   ],
   template: `
-    <div role="group" class="flex flex-col gap-1" [attr.aria-labelledby]="labelId">
+    <div
+      role="group"
+      class="flex flex-col gap-1"
+      [attr.aria-labelledby]="labelId"
+      [attr.aria-describedby]="describedBy()"
+      [attr.aria-invalid]="invalid() ? 'true' : null"
+    >
       @if (label()) {
         <span [id]="labelId" class="text-sm font-medium">
           {{ label() }}@if (required()) {<span aria-hidden="true"> *</span>}
@@ -79,7 +87,6 @@ function combineDateTime(date: Date | null, time: Date | null): Date | null {
             [max]="max()"
             [required]="required()"
             [disabled]="isDisabled()"
-            [attr.aria-describedby]="hint() ? hintId : null"
             (dateChange)="onDateInput($event.value)"
             (blur)="markTouched()"
           />
@@ -93,7 +100,6 @@ function combineDateTime(date: Date | null, time: Date | null): Date | null {
             [matTimepicker]="tp"
             [value]="timePart()"
             [disabled]="isDisabled()"
-            [attr.aria-describedby]="hint() ? hintId : null"
             (valueChange)="onTimeInput($event)"
             (blur)="markTouched()"
           />
@@ -102,7 +108,7 @@ function combineDateTime(date: Date | null, time: Date | null): Date | null {
         </mat-form-field>
       </div>
       @if (hint()) {
-        <span [id]="hintId" class="text-xs opacity-70">{{ hint() }}</span>
+        <span [id]="hintId" class="text-xs text-muted">{{ hint() }}</span>
       }
     </div>
   `,
@@ -115,6 +121,9 @@ export class DatetimeFieldComponent implements ControlValueAccessor {
   readonly max = input<Date | null>(null);
   readonly required = input(false);
   readonly disabled = input(false);
+  // Wired by the form renderer so the two inputs announce their parent control's error to assistive tech.
+  readonly errorId = input<string | null>(null);
+  readonly invalid = input(false);
 
   protected readonly datePart = signal<Date | null>(null);
   protected readonly timePart = signal<Date | null>(null);
@@ -124,6 +133,19 @@ export class DatetimeFieldComponent implements ControlValueAccessor {
   private readonly uid = nextDatetimeFieldId();
   protected readonly labelId = `app-datetime-label-${this.uid}`;
   protected readonly hintId = `app-datetime-hint-${this.uid}`;
+
+  // Both sub-inputs point at the hint and (when invalid) the parent form's error message.
+  protected readonly describedBy = computed(() => {
+    const ids: string[] = [];
+    if (this.hint()) {
+      ids.push(this.hintId);
+    }
+    const errorId = this.errorId();
+    if (this.invalid() && errorId) {
+      ids.push(errorId);
+    }
+    return ids.length > 0 ? ids.join(' ') : null;
+  });
 
   private onChange: (value: Date | null) => void = () => undefined;
   private onTouched: () => void = () => undefined;

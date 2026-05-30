@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -18,6 +19,7 @@ export interface EscalateDialogData {
 // `undefined` on cancel). At the highest level the option list is empty and Confirm stays disabled.
 @Component({
   selector: 'app-escalate-dialog',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatDialogModule, MatButtonModule, MatRadioModule, ReactiveFormsModule],
   template: `
     <h2 mat-dialog-title>Escalate incident</h2>
@@ -37,7 +39,7 @@ export interface EscalateDialogData {
       <button
         mat-flat-button
         type="button"
-        [disabled]="selected.value === null"
+        [disabled]="!canConfirm()"
         (click)="confirm()"
       >
         Escalate
@@ -55,6 +57,10 @@ export class EscalateDialogComponent {
     (level) => LEVEL_ORDER[level] > LEVEL_ORDER[this.data.currentLevel],
   );
   protected readonly selected = new FormControl<IncidentLevel | null>(null);
+  private readonly selectedValue = toSignal(this.selected.valueChanges, {
+    initialValue: this.selected.value,
+  });
+  protected readonly canConfirm = computed(() => this.selectedValue() !== null);
 
   protected confirm(): void {
     const level = this.selected.value;

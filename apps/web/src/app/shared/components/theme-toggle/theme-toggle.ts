@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -18,6 +18,7 @@ const THEME_LABELS: Readonly<Record<ThemeMode, string>> = {
 
 @Component({
   selector: 'app-theme-toggle',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatButtonModule, MatIconModule],
   template: `
     <button mat-icon-button [attr.aria-label]="label()" (click)="theme.cycle()">

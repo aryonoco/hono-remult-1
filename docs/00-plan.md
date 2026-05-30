@@ -15,8 +15,9 @@ with every rule category set to error; Prettier handles HTML templates only; ESL
 `neverthrow/must-use-result` and `@nx/enforce-module-boundaries`. Runtime versions pinned via `mise`. `bun run check:ci`
 is the single CI gate. Unit tests run on Vitest via `bun run test` (`nx run-many -t test`): the shared-domain suite
 (cadence helpers, the fire BackendMethods, and enum-label/badge exhaustiveness) and the web suite (the app shell,
-theming, the metadata-driven forms engine and shared UI components, the UI permission predicates, the incident-list
-and incident-detail screens, the action dialogs, and the notification/error helpers).
+theming, the metadata-driven forms engine and shared UI components, the UI permission predicates, the incident-list,
+incident-detail, and create / edit / situation-report / final-report form screens, the action dialogs, the
+notification/error helpers, and axe-core structural accessibility checks across every screen).
 
 Three NX scopes — `scope:shared`, `scope:web`, `scope:api` — with dependency rules and `bannedExternalImports` that stop
 Angular code reaching the API, Hono code reaching the browser, and platform-specific code reaching the shared domain in
@@ -45,8 +46,15 @@ carries lazy feature routes — `fire-incidents` holds the live, district-scoped
 status badges, responsive cards, role-gated actions, and loading/empty/error states), the incident-detail screen
 (`resource()`-loaded fire, situation-report timeline, final-report subpanel, and an action bar whose buttons are
 wired to the escalate / soft-delete / sign-off / remove-sign-off operations through the escalate and confirm
-dialogs), and the three form configs. The create/edit form components are still to be built; the form routes
-(`new`, `:id/edit`, `:id/sitrep`, `:id/final[/edit]`) point at a placeholder form component until they land.
+dialogs), and the create / edit / situation-report / final-report form screens — metadata-driven forms rendered
+through `<app-dynamic-form>` inside a shared `<app-form-page>` shell, with a `CanDeactivate` unsaved-edits guard,
+wired to the `new`, `:id/edit`, `:id/sitrep`, and `:id/final[/edit]` routes. Every component runs `OnPush` change
+detection (the form renderer bridges parent-driven server errors to the view through `AbstractControl.events`); the
+incident-detail final-report subpanel is an extracted component loaded with `@defer (on viewport; prefetch on idle)`,
+and route changes animate via `withViewTransitions()` behind a `prefers-reduced-motion` guard. Accessibility is
+enforced app-wide to WCAG AA — a `text-muted` utility mapped to the `--mat-sys-on-surface-variant` M3 token keeps
+de-emphasised text legible in both themes, the sidebar sits in a labelled `<nav>` landmark, the incident table
+carries an `aria-label`, and the datetime field exposes its validation state via `aria-describedby` / `aria-invalid`.
 
 ### Shared domain library
 
@@ -109,20 +117,16 @@ diff. Every fire-showcase entity that needs DB-level constraints uses this conve
 
 ## To Build
 
-### Fire incident showcase — frontend and demo
+### Fire incident showcase — the closing demo
 
-The fire domain layer, the shared label/badge maps, the routed Material shell, the shared frontend foundations
-(the metadata-driven forms engine, `<app-datetime-field>`, `StatusBadgeComponent`, and the permission-gating and
-notification helpers), the incident-list screen (district-scoped LiveQuery, status badges, responsive cards,
-role-gated actions, and its loading/empty/error/anonymous states), and the incident-detail screen with its action
-dialogs (situation-report timeline, final-report subpanel, and the action buttons wired to the BackendMethods) are in
-place — see *In Place* above and `02-fire-showcase-overview.md` for the full specification. What remains is the
-create/edit form screens and the closing demo: the incident / situation-report / final-report form components that
-render the existing form configs through `<app-dynamic-form>` — `features/fire-incidents/` today holds the live list,
-the incident-detail screen, the action dialogs, and the three form configs, with the form routes pointing at a
-placeholder form component until those screens land. The closing "add one field, two files, no codegen" demo is the
-headline argument for the stack. See `02-fire-showcase-overview.md` *Implementation Phases (Phase 4–5)* and
-*Frontend Architecture §4–§14* for per-phase scope.
+The full fire-incident frontend — the routed Material shell, the metadata-driven forms engine and shared UI, the
+incident-list and incident-detail screens, the action dialogs, and the create / edit / situation-report /
+final-report form screens — is in place, OnPush throughout and verified to WCAG AA (see *In Place* above and
+`02-fire-showcase-overview.md` for the full specification). What remains is the closing "add one field, two files,
+no codegen" demo (Phase 5): adding `estimatedContainmentDate` to the `FireIncident` entity plus its Atlas migration
+and watching it flow — unchanged — to the API, the list and detail screens, and the metadata-driven form with no
+further frontend code. It is the headline argument for the stack. See `02-fire-showcase-overview.md`
+*Implementation Phases (Phase 5)*.
 
 ### Cross-entity operations
 

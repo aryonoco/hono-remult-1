@@ -1,6 +1,11 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import {
+  type ComponentFixture,
+  DeferBlockBehavior,
+  DeferBlockState,
+  TestBed,
+} from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import {
@@ -15,6 +20,7 @@ import {
 } from '@workspace/shared-domain';
 import { remult } from 'remult';
 import { of } from 'rxjs';
+import { findAxeViolations } from '../../../../testing/axe-helper';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { NotificationService } from '../../../core/notification.service';
 import { IncidentDetailComponent } from './incident-detail';
@@ -48,6 +54,9 @@ async function setup(
   const dialogStub = { open: vi.fn(() => ({ afterClosed: () => of(dialogResult) })) };
   TestBed.configureTestingModule({
     imports: [IncidentDetailComponent],
+    // The final-report panel is wrapped in `@defer (on viewport)`; jsdom has no IntersectionObserver, so
+    // defer blocks are driven manually and rendered to Complete in `seed` when a final report is present.
+    deferBlockBehavior: DeferBlockBehavior.Manual,
     providers: [
       provideRouter([]),
       { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
@@ -68,10 +77,10 @@ function instance(fixture: ComponentFixture<IncidentDetailComponent>): any {
   return fixture.componentInstance as any;
 }
 
-function seed(
+async function seed(
   fixture: ComponentFixture<IncidentDetailComponent>,
   overrides: Partial<FireIncident> = {},
-): FireIncident {
+): Promise<FireIncident> {
   const fire = Object.assign(
     new FireIncident(),
     {
@@ -93,6 +102,11 @@ function seed(
     overrides,
   );
   instance(fixture).fireResource.set(fire);
+  fixture.detectChanges();
+  // Render the final-report `@defer` block to Complete so its panel/actions can be asserted (no-op when the
+  // guard hides it — e.g. for a viewer or an incident with no final report).
+  const deferBlocks = await fixture.getDeferBlocks();
+  await Promise.all(deferBlocks.map((block) => block.render(DeferBlockState.Complete)));
   fixture.detectChanges();
   return fire;
 }
@@ -164,7 +178,7 @@ afterEach(() => {
 describe('IncidentDetailComponent (gating matrix)', () => {
   it('viewer sees no actions and no final-report panel', async () => {
     const fixture = await setup(VIEWER);
-    seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
     expect(actionSnapshot(fixture)).toMatchObject({
       'action-edit': false,
       'action-escalate': false,
@@ -180,7 +194,7 @@ describe('IncidentDetailComponent (gating matrix)', () => {
 
   it('editor on own pre-sitrep fire sees Edit and New Sitrep only', async () => {
     const fixture = await setup(EDITOR);
-    seed(fixture, {});
+    await seed(fixture, {});
     expect(actionSnapshot(fixture)).toMatchObject({
       'action-edit': true,
       'action-sitrep': true,
@@ -192,19 +206,19 @@ describe('IncidentDetailComponent (gating matrix)', () => {
 
   it('editor loses Edit once a sitrep exists', async () => {
     const fixture = await setup(EDITOR);
-    seed(fixture, { situationReports: [sampleSitrep()] });
+    await seed(fixture, { situationReports: [sampleSitrep()] });
     expect(actionSnapshot(fixture)).toMatchObject({ 'action-edit': false, 'action-sitrep': true });
   });
 
   it("editor cannot edit another district editor's fire", async () => {
     const fixture = await setup(EDITOR);
-    seed(fixture, { createdBy: OTHER_EDITOR.id });
+    await seed(fixture, { createdBy: OTHER_EDITOR.id });
     expect(actionSnapshot(fixture)).toMatchObject({ 'action-edit': false, 'action-sitrep': true });
   });
 
   it('editor on own terminal fire can create a final report', async () => {
     const fixture = await setup(EDITOR);
-    seed(fixture, { status: FireStatus.safe });
+    await seed(fixture, { status: FireStatus.safe });
     expect(actionSnapshot(fixture)).toMatchObject({
       'action-create-final': true,
       'action-edit': true,
@@ -215,7 +229,7 @@ describe('IncidentDetailComponent (gating matrix)', () => {
 
   it('editor with a final report sees the subpanel and Sign off, not New Sitrep', async () => {
     const fixture = await setup(EDITOR);
-    seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
     expect(actionSnapshot(fixture)).toMatchObject({
       'action-create-final': false,
       'action-sitrep': false,
@@ -229,7 +243,7 @@ describe('IncidentDetailComponent (gating matrix)', () => {
 
   it('state officer can escalate and edit a live fire', async () => {
     const fixture = await setup(STATE_OFFICER);
-    seed(fixture, {});
+    await seed(fixture, {});
     expect(actionSnapshot(fixture)).toMatchObject({
       'action-escalate': true,
       'action-edit': true,
@@ -241,13 +255,13 @@ describe('IncidentDetailComponent (gating matrix)', () => {
 
   it('escalate disappears at level three', async () => {
     const fixture = await setup(STATE_OFFICER);
-    seed(fixture, { incidentLevel: IncidentLevel.levelThree });
+    await seed(fixture, { incidentLevel: IncidentLevel.levelThree });
     expect(actionSnapshot(fixture)).toMatchObject({ 'action-escalate': false });
   });
 
   it('admin on a terminal fire sees the full elevated action set', async () => {
     const fixture = await setup(ADMIN);
-    seed(fixture, { status: FireStatus.safe });
+    await seed(fixture, { status: FireStatus.safe });
     expect(actionSnapshot(fixture)).toMatchObject({
       'action-escalate': true,
       'action-delete': true,
@@ -259,7 +273,7 @@ describe('IncidentDetailComponent (gating matrix)', () => {
 
   it('a signed-off report locks every action except Remove sign-off', async () => {
     const fixture = await setup(ADMIN);
-    seed(fixture, { status: FireStatus.safe, finalReport: signedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: signedFinal() });
     expect(actionSnapshot(fixture)).toMatchObject({
       'final-report-panel': true,
       'action-remove-signoff': true,
@@ -275,7 +289,7 @@ describe('IncidentDetailComponent (gating matrix)', () => {
 
   it('state officer can sign off, delete, and escalate a terminal fire with an unsigned report', async () => {
     const fixture = await setup(STATE_OFFICER);
-    seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
     expect(actionSnapshot(fixture)).toMatchObject({
       'action-signoff': true,
       'action-delete': true,
@@ -298,12 +312,18 @@ describe('IncidentDetailComponent (gating matrix)', () => {
     fixture.detectChanges();
     expect(text(fixture)).toContain('Incident not found');
   });
+
+  it('has no structural accessibility violations with the final-report panel rendered', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { status: FireStatus.safe, finalReport: signedFinal() });
+    expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
+  });
 });
 
 describe('IncidentDetailComponent (actions)', () => {
   it('escalate calls the BackendMethod and notifies', async () => {
     const fixture = await setup(ADMIN, IncidentLevel.levelTwo);
-    seed(fixture, {});
+    await seed(fixture, {});
     const spy = vi.spyOn(FireIncident, 'escalate').mockResolvedValue(undefined);
     await instance(fixture).onEscalate();
     expect(spy).toHaveBeenCalledWith('fire-1', IncidentLevel.levelTwo);
@@ -312,7 +332,7 @@ describe('IncidentDetailComponent (actions)', () => {
 
   it('escalate does nothing when cancelled', async () => {
     const fixture = await setup(ADMIN, undefined);
-    seed(fixture, {});
+    await seed(fixture, {});
     const spy = vi.spyOn(FireIncident, 'escalate').mockResolvedValue(undefined);
     await instance(fixture).onEscalate();
     expect(spy).not.toHaveBeenCalled();
@@ -320,7 +340,7 @@ describe('IncidentDetailComponent (actions)', () => {
 
   it('delete calls softDelete and navigates to the list', async () => {
     const fixture = await setup(ADMIN, { reason: 'cleanup' });
-    seed(fixture, { status: FireStatus.safe });
+    await seed(fixture, { status: FireStatus.safe });
     const spy = vi.spyOn(FireIncident, 'softDelete').mockResolvedValue(undefined);
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     await instance(fixture).onDelete();
@@ -330,7 +350,7 @@ describe('IncidentDetailComponent (actions)', () => {
 
   it('delete does nothing when cancelled', async () => {
     const fixture = await setup(ADMIN, undefined);
-    seed(fixture, { status: FireStatus.safe });
+    await seed(fixture, { status: FireStatus.safe });
     const spy = vi.spyOn(FireIncident, 'softDelete').mockResolvedValue(undefined);
     await instance(fixture).onDelete();
     expect(spy).not.toHaveBeenCalled();
@@ -338,7 +358,7 @@ describe('IncidentDetailComponent (actions)', () => {
 
   it('sign off updates the final report', async () => {
     const fixture = await setup(EDITOR, true);
-    seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
     const spy = vi.spyOn(remult.repo(FinalReport), 'update').mockResolvedValue(signedFinal());
     await instance(fixture).onSignOff();
     expect(spy).toHaveBeenCalledWith('fr-1', { isSignedOff: true });
@@ -347,7 +367,7 @@ describe('IncidentDetailComponent (actions)', () => {
 
   it('sign off does nothing when cancelled', async () => {
     const fixture = await setup(EDITOR, false);
-    seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: unsignedFinal() });
     const spy = vi.spyOn(remult.repo(FinalReport), 'update').mockResolvedValue(unsignedFinal());
     await instance(fixture).onSignOff();
     expect(spy).not.toHaveBeenCalled();
@@ -355,7 +375,7 @@ describe('IncidentDetailComponent (actions)', () => {
 
   it('remove sign-off calls the BackendMethod', async () => {
     const fixture = await setup(ADMIN, { reason: 'reopen' });
-    seed(fixture, { status: FireStatus.safe, finalReport: signedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: signedFinal() });
     const spy = vi.spyOn(FinalReport, 'removeSignOff').mockResolvedValue(undefined);
     await instance(fixture).onRemoveSignOff();
     expect(spy).toHaveBeenCalledWith('fr-1', 'reopen');
@@ -364,7 +384,7 @@ describe('IncidentDetailComponent (actions)', () => {
 
   it('remove sign-off does nothing when cancelled', async () => {
     const fixture = await setup(ADMIN, undefined);
-    seed(fixture, { status: FireStatus.safe, finalReport: signedFinal() });
+    await seed(fixture, { status: FireStatus.safe, finalReport: signedFinal() });
     const spy = vi.spyOn(FinalReport, 'removeSignOff').mockResolvedValue(undefined);
     await instance(fixture).onRemoveSignOff();
     expect(spy).not.toHaveBeenCalled();

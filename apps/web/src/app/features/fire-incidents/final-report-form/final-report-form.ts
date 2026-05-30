@@ -14,7 +14,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
-import { type CurrentUser, District, FireIncident, Roles } from '@workspace/shared-domain';
+import { FinalReport } from '@workspace/shared-domain';
 import { remult } from 'remult';
 import { map } from 'rxjs';
 
@@ -22,20 +22,20 @@ import { DevAuthService } from '../../../core/dev-auth.service';
 import { NotificationService } from '../../../core/notification.service';
 import { focusFirstInvalid } from '../../../shared/forms/focus-first-invalid';
 import { buildForm, submitEntityForm } from '../../../shared/forms/form-engine';
-import type { BuiltForm, SelectOption } from '../../../shared/forms/form-engine.types';
+import type { BuiltForm } from '../../../shared/forms/form-engine.types';
 import { FormPageComponent, type FormPageState } from '../../../shared/forms/form-page';
 import {
   type CanComponentDeactivate,
   confirmDiscardIfDirty,
 } from '../../../shared/forms/unsaved-changes';
 import { toErrorMessage } from '../../../shared/util/to-error-message';
-import { buildFireIncidentFormConfig } from './fire-incident.form-config';
+import { buildFinalReportFormConfig } from './final-report.form-config';
 
-// Drives both `/incidents/new` (create) and `/incidents/:id/edit` (edit) off one metadata config. The
-// district select is locked to the editor's own district for a non-elevated incidentEditor — mirroring the
-// entity's create-time rule — while admins and state officers choose freely.
+// Create (`:id/final`) and edit (`:id/final/edit`) of the one-per-incident final report. The route's
+// `data.mode` selects the config — create exposes the Sign-off toggle, edit hides it (sign-off is a guarded
+// action on the detail screen, not a free-text edit). Edit loads the existing row by its parent fire id.
 @Component({
-  selector: 'app-incident-form',
+  selector: 'app-final-report-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormPageComponent],
   template: `
@@ -50,7 +50,7 @@ import { buildFireIncidentFormConfig } from './fire-incident.form-config';
     />
   `,
 })
-export class IncidentFormComponent implements CanComponentDeactivate {
+export class FinalReportFormComponent implements CanComponentDeactivate {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
@@ -60,55 +60,52 @@ export class IncidentFormComponent implements CanComponentDeactivate {
   private readonly injector = inject(Injector);
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
 
-  private readonly routeId = toSignal(
+  private readonly fireId = toSignal(
     this.route.paramMap.pipe(map((params) => params.get('id') ?? '')),
     { initialValue: '' },
+  );
+  private readonly mode = toSignal(
+    this.route.data.pipe(
+      map((d): 'create' | 'edit' => ((d as { mode?: string }).mode === 'edit' ? 'edit' : 'create')),
+    ),
+    { initialValue: 'create' },
   );
   private readonly currentUser = this.devAuth.currentUser;
   protected readonly submitting = signal(false);
   protected readonly builtForm = signal<BuiltForm | undefined>(undefined);
   private buildKey = '';
 
-  protected readonly mode = computed<'create' | 'edit'>(() => (this.routeId() ? 'edit' : 'create'));
-
-  // The district select repopulates reactively as this resource resolves, so the config is built once.
-  // Gated on a current user: an anonymous visitor fires no query.
-  private readonly districtsResource = resource({
-    params: () => this.currentUser()?.id,
-    loader: async (): Promise<readonly District[]> =>
-      remult.repo(District).find({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-  });
-  private readonly districtOptions = computed<readonly SelectOption[]>(() =>
-    (this.districtsResource.value() ?? []).map((d) => ({ value: d.id, label: d.name })),
-  );
-  private readonly config = buildFireIncidentFormConfig(this.districtOptions);
+  private readonly config = computed(() => buildFinalReportFormConfig(this.mode()));
 
   private readonly editResource = resource({
     params: () => {
       const user = this.currentUser();
-      const id = this.routeId();
-      return user && id ? { id } : undefined;
+      const fireId = this.fireId();
+      return user && this.mode() === 'edit' && fireId ? { fireId } : undefined;
     },
-    loader: async ({ params }: { params: { id: string } }): Promise<FireIncident | undefined> =>
-      (await remult.repo(FireIncident).findId(params.id)) ?? undefined,
+    loader: async ({ params }: { params: { fireId: string } }): Promise<FinalReport | undefined> =>
+      (await remult.repo(FinalReport).findFirst({ fireIncidentId: params.fireId })) ?? undefined,
   });
 
-  private readonly seed = computed<Partial<FireIncident> | undefined>(() =>
+  private readonly seed = computed<Partial<FinalReport> | undefined>(() =>
     this.mode() === 'create'
-      ? this.createSeed()
+      ? { fireIncidentId: this.fireId() }
       : this.editResource.hasValue()
         ? this.editResource.value()
         : undefined,
   );
 
   protected readonly title = computed(() =>
-    this.mode() === 'create' ? 'New incident' : `Edit incident — ${this.seed()?.name ?? ''}`,
+    this.mode() === 'create' ? 'New final report' : 'Edit final report',
   );
-  protected readonly submitLabel = 'Save incident';
+  protected readonly submitLabel = 'Save final report';
 
   protected readonly pageState = computed<FormPageState>(() => {
     if (!this.currentUser()) {
       return 'anonymous';
+    }
+    if (!this.fireId()) {
+      return 'notFound';
     }
     if (this.mode() === 'edit') {
       if (this.editResource.isLoading()) {
@@ -122,23 +119,22 @@ export class IncidentFormComponent implements CanComponentDeactivate {
   });
 
   constructor() {
-    // buildForm is side-effecting (it wires cross-field validators), so it must not run inside a computed.
-    // A string key collapses redundant rebuilds when unrelated signals tick.
     effect(() => {
       const user = this.currentUser();
       const seed = this.seed();
-      if (!user) {
+      const fireId = this.fireId();
+      if (!(user && fireId)) {
         return;
       }
       if (this.mode() === 'edit' && !seed) {
         return;
       }
-      const key = `${user.id}|${this.mode()}|${this.routeId()}|${seed ? 'seed' : 'none'}`;
+      const key = `${user.id}|${this.mode()}|${fireId}|${seed ? 'seed' : 'none'}`;
       if (key === this.buildKey) {
         return;
       }
       this.buildKey = key;
-      untracked(() => this.builtForm.set(this.build(user, seed)));
+      untracked(() => this.builtForm.set(this.build(seed)));
     });
   }
 
@@ -159,19 +155,18 @@ export class IncidentFormComponent implements CanComponentDeactivate {
     }
     this.submitting.set(true);
     const result = await submitEntityForm(
-      remult.repo(FireIncident),
+      remult.repo(FinalReport),
       built.form,
       this.mode(),
       this.seed(),
     );
     this.submitting.set(false);
     result.match(
-      (saved) => {
-        this.notification.success('Incident saved');
-        this.announcer.announce('Incident saved', 'polite');
+      () => {
+        this.notification.success('Final report saved');
+        this.announcer.announce('Final report saved', 'polite');
         built.form.markAsPristine();
-        const target = this.mode() === 'create' ? saved.id : this.routeId();
-        this.router.navigate(['/incidents', target]);
+        this.router.navigate(['/incidents', this.fireId()]);
       },
       (cause) => {
         const message = toErrorMessage(cause);
@@ -183,31 +178,10 @@ export class IncidentFormComponent implements CanComponentDeactivate {
   }
 
   protected onCancel(): void {
-    const id = this.routeId();
-    this.router.navigate(id ? ['/incidents', id] : ['/incidents']);
+    this.router.navigate(['/incidents', this.fireId()]);
   }
 
-  private createSeed(): Partial<FireIncident> {
-    const user = this.currentUser();
-    if (user && this.isLockedEditor(user) && user.districtId !== null) {
-      return { districtId: user.districtId };
-    }
-    return {};
-  }
-
-  private build(user: CurrentUser, seed: Partial<FireIncident> | undefined): BuiltForm {
-    const built = buildForm(remult.repo(FireIncident), this.config, this.mode(), seed);
-    if (this.mode() === 'create' && this.isLockedEditor(user)) {
-      built.form.get('districtId')?.disable({ emitEvent: false });
-    }
-    return built;
-  }
-
-  private isLockedEditor(user: CurrentUser): boolean {
-    const roles = user.roles ?? [];
-    return (
-      roles.includes(Roles.incidentEditor) &&
-      !(roles.includes(Roles.admin) || roles.includes(Roles.stateOfficer))
-    );
+  private build(seed: Partial<FinalReport> | undefined): BuiltForm {
+    return buildForm(remult.repo(FinalReport), this.config(), this.mode(), seed);
   }
 }

@@ -1379,8 +1379,11 @@ flow, `resource()`/`liveQuery`, `ResultAsync` wrapping, `DestroyRef` cleanup, `p
 > `check:ci`, `nx build web`, and `nx test` gates all pass. Each subsection below carries its own status: §2 (app
 > shell), §3 (shared-domain UI files), §12 (Task teardown), §4 (forms engine), §5 (`<app-datetime-field>`), §6
 > (permission gating), §7 (incident list), §8 (incident detail), §9 (dialogs), and the §10 cross-cutting patterns are
-> implemented. The only remaining frontend work is the three create/edit form **components** of §4.7 (sub-phase 4e);
-> their form configs exist and their routes resolve to a placeholder.
+> implemented, including the §4.7 create/edit form **components** (sub-phase 4e) — the incident, situation-report,
+> and final-report screens render their configs through `<app-dynamic-form>` in a shared `<app-form-page>` shell,
+> guarded by a `CanDeactivate` unsaved-edits prompt. Phase 4 is complete: every component is `OnPush`, the
+> incident-detail final-report subpanel is `@defer`-loaded, the router uses `withViewTransitions()`, and the app is
+> verified to WCAG AA. The only remaining frontend work is the Phase 5 "add one field" demo.
 
 #### 1.1 Adopt `@nx/angular`
 
@@ -1704,7 +1707,9 @@ server's `validateAdjacentTimestamps` share one list. `LIMITS`, `TERMINAL_STATUS
 ### 4. Metadata-driven forms engine (`apps/web/src/app/shared/forms/`)
 
 > **Status: implemented.** `apps/web/src/app/shared/forms/` holds `form-engine.ts`, `form-engine.types.ts`,
-> `cross-field-validators.ts`, and `dynamic-form.ts` (`<app-dynamic-form>`), each with a spec.
+> `cross-field-validators.ts`, `dynamic-form.ts` (`<app-dynamic-form>`), `form-page.ts` (`<app-form-page>` chrome),
+> `unsaved-changes.ts` (the `CanDeactivate` guard), and `focus-first-invalid.ts` (focus-on-error helper) — each with a
+> spec where it carries logic.
 
 A small, typed, signal-friendly engine that builds a Typed Reactive `FormGroup` from a Remult repository plus a
 per-entity config. Adding a field to an entity surfaces it automatically (this is what keeps the Phase 5 demo at
@@ -1811,12 +1816,15 @@ Mirror the server saving-hook rules so users see errors pre-submit (advisory; th
    alert **and** a `MatSnackBar`. Server-only failures (DB-backed hook checks, lock cancels, thrown BackendMethod
    `Error`s) arrive here as thrown errors — **show the message text as-is** (the entities author precise messages).
 
-#### 4.7 The three form configs
+#### 4.7 The three form configs and their components
 
-> **Status: configs implemented, components pending.** `incident-form/fire-incident.form-config.ts`,
+> **Status: implemented.** `incident-form/fire-incident.form-config.ts`,
 > `sitrep-form/situation-report.form-config.ts`, and `final-report-form/final-report.form-config.ts` (each with a spec)
-> live under `features/fire-incidents/`. The form components that render them through `<app-dynamic-form>` — the routed
-> create/edit pages — are pending (sub-phase 4e).
+> live under `features/fire-incidents/`, and the components that render them through `<app-dynamic-form>` are in place:
+> `incident-form.ts` (create + edit), `situation-report-form.ts` (create-only), and `final-report-form.ts` (create +
+> edit, mode from route `data`). All three share the `<app-form-page>` shell and the `confirmDiscardIfDirty`
+> `CanDeactivate` guard, build their forms in a side-effect-safe `effect` (never inside a `computed`), and on a clean
+> save mark the form pristine and navigate to the relevant detail screen.
 
 Field lists are the entity fields minus the auto-excluded server-managed/relation fields. Excluded from **all** forms:
 `id`, `createdAt`, `updatedAt`, and every `allowApiUpdate:false` field (FireIncident: `financialYear`, `fireNumber`,
@@ -1873,14 +1881,19 @@ Enum hints: `status`, `potentialLoss`, `potentialSpread`.
 Standalone, signal-based, implements `ControlValueAccessor` so it slots into reactive forms like any control.
 
 - **Inputs:** `value = model<Date | null>(null)` · `label = input<string>('')` · `min = input<Date | null>(null)` ·
-  `max = input<Date | null>(null)` · `required = input(false)` · `disabled = input(false)` · `hint = input<string>('')`.
+  `max = input<Date | null>(null)` · `required = input(false)` · `disabled = input(false)` ·
+  `hint = input<string>('')` · `errorId = input<string | null>(null)` · `invalid = input(false)`
+  (the renderer wires the last two for a11y).
 - **Composition:** one `<mat-form-field>` containing a `matDatepicker` date input and an official `matTimepicker` time
   input, each bound to internal signals (`datePart`, `timePart`) and recombined into a single `Date` via `computed()`.
   Both share the app `DateAdapter` (native, provided in `app.config.ts`).
 - **Semantics:** emits `null` until a date is chosen; when only the date is set, time defaults to `00:00`. `[min]`/`[max]`
   forward to the date input; `maxNow` callers pass `max = new Date()`.
-- **a11y:** associated `<mat-label>`, `aria-describedby` wired to hint/error, both pickers keyboard-navigable (Material
-  default), participates in the host form's focus order.
+- **a11y:** the field is a `role="group"` labelled by its `<mat-label>`; a `describedBy` `computed` points the group at
+  its hint and, when `invalid`, the parent form's error message (`errorId`), and `aria-invalid` reflects validity. These
+  sit on the group wrapper, not the inner Material inputs — the `matInput` directive owns those inputs'
+  `aria-describedby`/`aria-invalid`. Both pickers are keyboard-navigable (Material default) and participate in the host
+  form's focus order.
 - **Display:** native adapter + `MAT_DATE_LOCALE='en-AU'` → dd/mm/yyyy; time in 24-hour format. The model is always a
   JS `Date`; serialisation to the API is Remult's concern.
 
@@ -1940,7 +1953,7 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
   (`MatProgressBar`) → `error` (inline `role="alert"` + snackbar) → `empty` (`MatCard`: "No incidents in your district"
   for district-scoped users, "No incidents found" for cross-district) → `content`.
 - **Navigation:** the row name links to `/incidents/:id` (the incident-detail screen, §8) and "New Incident" to
-  `/incidents/new` (a placeholder form screen until 4e, §11).
+  `/incidents/new` (the incident create form, §4.7).
 
 ### 8. Incident Detail (`features/fire-incidents/incident-detail/`)
 
@@ -1964,8 +1977,10 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
   `fireNumber`, level, district, `reportedAt`, `statusAsAt`, `nextReportDue`, `fireAreaHectares`) + an action bar; a
   **sitrep timeline** as a `mat-accordion` of `MatExpansionPanel`s newest-first (client-sorted `reportNumber desc`,
   first expanded) each showing the sitrep's status / submitted-at / resources / area / potentials / narrative; a
-  **final-report subpanel** (`MatCard`) shown only when a FinalReport exists AND the user may read it (`canViewFinal`),
-  displaying the loss / investigation / cost / burnt-land fields plus a "Signed off" line when applicable.
+  **final-report subpanel** — an extracted `app-final-report-panel` component, loaded with
+  `@defer (on viewport; prefetch on idle)` and shown only when a FinalReport exists AND the user may read it
+  (`canViewFinal`) — displaying the loss / investigation / cost / burnt-land fields plus a "Signed off" line when
+  applicable, and emitting its sign-off / remove-sign-off actions back to the detail screen.
 - **Action-button matrix.** Each button is **rendered only when it is fully actionable** — its `permissions.ts`
   predicate (role **and** state) is true; a button that would otherwise be disabled is simply absent. Routed actions
   are `<a routerLink>`; mutations open a dialog (§9) then call the BackendMethod through a shared `ResultAsync` helper
@@ -1984,7 +1999,7 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
   The incident / situation-report / final-report **create & edit pages are routed** (`/incidents/new`,
   `/incidents/:id/edit`, `/incidents/:id/sitrep`, `/incidents/:id/final`, `/incidents/:id/final/edit`); those routes
-  resolve to a placeholder form component until sub-phase 4e (§4.7).
+  resolve to the real form components (§4.7), each carrying the `unsavedChangesGuard`.
 
 ### 9. Dialogs (`shared/dialogs/`, `features/fire-incidents/dialogs/`)
 
@@ -2057,17 +2072,20 @@ apps/web/src/
       forms/
         form-engine.ts / form-engine.types.ts   (built)
         cross-field-validators.ts               (built)
-        dynamic-form.ts                          (built)
+        dynamic-form.ts                          (built: OnPush + markForCheck bridge)
+        form-page.ts                             (built: shared form chrome)
+        unsaved-changes.ts                       (built: CanDeactivate guard)
       auth/permissions.ts                       (built)
       util/to-error-message.ts                  (built)
       dialogs/confirm-reason-dialog.ts · confirm-dialog.ts   (built)
     features/fire-incidents/
-      fire-incidents.routes.ts                  (built: '' → list, ':id' → detail; 'new', :id/edit, :id/sitrep, :id/final[/edit] → placeholder form component until 4e)
-      incident-list/ (built: list.ts + .html + .spec) · incident-detail/ (built: incident-detail.ts + .html + .spec)
-      incident-form/ (form-config built; placeholder component; routed screen pending 4e)
-      sitrep-form/ (form-config built; component pending 4e)
-      final-report-form/ (form-config built; component pending 4e)
+      fire-incidents.routes.ts                  (built: '' → list, ':id' → detail; 'new', :id/edit, :id/sitrep, :id/final[/edit] → form components + unsavedChangesGuard)
+      incident-list/ (built: list.ts + .html + .spec) · incident-detail/ (built: incident-detail.ts + .html + .spec + final-report-panel.ts @defer)
+      incident-form/ (built: incident-form.ts + .spec; create + edit)
+      sitrep-form/ (built: situation-report-form.ts + .spec; create-only)
+      final-report-form/ (built: final-report-form.ts + .spec; create + edit)
       dialogs/escalate-dialog.ts                (built)
+    testing/axe-helper.ts                        (built: structural a11y assertion)
 libs/shared/domain/src/fire/
   enum-display.ts · ui.ts                        (built, scope:shared)
 ```
@@ -2083,7 +2101,14 @@ table↔cards responsive shift; the live-query transport is stubbed so renders r
 detail (`incident-detail.spec.ts` — the role×state action-button gating matrix plus the action wiring and cancel
 paths, driving the resolved state white-box over an inert transport), the three dialogs (`confirm-reason-dialog`,
 `confirm-dialog`, `escalate-dialog` specs), `NotificationService`, and `toErrorMessage` — using `InMemoryDataProvider`
-and a set `remult.user` for data-bound specs. Web tests do **not** re-test server rules — those are covered by the
+and a set `remult.user` for data-bound specs. The 4e screens add `incident-form`, `situation-report-form`, and
+`final-report-form` specs (page-state transitions, the district lock, create-insert vs edit-update routing, required-field
+blocking, and server-error surfacing — `repo.validate`/`insert`/`update` spied on the shared repo), plus `form-page`,
+`unsaved-changes`, and `final-report-panel` specs and a `<app-dynamic-form>` OnPush regression that proves a
+parent-pushed server error renders. The incident-detail spec drives the `@defer` final-report block via
+`DeferBlockBehavior.Manual` + `getDeferBlocks().render(Complete)`. Structural accessibility is asserted with axe-core
+(`testing/axe-helper.ts`, colour-contrast/region disabled as they need real layout) across the shell, list, detail, and
+every form. Web tests do **not** re-test server rules — those are covered by the
 existing shared-domain backend suites; the detail and list data-dependent behaviour (district scoping, sort,
 pagination, live updates, and the actual `resource()` load) is verified via the §13 end-to-end recipe.
 
@@ -2097,28 +2122,30 @@ green). The `apps/api/src/migrations/20260529112903_drop_tasks.sql` migration (`
 `entities` array and recorded in `atlas.sum` — keeps the database free of the `tasks` table. `App` is the routed shell
 (§2), and `app.spec.ts` asserts the shell renders with the toolbar title "Fire Incidents".
 
-### 13. Build order, acceptance, and end-to-end verification
+### 13. Composition, acceptance, and end-to-end verification
 
-**Sub-phases** (each independently green):
+**Composition.** The frontend is assembled in layers, each independently unit-tested:
 
-- **4a (done)** Adopt `@nx/angular` (init + `nx.json` generator defaults; keep `@angular/build` executors) → Material
-  theme/providers/fonts (two-file styles + biome `tailwindDirectives`) + theme toggle → routed shell → Task teardown.
-  The app boots to an empty `incidents`, the theme toggle persists and follows the OS, no `Task` remains, and `just ci`
-  is green (drop migration committed).
-- **4b (done)** `enum-display.ts` + `ui.ts` + barrel, the metadata-driven forms engine (`form-engine*`,
-  `cross-field-validators`, `dynamic-form`) + the three form configs, `<app-datetime-field>`, `StatusBadgeComponent`,
-  `permissions.ts`, `NotificationService`, and `toErrorMessage` — all unit-tested and green.
-- **4c (done)** Incident List — district-scoped LiveQuery, status badges, zero-padded fire numbers, responsive
-  table↔cards, "New Incident" gating, and the anonymous/loading/empty/error states; the row name navigates to the
-  incident-detail screen and "New Incident" to the placeholder incident-form screen. Unit tests cover the anonymous,
-  gating, and responsive surfaces; the data-dependent acceptance below is verified end-to-end.
-- **4d (done)** Incident Detail + dialogs — the `resource()`-loaded detail screen (header, situation-report timeline,
-  final-report subpanel), the role×state action-button matrix wired to the four BackendMethods through the escalate /
-  confirm / confirm-reason dialogs, and the `canViewFinalReport` UI predicate. Unit tests cover the gating matrix and
-  the action wiring; the actual data load is verified end-to-end.
-- **4e (pending)** the three form components — each rendering its existing `*.form-config.ts` through
-  `<app-dynamic-form>` (the `repo.validate()` submit flow, server-error surfacing). The `new`, `:id/edit`,
-  `:id/sitrep`, and `:id/final[/edit]` routes resolve to a placeholder form component until these land.
+- **Tooling & shell** — `@nx/angular` (generators + the Angular-schematic bridge; `@angular/build` executors
+  retained), Angular Material M3 (azure palette, two-file Sass/Tailwind styles, biome `tailwindDirectives`), the
+  light/dark/system `ThemeService` + toggle, and the routed Material shell. The workspace carries no `Task` example
+  (§12).
+- **Shared-domain UI + forms engine** — `enum-display.ts` + `ui.ts` (barrel-exported), the metadata-driven forms
+  engine (`form-engine*`, `cross-field-validators`, `dynamic-form`), the three form configs, `<app-datetime-field>`,
+  `StatusBadgeComponent`, `permissions.ts`, `NotificationService`, and `toErrorMessage`.
+- **Incident list** — district-scoped LiveQuery, status badges, zero-padded fire numbers, responsive table↔cards,
+  `canCreateIncident` "New Incident" gating, and the anonymous/loading/empty/error states.
+- **Incident detail + dialogs** — the `resource()`-loaded detail screen (header, situation-report timeline, and the
+  `@defer`-loaded final-report panel), the role×state action-button matrix wired to the four BackendMethods through
+  the escalate / confirm / confirm-reason dialogs, and the `canViewFinalReport` predicate.
+- **Form screens (§4.7)** — the incident / situation-report / final-report components render their configs through
+  `<app-dynamic-form>` in the `<app-form-page>` shell, behind the `unsavedChangesGuard`, with the editor district
+  lock, `repo.validate()` server-error surfacing, and post-save pristine navigation.
+- **App-wide conformance** — `OnPush` on every component (with the `AbstractControl.events → markForCheck` bridge on
+  `<app-dynamic-form>` and signal-backed dialog buttons), the `@defer` final-report panel, router
+  `withViewTransitions()` behind a `prefers-reduced-motion` guard, and the WCAG-AA pass (the
+  `text-muted`/`--mat-sys-on-surface-variant` token, the `<nav>` landmark, the table `aria-label`, and the datetime
+  `aria-describedby`/`aria-invalid`), guarded by axe-core structural assertions.
 
 **Per-screen acceptance.** *List:* `dev-editor-otway` sees only Otway incidents, `dev-admin` sees all, "New Incident"
 hidden for viewers, sort + responsive cards work, badges colour-correct, list updates live when a sitrep changes a
@@ -2168,10 +2195,9 @@ enhancement.
 
 ## User Workflows
 
-> **Status: partial.** These describe the frontend feature (*Frontend Architecture* §7–§9). The incident list, the
-> incident detail, and the action dialogs are built; the create/edit form screens are not — `features/fire-incidents/`
-> holds the live list, the detail screen, the dialogs, and the three form configs, with the form routes pointing at a
-> placeholder component — while the backend they exercise is complete.
+> **Status: implemented.** These describe the frontend feature (*Frontend Architecture* §7–§9). The incident list, the
+> incident detail, the action dialogs, and the create / edit / situation-report / final-report form screens are all
+> built and wired end-to-end against the complete backend.
 
 ### Incident List
 
@@ -2270,30 +2296,22 @@ suite (`bunx nx test shared-domain`) covers the `helpers.ts` cadence math and al
 
 ### Phase 4: Frontend Feature
 
-**Status: In progress.**
+**Status: Complete.**
 
-**Done.** Sub-phase **4a** — `@nx/angular` + Angular Material M3 (azure palette, two-file Sass/Tailwind styles, biome
-`tailwindDirectives`), the light/dark/system `ThemeService` + theme toggle, the routed Material shell (toolbar +
-responsive sidenav, the dev-user switcher embedded in the toolbar, Material Symbols icon font), and the full `Task`
-teardown (entity, `apps/api/src/config.ts` registration, and the `DROP TABLE tasks` migration
-`20260529112903_drop_tasks.sql`). Plus **all of 4b** — the `scope:shared` UI files (`enum-display.ts` labels, `ui.ts`
-status-badge classes, `TIMESTAMP_PAIRS`/`TimestampField` from `helpers.ts`, barrel-exported), the metadata-driven forms
-engine (`form-engine`, `form-engine.types`, `cross-field-validators`, `dynamic-form`) and the three form configs, the
-`<app-datetime-field>` component, `StatusBadgeComponent`, `permissions.ts`, `NotificationService`, and the
-`toErrorMessage` helper — each unit-tested. Plus **4c** — the incident list (`incident-list.ts` + `.html` + `.spec.ts`):
-a district-scoped `liveQuery` table with status badges, zero-padded fire numbers, a responsive `MatCard` fallback,
-`canCreateIncident` gating, and the anonymous/loading/empty/error states. Plus **4d** — the incident detail
-(`incident-detail.ts` + `.html` + `.spec.ts`): a `resource()`-loaded screen with the situation-report timeline and the
-final-report subpanel, the role×state action-button matrix wired to `escalate` / `softDelete` / sign-off /
-`removeSignOff` through the escalate, confirm, and confirm-reason dialogs (`shared/dialogs/`,
-`features/fire-incidents/dialogs/`), the `canViewFinalReport` UI predicate, and `LiveAnnouncer` + snackbar feedback. The
-`:id` route resolves to the detail screen; the `new`, `:id/edit`, `:id/sitrep`, and `:id/final[/edit]` routes resolve to
-a placeholder form component so navigation does not dead-end.
+The complete Angular frontend ships, specified in full under *Frontend Architecture (Phase 4) §1–§14*: the
+`@nx/angular` + Material M3 tooling and the routed shell (toolbar, responsive sidenav, dev-user switcher, theme
+toggle); the `scope:shared` UI maps (`enum-display.ts`, `ui.ts`) and the metadata-driven forms engine
+(`form-engine*`, `cross-field-validators`, `dynamic-form`, the three configs, `<app-datetime-field>`,
+`StatusBadgeComponent`, `permissions.ts`, `NotificationService`, `toErrorMessage`); the district-scoped incident
+list; the `resource()`-loaded incident detail with its `@defer` final-report panel and the role×state action bar
+wired to `escalate` / `softDelete` / sign-off / `removeSignOff` through the escalate / confirm / confirm-reason
+dialogs; and the incident / situation-report / final-report form screens rendered through `<app-dynamic-form>` in the
+`<app-form-page>` shell behind the `unsavedChangesGuard`. Every component is `OnPush`, the router uses
+`withViewTransitions()` behind a `prefers-reduced-motion` guard, and the app is verified to WCAG AA with axe-core
+structural assertions in CI. The workspace carries no `Task` example.
 
-**Remaining.** **4e** — the incident / situation-report / final-report form components, each rendering its existing
-`*.form-config.ts` through `<app-dynamic-form>` (the `repo.validate()` submit flow and server-error surfacing). It is
-specified in full under *Frontend Architecture (Phase 4) §4.7* above; see *§13* for the build order, acceptance
-criteria, and the end-to-end verification recipe.
+**Demo moment: define a field once, drive list, detail, and a validated form everywhere — no codegen, no per-screen
+wiring.**
 
 ### Phase 5: The Demo Moment
 

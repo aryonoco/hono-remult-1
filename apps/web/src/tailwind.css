@@ -4,3 +4,10 @@
    deliverable) will live in libs/shared/domain/src/fire/ui.ts — or those classes are purged from
    the production build. */
 @source '../../../libs/shared/domain/src';
+
+/* Semantic muted-text colour mapped to the Material M3 system token. Using `text-muted` (rather than an
+   `opacity-*` utility or a fixed grey) keeps de-emphasised text at AA contrast against the surface in both
+   the light and dark themes, where the tonal palette guarantees the on-surface-variant pairing. */
+@theme {
+  --color-muted: var(--mat-sys-on-surface-variant);
+}

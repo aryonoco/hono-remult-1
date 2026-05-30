@@ -1,19 +1,36 @@
 import type { Routes } from '@angular/router';
 
+import { unsavedChangesGuard } from '../../shared/forms/unsaved-changes';
+import { FinalReportFormComponent } from './final-report-form/final-report-form';
 import { IncidentDetailComponent } from './incident-detail/incident-detail';
 import { IncidentFormComponent } from './incident-form/incident-form';
 import { IncidentListComponent } from './incident-list/incident-list';
+import { SituationReportFormComponent } from './sitrep-form/situation-report-form';
 
 // Static `new` is declared before the `:id` parameter so `/incidents/new` resolves to the form, not the
-// detail screen, and the bare `:id` detail route stays last. The `:id/edit`, `:id/sitrep`, and
-// `:id/final[/edit]` paths point at the `IncidentFormComponent` placeholder so the detail screen's action
-// buttons navigate; Phase 4e swaps in the real edit / sitrep / final-report form components.
+// detail screen, and the bare `:id` detail route stays last. `:id/final/edit` precedes `:id/final` so the
+// longer path wins. Every form route carries the unsaved-changes guard; the two final-report routes pass
+// their `mode` through route data.
 export const fireIncidentRoutes: Routes = [
   { path: '', component: IncidentListComponent },
-  { path: 'new', component: IncidentFormComponent },
-  { path: ':id/edit', component: IncidentFormComponent },
-  { path: ':id/sitrep', component: IncidentFormComponent },
-  { path: ':id/final/edit', component: IncidentFormComponent },
-  { path: ':id/final', component: IncidentFormComponent },
+  { path: 'new', component: IncidentFormComponent, canDeactivate: [unsavedChangesGuard] },
+  { path: ':id/edit', component: IncidentFormComponent, canDeactivate: [unsavedChangesGuard] },
+  {
+    path: ':id/sitrep',
+    component: SituationReportFormComponent,
+    canDeactivate: [unsavedChangesGuard],
+  },
+  {
+    path: ':id/final/edit',
+    component: FinalReportFormComponent,
+    data: { mode: 'edit' },
+    canDeactivate: [unsavedChangesGuard],
+  },
+  {
+    path: ':id/final',
+    component: FinalReportFormComponent,
+    data: { mode: 'create' },
+    canDeactivate: [unsavedChangesGuard],
+  },
   { path: ':id', component: IncidentDetailComponent },
 ];

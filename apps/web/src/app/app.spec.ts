@@ -3,6 +3,7 @@ import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
+import { findAxeViolations } from '../testing/axe-helper';
 import { App } from './app';
 import { DevAuthService } from './core/dev-auth.service';
 
@@ -35,6 +36,12 @@ describe('App', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('mat-toolbar')?.textContent).toContain('Fire Incidents');
+  });
+
+  it('has no structural accessibility violations (skip-link, nav landmark, main)', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
   });
 });
 

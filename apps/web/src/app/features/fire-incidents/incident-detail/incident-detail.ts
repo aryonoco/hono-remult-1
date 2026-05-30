@@ -1,6 +1,13 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, effect, inject, resource } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  resource,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -10,16 +17,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  COST_CLASS_LABELS,
-  type CostClass,
   FinalReport,
   FireIncident,
   INCIDENT_LEVEL_LABELS,
-  INVESTIGATION_TYPE_LABELS,
   type IncidentLevel,
-  type InvestigationType,
-  LEGAL_ACTION_STATUS_LABELS,
-  type LegalActionStatus,
   POTENTIAL_LABELS,
   type Potential,
 } from '@workspace/shared-domain';
@@ -51,6 +52,7 @@ import {
 } from '../../../shared/dialogs/confirm-reason-dialog';
 import { toErrorMessage } from '../../../shared/util/to-error-message';
 import { EscalateDialogComponent, type EscalateDialogData } from '../dialogs/escalate-dialog';
+import { FinalReportPanelComponent } from './final-report-panel';
 
 interface FireRequest {
   id: string;
@@ -60,6 +62,7 @@ interface FireRequest {
 
 @Component({
   selector: 'app-incident-detail',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
     DecimalPipe,
@@ -70,6 +73,7 @@ interface FireRequest {
     MatExpansionModule,
     MatProgressBarModule,
     StatusBadgeComponent,
+    FinalReportPanelComponent,
   ],
   templateUrl: './incident-detail.html',
 })
@@ -194,18 +198,6 @@ export class IncidentDetailComponent {
 
   protected potentialLabel(potential: Potential): string {
     return POTENTIAL_LABELS[potential];
-  }
-
-  protected investigationLabel(type: InvestigationType): string {
-    return INVESTIGATION_TYPE_LABELS[type];
-  }
-
-  protected legalActionLabel(legalAction: LegalActionStatus): string {
-    return LEGAL_ACTION_STATUS_LABELS[legalAction];
-  }
-
-  protected costClassLabel(costClass: CostClass): string {
-    return COST_CLASS_LABELS[costClass];
   }
 
   protected async onEscalate(): Promise<void> {

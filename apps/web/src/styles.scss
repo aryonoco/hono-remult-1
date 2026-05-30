@@ -42,4 +42,13 @@
   .app-notification-error {
     border-inline-start: 4px solid var(--mat-sys-error, #b3261e);
   }
+
+  // Honour an OS "reduce motion" preference for the router's View Transitions animations.
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
+  }
 }

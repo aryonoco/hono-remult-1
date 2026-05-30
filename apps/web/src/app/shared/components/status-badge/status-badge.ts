@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import {
   FIRE_STATUS_LABELS,
   type FireStatus,
@@ -8,6 +8,7 @@ import {
 
 @Component({
   selector: 'app-status-badge',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<span [class]="classes()">{{ label() }}</span>`,
 })
 export class StatusBadgeComponent {

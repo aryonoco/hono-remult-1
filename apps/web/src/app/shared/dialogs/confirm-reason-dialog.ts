@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -20,6 +21,7 @@ export interface ConfirmReasonDialogResult {
 // supplies the copy and forwards `reason` to the matching BackendMethod.
 @Component({
   selector: 'app-confirm-reason-dialog',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatDialogModule,
     MatButtonModule,
@@ -47,7 +49,7 @@ export interface ConfirmReasonDialogResult {
       <button
         mat-flat-button
         type="button"
-        [disabled]="reason.invalid || reason.value.trim().length === 0"
+        [disabled]="!canConfirm()"
         (click)="confirm()"
       >
         {{ data.confirmLabel }}
@@ -65,6 +67,15 @@ export class ConfirmReasonDialogComponent {
     nonNullable: true,
     validators: [Validators.required, Validators.maxLength(LIMITS.description)],
   });
+  private readonly reasonValue = toSignal(this.reason.valueChanges, {
+    initialValue: this.reason.value,
+  });
+  private readonly reasonStatus = toSignal(this.reason.statusChanges, {
+    initialValue: this.reason.status,
+  });
+  protected readonly canConfirm = computed(
+    () => this.reasonStatus() === 'VALID' && this.reasonValue().trim().length > 0,
+  );
 
   protected confirm(): void {
     this.dialogRef.close({ reason: this.reason.value.trim() });

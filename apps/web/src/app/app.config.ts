@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
 import { MatIconRegistry } from '@angular/material/icon';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withViewTransitions } from '@angular/router';
 
 import { routes } from './app.routes';
 import { provideRemult } from './core/remult.provider';
@@ -16,7 +16,10 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideRouter(routes),
+    // Cross-route View Transitions API animations — feature-detected by Angular, so a no-op where the
+    // browser (or jsdom in tests) lacks support. A reduced-motion guard in styles.scss disables the
+    // animation for users who ask for it.
+    provideRouter(routes, withViewTransitions()),
     provideRemult(),
     // Angular Material 21 animates via CSS (no @angular/animations provider needed) and shares a date adapter for
     // the date/time pickers.

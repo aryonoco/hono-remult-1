@@ -11,6 +11,7 @@ import {
 } from '@workspace/shared-domain';
 import { remult } from 'remult';
 import { of } from 'rxjs';
+import { findAxeViolations } from '../../../../testing/axe-helper';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { NotificationService } from '../../../core/notification.service';
 import { IncidentListComponent } from './incident-list';
@@ -146,5 +147,11 @@ describe('IncidentListComponent (responsive content)', () => {
     expect(host.querySelector('table')).toBeNull();
     expect(host.querySelector('mat-card')).not.toBeNull();
     expect(host.textContent).toContain('Test Fire');
+  });
+
+  it('has no structural accessibility violations with the named table', async () => {
+    const fixture = await createComponent(EDITOR, false);
+    forceContent(fixture);
+    expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
   });
 });

@@ -85,4 +85,26 @@ describe('DatetimeFieldComponent', () => {
     expect((inputs[0] as HTMLInputElement).disabled).toBe(true);
     expect((inputs[1] as HTMLInputElement).disabled).toBe(true);
   });
+
+  it('associates the parent error and marks the group invalid via aria', () => {
+    const fixture = TestBed.createComponent(DatetimeFieldComponent);
+    fixture.componentRef.setInput('hint', 'Pick a time in the past');
+    fixture.componentRef.setInput('errorId', 'dt-error-id');
+    fixture.componentRef.setInput('invalid', true);
+    fixture.detectChanges();
+    const group = (fixture.nativeElement as HTMLElement).firstElementChild;
+    expect(group?.getAttribute('aria-invalid')).toBe('true');
+    expect(group?.getAttribute('aria-describedby') ?? '').toContain('dt-error-id');
+  });
+
+  it('omits the error id from aria-describedby when valid', () => {
+    const fixture = TestBed.createComponent(DatetimeFieldComponent);
+    fixture.componentRef.setInput('hint', 'Pick a time');
+    fixture.componentRef.setInput('errorId', 'dt-error-id');
+    fixture.componentRef.setInput('invalid', false);
+    fixture.detectChanges();
+    const group = (fixture.nativeElement as HTMLElement).firstElementChild;
+    expect(group?.getAttribute('aria-invalid')).toBeNull();
+    expect(group?.getAttribute('aria-describedby') ?? '').not.toContain('dt-error-id');
+  });
 });

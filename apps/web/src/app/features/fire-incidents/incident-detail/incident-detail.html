@@ -32,31 +32,31 @@
 
           <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
             <div>
-              <dt class="text-xs opacity-70">Global ID</dt>
+              <dt class="text-xs text-muted">Global ID</dt>
               <dd class="m-0">{{ f.globalIncidentId }}</dd>
             </div>
             <div>
-              <dt class="text-xs opacity-70">Fire No.</dt>
+              <dt class="text-xs text-muted">Fire No.</dt>
               <dd class="m-0">{{ f.fireNumber | number: '3.0-0' }}</dd>
             </div>
             <div>
-              <dt class="text-xs opacity-70">Level</dt>
+              <dt class="text-xs text-muted">Level</dt>
               <dd class="m-0">{{ levelLabel(f.incidentLevel) }}</dd>
             </div>
             <div>
-              <dt class="text-xs opacity-70">District</dt>
+              <dt class="text-xs text-muted">District</dt>
               <dd class="m-0">{{ f.district?.name ?? '—' }}</dd>
             </div>
             <div>
-              <dt class="text-xs opacity-70">Reported</dt>
+              <dt class="text-xs text-muted">Reported</dt>
               <dd class="m-0">{{ f.reportedAt | date: 'dd/MM/yy, HH:mm' }}</dd>
             </div>
             <div>
-              <dt class="text-xs opacity-70">Last report</dt>
+              <dt class="text-xs text-muted">Last report</dt>
               <dd class="m-0">{{ f.statusAsAt | date: 'dd/MM/yy, HH:mm' }}</dd>
             </div>
             <div>
-              <dt class="text-xs opacity-70">Next due</dt>
+              <dt class="text-xs text-muted">Next due</dt>
               <dd class="m-0">
                 @if (f.nextReportDue) {
                   {{ f.nextReportDue | date: 'dd/MM/yy, HH:mm' }}
@@ -66,7 +66,7 @@
               </dd>
             </div>
             <div>
-              <dt class="text-xs opacity-70">Fire area</dt>
+              <dt class="text-xs text-muted">Fire area</dt>
               <dd class="m-0">
                 @if (f.fireAreaHectares != null) {
                   {{ f.fireAreaHectares | number: '1.0-1' }} ha
@@ -162,29 +162,29 @@
                       <p class="m-0">Potential spread: {{ potentialLabel(s.potentialSpread) }}</p>
                     }
                     @if (s.weatherConditions) {
-                      <p class="m-0"><span class="opacity-70">Weather:</span> {{ s.weatherConditions }}</p>
+                      <p class="m-0"><span class="text-muted">Weather:</span> {{ s.weatherConditions }}</p>
                     }
                     @if (s.currentStrategy) {
-                      <p class="m-0"><span class="opacity-70">Strategy:</span> {{ s.currentStrategy }}</p>
+                      <p class="m-0"><span class="text-muted">Strategy:</span> {{ s.currentStrategy }}</p>
                     }
                     @if (s.predictedBehaviour) {
                       <p class="m-0">
-                        <span class="opacity-70">Predicted behaviour:</span> {{ s.predictedBehaviour }}
+                        <span class="text-muted">Predicted behaviour:</span> {{ s.predictedBehaviour }}
                       </p>
                     }
                     @if (s.controlProgress) {
                       <p class="m-0">
-                        <span class="opacity-70">Control progress:</span> {{ s.controlProgress }}
+                        <span class="text-muted">Control progress:</span> {{ s.controlProgress }}
                       </p>
                     }
                     @if (s.communityImpact) {
                       <p class="m-0">
-                        <span class="opacity-70">Community impact:</span> {{ s.communityImpact }}
+                        <span class="text-muted">Community impact:</span> {{ s.communityImpact }}
                       </p>
                     }
                     @if (s.significantEvents) {
                       <p class="m-0">
-                        <span class="opacity-70">Significant events:</span> {{ s.significantEvents }}
+                        <span class="text-muted">Significant events:</span> {{ s.significantEvents }}
                       </p>
                     }
                   </div>
@@ -200,135 +200,21 @@
 
         @if (hasFinalReport() && canViewFinal()) {
           @if (finalReport(); as fr) {
-            <mat-card class="p-4" data-testid="final-report-panel">
-              <div class="flex flex-wrap items-center gap-3">
-                <h2 class="m-0 text-lg font-medium">Final report</h2>
-                @if (fr.isSignedOff) {
-                  <span
-                    class="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
-                  >
-                    Signed off by {{ fr.signedOffBy }} ·
-                    {{ fr.signedOffAt | date: 'dd/MM/yy, HH:mm' }}
-                  </span>
-                }
-              </div>
-
-              <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
-                <div>
-                  <dt class="text-xs opacity-70">Stock lost</dt>
-                  <dd class="m-0">{{ fr.stockLost ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Homes lost</dt>
-                  <dd class="m-0">{{ fr.homesLost ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Sheds lost</dt>
-                  <dd class="m-0">{{ fr.shedsLost ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Fencing lost (km)</dt>
-                  <dd class="m-0">{{ fr.fencingLostKm ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Crop loss (ha)</dt>
-                  <dd class="m-0">{{ fr.cropLossHectares ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Offence suspected</dt>
-                  <dd class="m-0">{{ fr.isOffenceSuspected ? 'Yes' : 'No' }}</dd>
-                </div>
-                @if (fr.investigationType) {
-                  <div>
-                    <dt class="text-xs opacity-70">Investigation</dt>
-                    <dd class="m-0">{{ investigationLabel(fr.investigationType) }}</dd>
-                  </div>
-                }
-                @if (fr.legalActionStatus) {
-                  <div>
-                    <dt class="text-xs opacity-70">Legal action</dt>
-                    <dd class="m-0">{{ legalActionLabel(fr.legalActionStatus) }}</dd>
-                  </div>
-                }
-                @if (fr.costClass) {
-                  <div>
-                    <dt class="text-xs opacity-70">Cost class</dt>
-                    <dd class="m-0">{{ costClassLabel(fr.costClass) }}</dd>
-                  </div>
-                }
-                <div>
-                  <dt class="text-xs opacity-70">Burnt state forest (ha)</dt>
-                  <dd class="m-0">{{ fr.burntStateForest ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Burnt national park (ha)</dt>
-                  <dd class="m-0">{{ fr.burntNationalPark ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Burnt private property (ha)</dt>
-                  <dd class="m-0">{{ fr.burntPrivateProperty ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Burnt plantation (ha)</dt>
-                  <dd class="m-0">{{ fr.burntPlantation ?? '—' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs opacity-70">Burnt other (ha)</dt>
-                  <dd class="m-0">{{ fr.burntOther ?? '—' }}</dd>
-                </div>
-              </dl>
-
-              @if (fr.investigationBy) {
-                <p class="mt-2 text-sm">
-                  <span class="opacity-70">Investigation by:</span> {{ fr.investigationBy }}
-                </p>
-              }
-              @if (fr.infrastructureLosses) {
-                <p class="mt-2 text-sm">
-                  <span class="opacity-70">Infrastructure losses:</span> {{ fr.infrastructureLosses }}
-                </p>
-              }
-              @if (fr.otherLosses) {
-                <p class="mt-1 text-sm">
-                  <span class="opacity-70">Other losses:</span> {{ fr.otherLosses }}
-                </p>
-              }
-
-              <div class="mt-4 flex flex-wrap gap-2">
-                @if (canSign()) {
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    data-testid="action-signoff"
-                    (click)="onSignOff()"
-                  >
-                    <mat-icon>verified</mat-icon>
-                    Sign off
-                  </button>
-                }
-                @if (canRemoveSign()) {
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    data-testid="action-remove-signoff"
-                    (click)="onRemoveSignOff()"
-                  >
-                    <mat-icon>lock_open</mat-icon>
-                    Remove sign-off
-                  </button>
-                }
-                @if (canEditFinal()) {
-                  <a
-                    mat-stroked-button
-                    data-testid="action-edit-final"
-                    [routerLink]="['/incidents', f.id, 'final', 'edit']"
-                  >
-                    <mat-icon>edit</mat-icon>
-                    Edit
-                  </a>
-                }
-              </div>
-            </mat-card>
+            @defer (on viewport; prefetch on idle) {
+              <app-final-report-panel
+                [report]="fr"
+                [fireId]="f.id"
+                [canSign]="canSign()"
+                [canRemoveSign]="canRemoveSign()"
+                [canEditFinal]="canEditFinal()"
+                (signOff)="onSignOff()"
+                (removeSignOff)="onRemoveSignOff()"
+              />
+            } @placeholder {
+              <mat-card class="p-4" data-testid="final-report-placeholder">
+                <p class="m-0 text-muted">Final report — scroll to load.</p>
+              </mat-card>
+            }
           }
         }
       </div>

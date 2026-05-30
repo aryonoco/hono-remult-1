@@ -92,4 +92,14 @@ describe('DynamicFormComponent', () => {
     TestBed.tick();
     expect(el.querySelector('mat-error')?.textContent).toContain('required');
   });
+
+  // OnPush regression: server errors arrive from the parent's async submit, not a template event in this
+  // view. Only the `form().events → markForCheck()` wiring makes the message render on the next tick.
+  it('renders a server error pushed from outside the view under OnPush', () => {
+    const { el, controls } = render();
+    controls.txt.setErrors({ server: 'Already exists' });
+    controls.txt.markAsTouched();
+    TestBed.tick();
+    expect(el.querySelector('mat-error')?.textContent).toContain('Already exists');
+  });
 });

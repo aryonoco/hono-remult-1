@@ -1,4 +1,11 @@
-import { Component, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  effect,
+  inject,
+  input,
+} from '@angular/core';
 import { type AbstractControl, type FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -15,6 +22,7 @@ const DEFAULT_TEXTAREA_ROWS = 3;
 
 @Component({
   selector: 'app-dynamic-form',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
     MatCardModule,
@@ -49,9 +57,16 @@ const DEFAULT_TEXTAREA_ROWS = 3;
                       [hint]="field.hint ?? ''"
                       [required]="field.required"
                       [max]="field.maxDate ?? null"
+                      [errorId]="field.key + '-dt-error'"
+                      [invalid]="firstError(field.control) !== null"
                     />
                     @if (firstError(field.control); as message) {
-                      <span role="alert" class="text-xs text-red-600">{{ message }}</span>
+                      <span
+                        [id]="field.key + '-dt-error'"
+                        role="alert"
+                        class="text-xs text-[color:var(--mat-sys-error)]"
+                        >{{ message }}</span
+                      >
                     }
                   </div>
                 }
@@ -165,6 +180,16 @@ export class DynamicFormComponent {
   readonly form = input.required<FormGroup>();
   readonly groups = input.required<readonly BuiltGroup[]>();
   protected readonly defaultRows = DEFAULT_TEXTAREA_ROWS;
+  private readonly cdr = inject(ChangeDetectorRef);
+
+  constructor() {
+    // Under OnPush, server errors and `markAllAsTouched()` arrive from the parent's async submit handler —
+    // no event fires in this view, so subscribe to the form's event stream and request a check ourselves.
+    effect((onCleanup) => {
+      const sub = this.form().events.subscribe(() => this.cdr.markForCheck());
+      onCleanup(() => sub.unsubscribe());
+    });
+  }
 
   protected firstError(control: AbstractControl): string | null {
     if (!control.touched) {

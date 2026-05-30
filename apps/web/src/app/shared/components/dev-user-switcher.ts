@@ -1,10 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { type CurrentUser, DEV_DISTRICT_NAMES, DEV_USERS } from '@workspace/shared-domain';
 
 import { DevAuthService } from '../../core/dev-auth.service';
 
 @Component({
   selector: 'app-dev-user-switcher',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex items-center gap-2 text-xs">
       <label class="sr-only" for="dev-user-select">Dev user</label>
@@ -22,11 +23,11 @@ import { DevAuthService } from '../../core/dev-auth.service';
         }
       </select>
       @if (currentUserDisplay(); as user) {
-        <span class="hidden opacity-80 md:inline">
+        <span class="hidden text-muted md:inline">
           {{ user.roles?.join(', ') || 'none' }} · {{ formatDistrict(user) }}
         </span>
       } @else {
-        <span class="hidden opacity-80 md:inline">Not authenticated</span>
+        <span class="hidden text-muted md:inline">Not authenticated</span>
       }
     </div>
   `,

@@ -43,7 +43,7 @@
               </a>
               <app-status-badge [status]="incident.status" />
             </div>
-            <div class="mt-2 text-sm opacity-80">
+            <div class="mt-2 text-sm text-muted">
               {{ incident.district?.name ?? '—' }} · Fire
               {{ incident.fireNumber | number: '3.0-0' }} ·
               {{ levelLabel(incident.incidentLevel) }}
@@ -55,7 +55,7 @@
                 >
               }
             </div>
-            <div class="mt-1 text-sm opacity-80">
+            <div class="mt-1 text-sm text-muted">
               @if (incident.fireAreaHectares != null) {
                 {{ incident.fireAreaHectares | number: '1.0-1' }} ha ·
               }
@@ -71,6 +71,7 @@
       <table
         mat-table
         matSort
+        aria-label="Fire incidents"
         [dataSource]="pagedIncidents()"
         [matSortActive]="sortState().active"
         [matSortDirection]="sortState().direction"
