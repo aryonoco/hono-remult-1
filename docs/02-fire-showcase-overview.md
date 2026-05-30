@@ -1375,8 +1375,9 @@ flow, `resource()`/`liveQuery`, `ResultAsync` wrapping, `DestroyRef` cleanup, `p
 > **Status: implemented.** The build tooling and Material setup in this section are done and verified — `@nx/angular`
 > adopted, `nx.json` generator defaults, Material theme/providers/fonts, and biome `tailwindDirectives`. The
 > `check:ci`, `nx build web`, and `nx test` gates all pass. Each subsection below carries its own status: §2 (app
-> shell), §3 (shared-domain UI files), and §12 (Task teardown) are implemented; §4 (forms engine) onward and the
-> feature screens remain pending.
+> shell), §3 (shared-domain UI files), §12 (Task teardown), §4 (forms engine), §5 (`<app-datetime-field>`), and §6
+> (permission gating) are implemented, as are the §10 `NotificationService` and `toErrorMessage` helpers; the feature
+> screens (§7 list, §8 detail, §9 dialogs) and the remaining §10 screen-level patterns are pending.
 
 #### 1.1 Adopt `@nx/angular`
 
@@ -1396,7 +1397,8 @@ bunx nx g @nx/angular:init       # registers the plugin + generators; no angular
 
 **Executors — `@angular/build` retained.** The web app's `build` / `serve` / `test` targets stay on the
 `@angular/build:application` / `:dev-server` / `:unit-test` executors; `@nx/angular` is adopted for its **generators and
-the Angular-schematic bridge only**. Migrating `build` to `@nx/angular:application` was trialled and **reverted**: Angular's
+the Angular-schematic bridge only**. `build` stays on `@angular/build:application` rather than
+`@nx/angular:application` because Angular's
 `@angular/build:unit-test` runner (NX's recommended Angular Vitest runner) only supports an `@angular/build:application`
 build target and prints `buildTarget … @nx/angular:application … is not supported … failures may occur` on every
 `nx test` when the build is on the wrapper. Keeping `@angular/build` avoids that warning entirely, **still gets NX task
@@ -1697,7 +1699,8 @@ server's `validateAdjacentTimestamps` share one list. `LIMITS`, `TERMINAL_STATUS
 
 ### 4. Metadata-driven forms engine (`apps/web/src/app/shared/forms/`)
 
-> **Status: pending.** `apps/web/src/app/shared/forms/` does not exist yet.
+> **Status: implemented.** `apps/web/src/app/shared/forms/` holds `form-engine.ts`, `form-engine.types.ts`,
+> `cross-field-validators.ts`, and `dynamic-form.ts` (`<app-dynamic-form>`), each with a spec.
 
 A small, typed, signal-friendly engine that builds a Typed Reactive `FormGroup` from a Remult repository plus a
 per-entity config. Adding a field to an entity surfaces it automatically (this is what keeps the Phase 5 demo at
@@ -1775,8 +1778,8 @@ A `<app-dynamic-form>` component renders the built form: `@for` over groups → 
 
 The engine adds Angular validators from metadata best-effort, for instant UX only:
 
-- `required` ← `field.options.allowNull === false` on a non-defaulted field (and for required enums `status`,
-  `incidentLevel`).
+- `required` ← the explicit `required` hint on the field (the form configs set it on every mandatory field). The
+  engine does not introspect entity metadata to infer which fields are required.
 - `maxLength` / `min` / `max` ← from the field `hint` (the engine does **not** introspect Remult's `validate` array —
   that is version-fragile).
 - Everything else (custom + cross-field) is **not** duplicated client-side. The authoritative isomorphic pass is
@@ -1805,6 +1808,11 @@ Mirror the server saving-hook rules so users see errors pre-submit (advisory; th
    `Error`s) arrive here as thrown errors — **show the message text as-is** (the entities author precise messages).
 
 #### 4.7 The three form configs
+
+> **Status: configs implemented, components pending.** `incident-form/fire-incident.form-config.ts`,
+> `sitrep-form/situation-report.form-config.ts`, and `final-report-form/final-report.form-config.ts` (each with a spec)
+> live under `features/fire-incidents/`. The form components that render them through `<app-dynamic-form>` — the routed
+> create/edit pages — are pending (sub-phase 4e).
 
 Field lists are the entity fields minus the auto-excluded server-managed/relation fields. Excluded from **all** forms:
 `id`, `createdAt`, `updatedAt`, and every `allowApiUpdate:false` field (FireIncident: `financialYear`, `fireNumber`,
@@ -1856,7 +1864,7 @@ Enum hints: `status`, `potentialLoss`, `potentialSpread`.
 
 ### 5. `<app-datetime-field>` component (`shared/components/datetime-field/`)
 
-> **Status: pending.**
+> **Status: implemented.** `shared/components/datetime-field/datetime-field.ts` (with a spec).
 
 Standalone, signal-based, implements `ControlValueAccessor` so it slots into reactive forms like any control.
 
@@ -1874,7 +1882,7 @@ Standalone, signal-based, implements `ControlValueAccessor` so it slots into rea
 
 ### 6. Permission gating (`shared/auth/permissions.ts`)
 
-> **Status: pending.**
+> **Status: implemented.** `shared/auth/permissions.ts` (with a spec).
 
 A single source of truth for UI affordances. Pure functions take the entity (and helper flags) plus the
 `CurrentUser`, and reconcile the **coarse** entity `allowApi*` predicates with the **fine** saving-hook rules (which do
@@ -1883,7 +1891,7 @@ they cannot drift from the server. Client gating is advisory — the server re-e
 
 ```ts
 canCreateIncident(user)                       // incidentEditor | stateOfficer | admin
-canEditFire(fire, user, hasSitreps, hasFinalReport, isSignedOff)
+canEditFire(fire, user, flags)                // flags = { hasSitreps, hasFinalReport, isSignedOff }
 canEscalate(fire, user, isSignedOff)          // SO/admin; !isDeleted && !isSignedOff && level<3
 canCreateSitrep(fire, user, hasFinalReport, isSignedOff) // editor+; !isDeleted && !isSignedOff && !hasFinalReport
 canCreateFinalReport(fire, user, hasFinalReport)         // editor+; terminal status && !isDeleted && !hasFinalReport
@@ -1893,7 +1901,8 @@ canRemoveSignOff(finalReport, user)           // SO/admin; isSignedOff
 ```
 
 `canEditFire` encodes the editor restriction: for `incidentEditor` (not SO/admin) it is true only when
-`fire.createdBy === user.id` AND `!hasSitreps` AND `!hasFinalReport` AND `!isSignedOff` AND `!isDeleted`; SO/admin may
+`fire.createdBy === user.id` AND `!flags.hasSitreps` AND `!flags.hasFinalReport` AND `!flags.isSignedOff` AND
+`!fire.isDeleted`; SO/admin may
 edit unless signed-off or deleted. The doc includes the hook-line → helper mapping so the gating provably matches
 `fire-incident.ts`/`final-report.ts`.
 
@@ -1958,7 +1967,10 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
 ### 10. Cross-cutting patterns
 
-> **Status: pending.** (`ThemeService` from §2 is built; the services and patterns below are not.)
+> **Status: partial.** `NotificationService` (`core/notification.service.ts`, with `app-notification-success`/`-error`
+> snackbar accents in `styles.scss`) and the `toErrorMessage` helper (`shared/util/to-error-message.ts`) are built; the
+> screen-level loading/empty/error, accessibility, and responsive patterns below apply as the feature screens
+> (§7–§9) land.
 
 - **Notifications:** `NotificationService` (`core/notification.service.ts`) wrapping `MatSnackBar` (`success`, `error`).
   All `ResultAsync` error branches call it. Add a `toErrorMessage` helper at `shared/util/to-error-message.ts`.
@@ -1982,7 +1994,7 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 
 ```text
 apps/web/src/
-  styles.scss                                   (built: Material theme + cascade layers)
+  styles.scss                                   (built: Material theme + cascade layers + notification accents)
   index.html                                    (built: + Roboto + Material Symbols <link>)
   app/
     app.ts / app.html                           (built: routed shell — toolbar + sidenav)
@@ -1991,26 +2003,26 @@ apps/web/src/
     core/
       remult.provider.ts / dev-auth.*           (built)
       theme.service.ts                          (built)
-      notification.service.ts                   (pending)
+      notification.service.ts                   (built)
     shared/
       components/
         dev-user-switcher.ts                    (built: embedded in toolbar)
         theme-toggle/theme-toggle.ts            (built)
-        datetime-field/datetime-field.ts        (pending: app-datetime-field, CVA)
-        status-badge/status-badge.ts            (pending: ui.ts + enum-display)
+        datetime-field/datetime-field.ts        (built: app-datetime-field, CVA)
+        status-badge/status-badge.ts            (built: ui.ts + enum-display)
       forms/
-        form-engine.ts / form-engine.types.ts   (pending)
-        cross-field-validators.ts               (pending)
-        dynamic-form.ts                          (pending)
-      auth/permissions.ts                       (pending)
-      util/to-error-message.ts                  (pending)
+        form-engine.ts / form-engine.types.ts   (built)
+        cross-field-validators.ts               (built)
+        dynamic-form.ts                          (built)
+      auth/permissions.ts                       (built)
+      util/to-error-message.ts                  (built)
       dialogs/confirm-reason-dialog.ts          (pending)
     features/fire-incidents/
       fire-incidents.routes.ts                  (seam built; full set pending: list / new / :id / :id/edit / :id/sitrep / :id/final[/edit])
       incident-list/ (placeholder) · incident-detail/ (pending)
-      incident-form/ (+ fire-incident.form-config.ts)        (pending)
-      sitrep-form/ (+ situation-report.form-config.ts)       (pending)
-      final-report-form/ (+ final-report.form-config.ts)     (pending)
+      incident-form/ (form-config built; component pending)
+      sitrep-form/ (form-config built; component pending)
+      final-report-form/ (form-config built; component pending)
       dialogs/escalate-dialog.ts                (pending)
 libs/shared/domain/src/fire/
   enum-display.ts · ui.ts                        (built, scope:shared)
@@ -2018,11 +2030,13 @@ libs/shared/domain/src/fire/
 
 **Testing.** Shared-domain Vitest includes exhaustiveness tests for `enum-display.ts` (every enum value has a label)
 and `ui.ts` (every `FireStatus` has a badge class); the web suite covers the shell (`app.spec.ts`, which stubs
-`BreakpointObserver`/`DevAuthService` and needs no Remult) and `ThemeService` (`theme.service.spec.ts`). The pending web
-component tests (`@angular/build:unit-test`, Vitest + jsdom) cover the `permissions.ts` table (each role × state), the
-form engine (excluded fields absent, enums→select, dates→datetime, validators attached), `<app-datetime-field>`
-(combine/clear), and list/detail button gating — using `InMemoryDataProvider` + a set `remult.user` for data-bound
-components. Web tests do **not** re-test server rules — those are covered by the existing shared-domain backend suites.
+`BreakpointObserver`/`DevAuthService` and needs no Remult) and `ThemeService` (`theme.service.spec.ts`). The web suite also
+covers the forms engine (`form-engine.spec.ts` — excluded fields absent, enums→select, dates→datetime, validators
+attached, create/edit submit), the cross-field validators, `<app-datetime-field>` (combine/clear), `<app-dynamic-form>`,
+the three form configs, `permissions.ts` (each role × state), `StatusBadgeComponent` (every `FireStatus`),
+`NotificationService`, and `toErrorMessage` — using `InMemoryDataProvider` + a set `remult.user` for data-bound specs.
+Still pending: the list/detail button-gating tests. Web tests do **not** re-test server rules — those are covered by
+the existing shared-domain backend suites.
 
 ### 12. Task teardown
 
@@ -2042,11 +2056,13 @@ asserts the shell renders (toolbar title "Fire Incidents") rather than the old T
   theme/providers/fonts (two-file styles + biome `tailwindDirectives`) + theme toggle → routed shell → Task teardown.
   The app boots to an empty `incidents`, the theme toggle persists and follows the OS, no `Task` remains, and `just ci`
   is green (drop migration committed).
-- **4b (in progress)** `enum-display.ts` + `ui.ts` + barrel are done; the forms engine, `<app-datetime-field>`,
-  `StatusBadgeComponent`, `permissions.ts`, and `NotificationService` remain → unit tests green.
+- **4b (done)** `enum-display.ts` + `ui.ts` + barrel, the metadata-driven forms engine (`form-engine*`,
+  `cross-field-validators`, `dynamic-form`) + the three form configs, `<app-datetime-field>`, `StatusBadgeComponent`,
+  `permissions.ts`, `NotificationService`, and `toErrorMessage` — all unit-tested and green.
 - **4c (pending)** Incident List (scoping, badges, responsive cards, gating, states).
 - **4d (pending)** Incident Detail + dialogs (the action matrix wired to the BackendMethods).
-- **4e (pending)** the three forms via the engine (`repo.validate()` flow, server-error surfacing).
+- **4e (pending)** the three form components — each rendering its existing `*.form-config.ts` through
+  `<app-dynamic-form>` (the `repo.validate()` submit flow, server-error surfacing).
 
 **Per-screen acceptance.** *List:* `dev-editor-otway` sees only Otway incidents, `dev-admin` sees all, "New Incident"
 hidden for viewers, sort + responsive cards work, badges colour-correct, list updates live when a sitrep changes a
@@ -2066,17 +2082,18 @@ to terminal status → create + sign off final report → remove sign-off → so
 
 **`@nx/angular` adopted** (init + generators + Angular-schematic bridge; `nx.json` generator defaults) with
 `build`/`serve`/`test` **kept on `@angular/build:*`** — migrating `build` to `@nx/angular:application` makes the
-`@angular/build:unit-test` runner emit an unsupported-buildTarget warning, so it was reverted; Material set up directly
+`@angular/build:unit-test` runner emit an unsupported-buildTarget warning; Material is set up directly
 (two-file `styles.scss` + `tailwind.css`, biome `tailwindDirectives`) · Azure default palette · forms engine
-derives `required`/`min`/`max`/`maxLength` from `allowNull` + hints (no
-`validate`-array introspection), authoritative pass is `repo.validate()` · `incidentLevel` excluded from the incident
+derives `required` from the explicit `required` hint and `min`/`max`/`maxLength`/`maxNow` from hints (no metadata
+`allowNull` or `validate`-array introspection); authoritative pass is `repo.validate()` ·
+`incidentLevel` excluded from the incident
 form (escalate-only) · `TIMESTAMP_PAIRS` exported from `helpers.ts` and shared · district select via `optionsSignal` ·
 `isSignedOff` on FinalReport **create** only · datetime defaults time to 00:00 · 24-hour time, `en-AU` · list "last
 report date" = `statusAsAt` · list uses `liveQuery`, detail uses `resource()` · sitrep/final-report create/edit are
-routed pages, only confirm-reason and escalate are dialogs. **Third-party combined datetime pickers were evaluated and
-rejected:** the only signals/zoneless-native option is not Material-styled and immature; the mature, Material-styled
-ones are not signals/zoneless-native and would undercut the modern-Angular showcase — so native `MatDatepicker` +
-`MatTimepicker` (wrapped) is used.
+routed pages, only confirm-reason and escalate are dialogs. **Datetime input** uses native `MatDatepicker` +
+`MatTimepicker` wrapped in `<app-datetime-field>` rather than a third-party combined picker: the only
+signals/zoneless-native option is not Material-styled and immature, and the mature, Material-styled ones are not
+signals/zoneless-native and would undercut the modern-Angular showcase.
 
 ---
 
@@ -2092,8 +2109,8 @@ enhancement.
 ## User Workflows
 
 > **Status: pending.** These describe the planned frontend feature (*Frontend Architecture* §7–§9). The screens are not
-> built yet — `features/fire-incidents/` currently holds only a placeholder list — while the backend they exercise is
-> complete.
+> built yet — `features/fire-incidents/` holds a placeholder list and the three form configs, but none of the screens
+> that render them — while the backend they exercise is complete.
 
 ### Incident List
 
@@ -2194,12 +2211,14 @@ suite (`bunx nx test shared-domain`) covers the `helpers.ts` cadence math and al
 `tailwindDirectives`), the light/dark/system `ThemeService` + theme toggle, the routed Material shell (toolbar +
 responsive sidenav, the dev-user switcher embedded in the toolbar, Material Symbols icon font), and the full `Task`
 teardown (entity, `apps/api/src/config.ts` registration, and the `DROP TABLE tasks` migration
-`20260529112903_drop_tasks.sql`). Plus the `scope:shared` UI files of **4b** — `enum-display.ts` (enum labels) and
-`ui.ts` (status-badge classes), barrel-exported, with `TIMESTAMP_PAIRS`/`TimestampField` exported from `helpers.ts`.
+`20260529112903_drop_tasks.sql`). Plus **all of 4b** — the `scope:shared` UI files (`enum-display.ts` labels, `ui.ts`
+status-badge classes, `TIMESTAMP_PAIRS`/`TimestampField` from `helpers.ts`, barrel-exported), the metadata-driven forms
+engine (`form-engine`, `form-engine.types`, `cross-field-validators`, `dynamic-form`) and the three form configs, the
+`<app-datetime-field>` component, `StatusBadgeComponent`, `permissions.ts`, `NotificationService`, and the
+`toErrorMessage` helper — each unit-tested.
 
-**Remaining.** The rest of **4b** (the metadata-driven forms engine, `<app-datetime-field>`, `StatusBadgeComponent`,
-`permissions.ts`, `NotificationService`), then **4c** (incident list), **4d** (incident detail + dialogs wired to the
-BackendMethods), and **4e** (the incident / situation-report / final-report forms via the engine). All are specified in
+**Remaining.** **4c** (incident list), **4d** (incident detail + dialogs wired to the BackendMethods), and **4e** (the
+incident / situation-report / final-report form components via the engine). All are specified in
 full under *Frontend Architecture (Phase 4)* above; see *§13* for the build order, acceptance criteria, and the
 end-to-end verification recipe.
 

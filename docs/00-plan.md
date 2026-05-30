@@ -14,8 +14,9 @@ NX workspace on the Bun runtime. TypeScript in ultra-strict mode. Biome handles 
 with every rule category set to error; Prettier handles HTML templates only; ESLint is scoped to
 `neverthrow/must-use-result` and `@nx/enforce-module-boundaries`. Runtime versions pinned via `mise`. `bun run check:ci`
 is the single CI gate. Unit tests run on Vitest via `bun run test` (`nx run-many -t test`): the shared-domain suite
-(cadence helpers, the fire BackendMethods, and enum-label/badge exhaustiveness) and the web suite (the app shell and
-`ThemeService`).
+(cadence helpers, the fire BackendMethods, and enum-label/badge exhaustiveness) and the web suite (the app shell,
+theming, the metadata-driven forms engine and shared UI components, the UI permission predicates, and the
+notification/error helpers).
 
 Three NX scopes — `scope:shared`, `scope:web`, `scope:api` — with dependency rules and `bannedExternalImports` that stop
 Angular code reaching the API, Hono code reaching the browser, and platform-specific code reaching the shared domain in
@@ -34,9 +35,13 @@ palette), and Tailwind v4 for layout. Remult is wired through an app initializer
 the Remult client; a dev-server proxy forwards `/api` to the API. The root `App` is a routed Material shell: a toolbar
 (app title, theme toggle, dev-user switcher) over a sidenav that switches between `side` and `over` modes on a CDK
 handset breakpoint, with a lazy-loaded `incidents` route. `core/` holds singletons (Remult provider, dev-auth service
-and interceptor, and a `ThemeService` that persists a light/dark/system preference to `localStorage` and drives a
-`data-theme` attribute); `shared/components/` holds reusable UI (theme toggle, dev-user switcher); `features/` carries
-lazy feature routes — `fire-incidents` is scaffolded with a placeholder list while its screens are built.
+and interceptor, a `ThemeService` that persists a light/dark/system preference to `localStorage` and drives a
+`data-theme` attribute, and a `NotificationService` over `MatSnackBar`); `shared/` holds the reusable frontend
+foundations — a metadata-driven forms engine with an `<app-dynamic-form>` renderer (`shared/forms/`), the
+`<app-datetime-field>` and status-badge components alongside the theme toggle and dev-user switcher
+(`shared/components/`), UI permission predicates that mirror the entity rules (`shared/auth/`), and a `toErrorMessage`
+helper (`shared/util/`); `features/` carries lazy feature routes — `fire-incidents` holds the three form configs and a
+placeholder list, with its screens (list, detail, dialogs, and the form components) still to be built.
 
 ### Shared domain library
 
@@ -101,13 +106,15 @@ diff. Every fire-showcase entity that needs DB-level constraints uses this conve
 
 ### Fire incident showcase — frontend and demo
 
-The fire domain layer, the shared label/badge maps, and the routed Material shell are in place — see *In Place* above
-and `02-fire-showcase-overview.md` for the full specification. What remains is the user-facing feature and the closing
-demo: the metadata-driven forms engine and the `<app-datetime-field>`; a status-badge component and the
-permission-gating and notification helpers; and the screens under `features/fire-incidents/` (incident list, incident
-detail with situation-report timeline and final-report panel, and the incident / situation-report / final-report
-forms) — `features/fire-incidents/` today holds only a placeholder list. The closing "add one field, two files, no
-codegen" demo is the headline argument for the stack. See `02-fire-showcase-overview.md` *Implementation Phases (Phase
+The fire domain layer, the shared label/badge maps, the routed Material shell, and the shared frontend foundations
+(the metadata-driven forms engine, `<app-datetime-field>`, `StatusBadgeComponent`, and the permission-gating and
+notification helpers) are in place — see *In Place* above and `02-fire-showcase-overview.md` for the full
+specification. What remains is the user-facing feature and the closing demo: the screens under
+`features/fire-incidents/` (incident list, incident detail with situation-report timeline and final-report panel, and
+the incident / situation-report / final-report form components) — `features/fire-incidents/` today holds the three form
+configs and a placeholder list, but none of the screens that render them. The closing "add one field, two files, no
+codegen" demo is the headline argument for the stack. See
+`02-fire-showcase-overview.md` *Implementation Phases (Phase
 4–5)* and *Frontend Architecture §4–§14* for per-phase scope.
 
 ### Cross-entity operations

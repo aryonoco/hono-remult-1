@@ -33,3 +33,13 @@
     color-scheme: dark;
   }
 }
+
+@layer utilities {
+  .app-notification-success {
+    border-inline-start: 4px solid var(--mat-sys-tertiary, #2e7d32);
+  }
+
+  .app-notification-error {
+    border-inline-start: 4px solid var(--mat-sys-error, #b3261e);
+  }
+}
