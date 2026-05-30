@@ -8,6 +8,7 @@ import {
   canRemoveSignOff,
   canSignOff,
   canSoftDelete,
+  canViewFinalReport,
 } from './permissions';
 
 const ADMIN = DEV_USERS[0]!; // admin, districtId null
@@ -42,6 +43,16 @@ describe('canCreateIncident', () => {
     expect(canCreateIncident(EDITOR)).toBe(true);
     expect(canCreateIncident(VIEWER)).toBe(false);
     expect(canCreateIncident(undefined)).toBe(false);
+  });
+});
+
+describe('canViewFinalReport', () => {
+  it('allows editor+, denies viewer and anonymous', () => {
+    expect(canViewFinalReport(ADMIN)).toBe(true);
+    expect(canViewFinalReport(STATE_OFFICER)).toBe(true);
+    expect(canViewFinalReport(EDITOR)).toBe(true);
+    expect(canViewFinalReport(VIEWER)).toBe(false);
+    expect(canViewFinalReport(undefined)).toBe(false);
   });
 });
 

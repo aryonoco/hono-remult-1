@@ -137,4 +137,6 @@ dialogs
 wcag
 labelledby
 describedby
+testid
+testids
 maxlength

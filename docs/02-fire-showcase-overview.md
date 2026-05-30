@@ -1377,10 +1377,10 @@ flow, `resource()`/`liveQuery`, `ResultAsync` wrapping, `DestroyRef` cleanup, `p
 > **Status: implemented.** The build tooling and Material setup in this section are done and verified — `@nx/angular`
 > adopted, `nx.json` generator defaults, Material theme/providers/fonts, and biome `tailwindDirectives`. The
 > `check:ci`, `nx build web`, and `nx test` gates all pass. Each subsection below carries its own status: §2 (app
-> shell), §3 (shared-domain UI files), §12 (Task teardown), §4 (forms engine), §5 (`<app-datetime-field>`), and §6
-> (permission gating) are implemented, as are the §7 incident list, the §10 `NotificationService` and `toErrorMessage`
-> helpers, and the §10 loading/empty/error and responsive patterns the list exercises; the §8 detail and §9 dialog
-> screens (with their §10 patterns) are pending.
+> shell), §3 (shared-domain UI files), §12 (Task teardown), §4 (forms engine), §5 (`<app-datetime-field>`), §6
+> (permission gating), §7 (incident list), §8 (incident detail), §9 (dialogs), and the §10 cross-cutting patterns are
+> implemented. The only remaining frontend work is the three create/edit form **components** of §4.7 (sub-phase 4e);
+> their form configs exist and their routes resolve to a placeholder.
 
 #### 1.1 Adopt `@nx/angular`
 
@@ -1895,6 +1895,7 @@ they cannot drift from the server. Client gating is advisory — the server re-e
 
 ```ts
 canCreateIncident(user)                       // incidentEditor | stateOfficer | admin
+canViewFinalReport(user)                      // incidentEditor | stateOfficer | admin (mirrors FinalReport.allowApiRead)
 canEditFire(fire, user, flags)                // flags = { hasSitreps, hasFinalReport, isSignedOff }
 canEscalate(fire, user, isSignedOff)          // SO/admin; !isDeleted && !isSignedOff && level<3
 canCreateSitrep(fire, user, hasFinalReport, isSignedOff) // editor+; !isDeleted && !isSignedOff && !hasFinalReport
@@ -1938,58 +1939,82 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
 - **States:** a `viewState` computed drives a `@switch` — `anonymous` ("Select a dev user to begin") → `loading`
   (`MatProgressBar`) → `error` (inline `role="alert"` + snackbar) → `empty` (`MatCard`: "No incidents in your district"
   for district-scoped users, "No incidents found" for cross-district) → `content`.
-- **Navigation:** the row name links to `/incidents/:id` and "New Incident" to `/incidents/new`; both targets are
-  placeholder screens (§8, §11) until 4d/4e replace them.
+- **Navigation:** the row name links to `/incidents/:id` (the incident-detail screen, §8) and "New Incident" to
+  `/incidents/new` (a placeholder form screen until 4e, §11).
 
 ### 8. Incident Detail (`features/fire-incidents/incident-detail/`)
 
-> **Status: pending.** A placeholder `IncidentDetailComponent` (`incident-detail/incident-detail.ts`, an inline
-> "coming soon" message) is wired to the `/incidents/:id` route so list navigation does not dead-end; the screen below
-> is unbuilt.
+> **Status: implemented.** `incident-detail/incident-detail.ts` + `incident-detail.html` (no component CSS — Tailwind
+> utilities and Material only) render the screen, with `incident-detail.spec.ts` covering the action-button gating
+> matrix and the action wiring.
 
-- **Data:** route param `:id`; `resource()` loading the fire with
-  `include: { district: true, situationReports: true, finalReport: true }`, with an explicit reload after any action.
-- **Layout:** header `MatCard` (name, `globalIncidentId`, status badge, level, isMajor, district, key timestamps) + an
-  action button bar; a **sitrep timeline** as `MatExpansionPanel`s newest-first (`reportNumber desc`) each showing the
-  sitrep's status/area/resources/narrative; a **final-report subpanel** (`MatCard`) shown only when a FinalReport exists
-  AND the user may read it (viewers cannot — `FinalReport.allowApiRead` excludes `viewer`).
-- **Action-button matrix** (visibility from role; enabled reconciled with the saving-hook rules; disabled predicates use
-  shared constants):
+- **Data:** the route `:id` and the current dev user feed a `resource()` whose request is `undefined` when anonymous
+  (the resource stays `idle` and the loader is skipped — an anonymous read is a 403, not a row) and otherwise loads the
+  fire via `repo.findId(id, { include: { district: true, situationReports: true, finalReport } })`. The `finalReport`
+  relation is included **only when the user may read it** (`canViewFinalReport`, mirroring `FinalReport.allowApiRead`),
+  so a viewer's GET is not rejected. The request recomputes — and the resource reloads — on a dev-user switch; each
+  successful action calls `resource.reload()` (soft-delete instead navigates back to the list, since the row is now
+  hidden by `apiPrefilter`). The loader lets a rejection flow into the resource's own error state rather than wrapping
+  in `neverthrow` only to re-throw.
+- **States:** a `@switch` over `resource.status()` renders a `MatProgressBar` while loading, an inline `role="alert"`
+  card on error (`toErrorMessage(resource.error())`), a "Select a dev user to begin" card when `idle` (anonymous), the
+  content when resolved, and an "Incident not found" card when the fire resolves empty (missing /
+  `apiPrefilter`-filtered / soft-deleted).
+- **Layout:** header `MatCard` (name, status badge, `isMajor` icon, then a responsive `<dl>` of `globalIncidentId`,
+  `fireNumber`, level, district, `reportedAt`, `statusAsAt`, `nextReportDue`, `fireAreaHectares`) + an action bar; a
+  **sitrep timeline** as a `mat-accordion` of `MatExpansionPanel`s newest-first (client-sorted `reportNumber desc`,
+  first expanded) each showing the sitrep's status / submitted-at / resources / area / potentials / narrative; a
+  **final-report subpanel** (`MatCard`) shown only when a FinalReport exists AND the user may read it (`canViewFinal`),
+  displaying the loss / investigation / cost / burnt-land fields plus a "Signed off" line when applicable.
+- **Action-button matrix.** Each button is **rendered only when it is fully actionable** — its `permissions.ts`
+  predicate (role **and** state) is true; a button that would otherwise be disabled is simply absent. Routed actions
+  are `<a routerLink>`; mutations open a dialog (§9) then call the BackendMethod through a shared `ResultAsync` helper
+  that surfaces success via `NotificationService` + CDK `LiveAnnouncer` and reloads.
 
-  | Button | Visible | Enabled |
+  | Button | Shown when (predicate) | Action |
   |---|---|---|
-  | Edit | `canEditFire` truthy for role | per `canEditFire` (own/pre-sitrep for editor; not signed-off/deleted) |
-  | Escalate | SO/admin | `!isDeleted && !isSignedOff && incidentLevel !== levelThree` |
-  | New Sitrep | editor+ | `!isDeleted && !isSignedOff`; **hidden** if a FinalReport exists |
-  | Create Final Report | editor+ | terminal status && `!isDeleted` && no FinalReport |
-  | Delete (soft) | SO/admin | terminal status && `!isSignedOff` && `!isDeleted` |
-  | Sign off | editor+ (subpanel) | FinalReport exists && `!isSignedOff` && terminal parent status |
-  | Remove sign-off | SO/admin (subpanel) | FinalReport exists && `isSignedOff` |
+  | Edit | `canEditFire` (own/pre-sitrep for editor; SO/admin unless signed-off/deleted) | route → `:id/edit` |
+  | Escalate | `canEscalate` (SO/admin; `!isDeleted && !isSignedOff && level < 3`) | `EscalateDialog` → `FireIncident.escalate` |
+  | New Situation Report | `canCreateSitrep` (editor+; `!isDeleted && !isSignedOff && !hasFinalReport`) | route → `:id/sitrep` |
+  | Create Final Report | `canCreateFinalReport` (editor+; terminal && `!isDeleted` && no FinalReport) | route → `:id/final` |
+  | Delete (soft) | `canSoftDelete` (SO/admin; terminal && `!isSignedOff` && `!isDeleted`) | `ConfirmReasonDialog` → `FireIncident.softDelete` → list |
+  | Sign off (subpanel) | `canSignOff` (editor+; `!isSignedOff` && terminal parent) | `ConfirmDialog` → `repo(FinalReport).update({ isSignedOff: true })` |
+  | Remove sign-off (subpanel) | `canRemoveSignOff` (SO/admin; `isSignedOff`) | `ConfirmReasonDialog` → `FinalReport.removeSignOff` |
+  | Edit final (subpanel) | `canViewFinal && !isSignedOff` | route → `:id/final/edit` |
 
-  Edit/sitrep/final-report **create & edit are routed pages** (`/incidents/new`, `/incidents/:id/edit`,
-  `/incidents/:id/sitrep`, `/incidents/:id/final`, `/incidents/:id/final/edit`).
+  The incident / situation-report / final-report **create & edit pages are routed** (`/incidents/new`,
+  `/incidents/:id/edit`, `/incidents/:id/sitrep`, `/incidents/:id/final`, `/incidents/:id/final/edit`); those routes
+  resolve to a placeholder form component until sub-phase 4e (§4.7).
 
 ### 9. Dialogs (`shared/dialogs/`, `features/fire-incidents/dialogs/`)
 
-> **Status: pending.**
+> **Status: implemented.** Three standalone `MatDialog` components, each with a spec:
+> `shared/dialogs/confirm-reason-dialog.ts`, `shared/dialogs/confirm-dialog.ts`, and
+> `features/fire-incidents/dialogs/escalate-dialog.ts`.
 
-- **`ConfirmReasonDialogComponent`** (`MatDialog`): inputs `{ title, message, confirmLabel }`; a required textarea with
-  `maxLength = LIMITS.description` (500). Returns `{ reason } | undefined`. Used by **softDelete** and **removeSignOff**;
-  the caller invokes the BackendMethod via `ResultAsync.fromPromise(FireIncident.softDelete(id, reason), …)` /
-  `FinalReport.removeSignOff(frId, reason)`.
-- **`EscalateDialogComponent`**: a `mat-radio-group`/`mat-select` of `IncidentLevel` values **above** the current level
-  (via `LEVEL_ORDER`); returns the chosen level; the caller invokes `FireIncident.escalate(id, newLevel)`. Confirm
-  disabled when already at `levelThree`.
-- All dialogs: MatDialog provides focus trap + restore; ensure a labelled title (`mat-dialog-title`). On success →
-  snackbar + detail reload.
+- **`ConfirmReasonDialogComponent`** (`shared/dialogs/`): data `{ title, message, confirmLabel }`; a required textarea
+  with `maxLength = LIMITS.description` (500), Confirm disabled until a non-blank reason is entered. Returns
+  `{ reason } | undefined`. Used by **soft-delete** and **remove-sign-off**; the caller invokes
+  `FireIncident.softDelete(id, reason)` / `FinalReport.removeSignOff(frId, reason)`.
+- **`ConfirmDialogComponent`** (`shared/dialogs/`): a plain yes/no confirm — data `{ title, message, confirmLabel }`,
+  returns `true | undefined`. Used by **sign-off** (which carries no reason in the domain) before the
+  `repo(FinalReport).update({ isSignedOff: true })` PATCH.
+- **`EscalateDialogComponent`** (`features/fire-incidents/dialogs/`): a `mat-radio-group` of the `IncidentLevel` values
+  **above** the current level (via `LEVEL_ORDER`); returns the chosen level (Confirm disabled until one is picked, and
+  the option list is empty — with an "already at the highest level" message — at `levelThree`). The caller invokes
+  `FireIncident.escalate(id, newLevel)`.
+- All dialogs carry a labelled `mat-dialog-title`; `MatDialog` provides focus trap + restore. The opener is injected
+  directly (`MatDialog` is `providedIn: 'root'`, so the detail component does not import `MatDialogModule`). On success
+  → snackbar + `LiveAnnouncer` + detail reload (or navigation for soft-delete).
 
 ### 10. Cross-cutting patterns
 
-> **Status: partial.** `NotificationService` (`core/notification.service.ts`, with `app-notification-success`/`-error`
-> snackbar accents in `styles.scss`) and the `toErrorMessage` helper (`shared/util/to-error-message.ts`) are built, and
-> the incident list (§7) exercises the LiveQuery loading/empty/error pattern, the structural table↔cards responsive
-> shift, and permission gating. The remaining screen-level patterns — `resource()` status handling, the dialog focus and
-> `LiveAnnouncer` accessibility items, and detail-specific responsiveness — apply as the §8–§9 screens land.
+> **Status: implemented.** `NotificationService` (`core/notification.service.ts`, with
+> `app-notification-success`/`-error` snackbar accents in `styles.scss`) and the `toErrorMessage` helper
+> (`shared/util/to-error-message.ts`) are built; the incident list (§7) exercises the LiveQuery loading/empty/error
+> pattern, the structural table↔cards responsive shift, and permission gating; and the incident detail (§8) and dialogs
+> (§9) exercise the `resource()` status handling, the `MatDialog` focus trap and CDK `LiveAnnouncer` announcements, and
+> Tailwind-only responsiveness (the detail has no structural layout shift, so it wires no `BreakpointObserver`).
 
 - **Notifications:** `NotificationService` (`core/notification.service.ts`) wrapping `MatSnackBar` (`success`, `error`).
   All `ResultAsync` error branches call it. Add a `toErrorMessage` helper at `shared/util/to-error-message.ts`.
@@ -2035,14 +2060,14 @@ apps/web/src/
         dynamic-form.ts                          (built)
       auth/permissions.ts                       (built)
       util/to-error-message.ts                  (built)
-      dialogs/confirm-reason-dialog.ts          (pending)
+      dialogs/confirm-reason-dialog.ts · confirm-dialog.ts   (built)
     features/fire-incidents/
-      fire-incidents.routes.ts                  (built: '' → list, 'new' → form placeholder, ':id' → detail placeholder; pending: :id/edit, :id/sitrep, :id/final[/edit])
-      incident-list/ (built: list.ts + .html + .spec) · incident-detail/ (placeholder component; screen pending)
-      incident-form/ (form-config built; placeholder component; routed screen pending)
-      sitrep-form/ (form-config built; component pending)
-      final-report-form/ (form-config built; component pending)
-      dialogs/escalate-dialog.ts                (pending)
+      fire-incidents.routes.ts                  (built: '' → list, ':id' → detail; 'new', :id/edit, :id/sitrep, :id/final[/edit] → placeholder form component until 4e)
+      incident-list/ (built: list.ts + .html + .spec) · incident-detail/ (built: incident-detail.ts + .html + .spec)
+      incident-form/ (form-config built; placeholder component; routed screen pending 4e)
+      sitrep-form/ (form-config built; component pending 4e)
+      final-report-form/ (form-config built; component pending 4e)
+      dialogs/escalate-dialog.ts                (built)
 libs/shared/domain/src/fire/
   enum-display.ts · ui.ts                        (built, scope:shared)
 ```
@@ -2054,11 +2079,13 @@ covers the forms engine (`form-engine.spec.ts` — excluded fields absent, enums
 attached, create/edit submit), the cross-field validators, `<app-datetime-field>` (combine/clear), `<app-dynamic-form>`,
 the three form configs, `permissions.ts` (each role × state), `StatusBadgeComponent` (every `FireStatus`), the incident
 list (`incident-list.spec.ts` — the anonymous skip with no query opened, "New Incident" gating per role, and the
-table↔cards responsive shift; the live-query transport is stubbed so renders resolve without a server),
-`NotificationService`, and `toErrorMessage` — using `InMemoryDataProvider` + a set `remult.user` for data-bound specs.
-Still pending: the detail button-gating tests. Web tests do **not** re-test server rules — those are covered by the
-existing shared-domain backend suites; the list's data-dependent behaviour (district scoping, sort, pagination, live
-updates) is verified via the §13 end-to-end recipe.
+table↔cards responsive shift; the live-query transport is stubbed so renders resolve without a server), the incident
+detail (`incident-detail.spec.ts` — the role×state action-button gating matrix plus the action wiring and cancel
+paths, driving the resolved state white-box over an inert transport), the three dialogs (`confirm-reason-dialog`,
+`confirm-dialog`, `escalate-dialog` specs), `NotificationService`, and `toErrorMessage` — using `InMemoryDataProvider`
+and a set `remult.user` for data-bound specs. Web tests do **not** re-test server rules — those are covered by the
+existing shared-domain backend suites; the detail and list data-dependent behaviour (district scoping, sort,
+pagination, live updates, and the actual `resource()` load) is verified via the §13 end-to-end recipe.
 
 ### 12. Task teardown
 
@@ -2082,17 +2109,21 @@ green). The `apps/api/src/migrations/20260529112903_drop_tasks.sql` migration (`
   `cross-field-validators`, `dynamic-form`) + the three form configs, `<app-datetime-field>`, `StatusBadgeComponent`,
   `permissions.ts`, `NotificationService`, and `toErrorMessage` — all unit-tested and green.
 - **4c (done)** Incident List — district-scoped LiveQuery, status badges, zero-padded fire numbers, responsive
-  table↔cards, "New Incident" gating, and the anonymous/loading/empty/error states; the row name and "New Incident"
-  navigate to placeholder `/incidents/:id` and `/incidents/new` screens. Unit tests cover the anonymous, gating, and
-  responsive surfaces; the data-dependent acceptance below is verified end-to-end.
-- **4d (pending)** Incident Detail + dialogs (the action matrix wired to the BackendMethods).
+  table↔cards, "New Incident" gating, and the anonymous/loading/empty/error states; the row name navigates to the
+  incident-detail screen and "New Incident" to the placeholder incident-form screen. Unit tests cover the anonymous,
+  gating, and responsive surfaces; the data-dependent acceptance below is verified end-to-end.
+- **4d (done)** Incident Detail + dialogs — the `resource()`-loaded detail screen (header, situation-report timeline,
+  final-report subpanel), the role×state action-button matrix wired to the four BackendMethods through the escalate /
+  confirm / confirm-reason dialogs, and the `canViewFinalReport` UI predicate. Unit tests cover the gating matrix and
+  the action wiring; the actual data load is verified end-to-end.
 - **4e (pending)** the three form components — each rendering its existing `*.form-config.ts` through
-  `<app-dynamic-form>` (the `repo.validate()` submit flow, server-error surfacing).
+  `<app-dynamic-form>` (the `repo.validate()` submit flow, server-error surfacing). The `new`, `:id/edit`,
+  `:id/sitrep`, and `:id/final[/edit]` routes resolve to a placeholder form component until these land.
 
 **Per-screen acceptance.** *List:* `dev-editor-otway` sees only Otway incidents, `dev-admin` sees all, "New Incident"
 hidden for viewers, sort + responsive cards work, badges colour-correct, list updates live when a sitrep changes a
 fire. *Detail:* viewer sees no final-report panel and no edit/escalate/delete; editor sees Edit only on own pre-sitrep
-fires; SO/admin see Escalate (disabled at level 3), Delete (disabled unless terminal & not signed-off), Remove
+fires; SO/admin see Escalate (absent at level 3), Delete (absent unless terminal & not signed-off), Remove
 sign-off (only when signed-off); New Sitrep hidden once a final report exists. *Forms:* required errors block submit;
 enum dropdowns show display labels; datetime composes correctly; toggling `isMajor` requires
 `declaredBySource`/`declaredByTimestamp`; a timestamp-order violation shows on the later field; a server-rejected case
@@ -2114,8 +2145,12 @@ derives `required` from the explicit `required` hint and `min`/`max`/`maxLength`
 `incidentLevel` excluded from the incident
 form (escalate-only) · `TIMESTAMP_PAIRS` exported from `helpers.ts` and shared · district select via `optionsSignal` ·
 `isSignedOff` on FinalReport **create** only · datetime defaults time to 00:00 · 24-hour time, `en-AU` · list "last
-report date" = `statusAsAt` · list uses `liveQuery`, detail uses `resource()` · sitrep/final-report create/edit are
-routed pages, only confirm-reason and escalate are dialogs. **Datetime input** uses native `MatDatepicker` +
+report date" = `statusAsAt` · list uses `liveQuery`, detail uses `resource()` (its loader lets a rejection flow into
+the resource error state rather than wrapping in `neverthrow` only to re-throw) · detail action buttons are **hidden
+when not actionable** (one role-and-state predicate per button, not visible-but-disabled) · the detail eager-includes
+`finalReport` and shows its subpanel only when `canViewFinalReport` (mirrors `FinalReport.allowApiRead`, which excludes
+`viewer`) · sitrep/final-report create/edit are routed pages; the three dialogs are confirm-reason (soft-delete /
+remove-sign-off), the yes/no confirm (sign-off), and escalate. **Datetime input** uses native `MatDatepicker` +
 `MatTimepicker` wrapped in `<app-datetime-field>` rather than a third-party combined picker: the only
 signals/zoneless-native option is not Material-styled and immature, and the mature, Material-styled ones are not
 signals/zoneless-native and would undercut the modern-Angular showcase.
@@ -2133,10 +2168,10 @@ enhancement.
 
 ## User Workflows
 
-> **Status: partial.** These describe the frontend feature (*Frontend Architecture* §7–§9). The incident list is built;
-> incident detail, the dialogs, and the create/edit form screens are not — `features/fire-incidents/` holds the live
-> list, the three form configs, and placeholder detail/form screens behind the `:id`/`new` routes — while the backend
-> they exercise is complete.
+> **Status: partial.** These describe the frontend feature (*Frontend Architecture* §7–§9). The incident list, the
+> incident detail, and the action dialogs are built; the create/edit form screens are not — `features/fire-incidents/`
+> holds the live list, the detail screen, the dialogs, and the three form configs, with the form routes pointing at a
+> placeholder component — while the backend they exercise is complete.
 
 ### Incident List
 
@@ -2149,13 +2184,17 @@ permission.
 
 ### Incident Detail
 
-Shows full incident information and a timeline of situation reports (newest first). Action buttons are permission-gated:
+Shows full incident information and a timeline of situation reports (newest first). Each action button is shown only
+when it is fully actionable (role and state):
 
-- "Edit" — visible if user can update this incident
-- "Escalate" — visible to StateOfficer/Admin
-- "New Sitrep" — visible to IncidentEditor+ (hidden if FinalReport exists)
-- "Delete" — visible to StateOfficer/Admin (disabled if status is not terminal or if signed off)
-- "Sign off" / "Remove sign-off" — on the Final Report subpanel; latter visible only to StateOfficer/Admin
+- "Edit" — when the user may update this incident (own/pre-sitrep for an editor; StateOfficer/Admin unless signed-off
+  or deleted)
+- "Escalate" — StateOfficer/Admin, while not deleted/signed-off and below level 3
+- "New Situation Report" — IncidentEditor+, while not deleted/signed-off and no final report exists
+- "Create Final Report" — IncidentEditor+, on a terminal fire with no final report yet
+- "Delete" — StateOfficer/Admin, on a terminal, not-signed-off fire
+- "Sign off" / "Remove sign-off" / "Edit" — on the final-report subpanel (shown only to users who may read the final
+  report); "Remove sign-off" is StateOfficer/Admin only
 
 ### Incident Form (Create / Edit)
 
@@ -2243,13 +2282,18 @@ engine (`form-engine`, `form-engine.types`, `cross-field-validators`, `dynamic-f
 `<app-datetime-field>` component, `StatusBadgeComponent`, `permissions.ts`, `NotificationService`, and the
 `toErrorMessage` helper — each unit-tested. Plus **4c** — the incident list (`incident-list.ts` + `.html` + `.spec.ts`):
 a district-scoped `liveQuery` table with status badges, zero-padded fire numbers, a responsive `MatCard` fallback,
-`canCreateIncident` gating, and the anonymous/loading/empty/error states, with the `new` and `:id` routes pointing at
-placeholder form/detail components so navigation does not dead-end.
+`canCreateIncident` gating, and the anonymous/loading/empty/error states. Plus **4d** — the incident detail
+(`incident-detail.ts` + `.html` + `.spec.ts`): a `resource()`-loaded screen with the situation-report timeline and the
+final-report subpanel, the role×state action-button matrix wired to `escalate` / `softDelete` / sign-off /
+`removeSignOff` through the escalate, confirm, and confirm-reason dialogs (`shared/dialogs/`,
+`features/fire-incidents/dialogs/`), the `canViewFinalReport` UI predicate, and `LiveAnnouncer` + snackbar feedback. The
+`:id` route resolves to the detail screen; the `new`, `:id/edit`, `:id/sitrep`, and `:id/final[/edit]` routes resolve to
+a placeholder form component so navigation does not dead-end.
 
-**Remaining.** **4d** (incident detail + dialogs wired to the BackendMethods) and **4e** (the incident /
-situation-report / final-report form components via the engine). Both are specified in full under *Frontend
-Architecture (Phase 4)* above; see *§13* for the build order, acceptance criteria, and the end-to-end verification
-recipe.
+**Remaining.** **4e** — the incident / situation-report / final-report form components, each rendering its existing
+`*.form-config.ts` through `<app-dynamic-form>` (the `repo.validate()` submit flow and server-error surfacing). It is
+specified in full under *Frontend Architecture (Phase 4) §4.7* above; see *§13* for the build order, acceptance
+criteria, and the end-to-end verification recipe.
 
 ### Phase 5: The Demo Moment
 

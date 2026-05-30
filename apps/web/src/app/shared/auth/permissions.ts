@@ -32,6 +32,13 @@ export function canCreateIncident(user: CurrentUser | undefined): boolean {
   return isEditorPlus(user);
 }
 
+// Mirrors `FinalReport.allowApiRead: [incidentEditor, stateOfficer, admin]`. A viewer is excluded, so the
+// detail load must not eager-include `finalReport` for them (it would 403 the whole GET) and the
+// final-report subpanel stays hidden.
+export function canViewFinalReport(user: CurrentUser | undefined): boolean {
+  return isEditorPlus(user);
+}
+
 export function canEditFire(
   fire: FireGate,
   user: CurrentUser | undefined,
