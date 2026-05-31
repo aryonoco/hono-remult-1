@@ -4,11 +4,17 @@
     <span class="list-head__count" aria-live="polite">{{ total() }} total</span>
   }
   <span class="spacer"></span>
+  @if (canCreate()) {
+    <a matButton="filled" routerLink="/incidents/new">
+      <mat-icon>add</mat-icon>
+      New Incident
+    </a>
+  }
 </header>
 
 @switch (viewState()) {
   @case ('loading') {
-    <div class="panel">Loading incidents…</div>
+    <mat-progress-bar mode="indeterminate" aria-label="Loading incidents" />
   }
   @case ('error') {
     <div role="alert" class="panel panel--error">{{ error() }}</div>
@@ -17,9 +23,183 @@
     <div class="panel">Select a dev user to begin.</div>
   }
   @case ('empty') {
+    <div class="filter-bar">
+      <ng-container [ngTemplateOutlet]="filterBar" />
+    </div>
     <div class="panel">No incidents match these filters.</div>
   }
   @case ('content') {
-    <div class="panel">{{ rows().length }} of {{ total() }} incidents</div>
+    <div class="filter-bar">
+      <ng-container [ngTemplateOutlet]="filterBar" />
+    </div>
+
+    @if (!isHandset()) {
+      <div class="table-panel">
+        <div class="table-scroll">
+          <table
+            mat-table
+            matSort
+            aria-label="Fire incidents"
+            [dataSource]="rows()"
+            [matSortActive]="sortState().active"
+            [matSortDirection]="sortState().direction"
+            (matSortChange)="onSortChange($event)"
+            class="w-full"
+          >
+            <ng-container matColumnDef="name">
+              <th
+                mat-header-cell
+                *matHeaderCellDef
+                mat-sort-header
+                [sortActionDescription]="sortActionDescription('Name')"
+              >
+                Name
+              </th>
+              <td mat-cell *matCellDef="let incident">
+                <a class="row-link" [routerLink]="['/incidents', incident.id]">{{
+                  incident.name
+                }}</a>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="district">
+              <th
+                mat-header-cell
+                *matHeaderCellDef
+                mat-sort-header="districtId"
+                [sortActionDescription]="sortActionDescription('District')"
+              >
+                District
+              </th>
+              <td mat-cell *matCellDef="let incident">{{ incident.district?.name ?? '—' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="fireNumber">
+              <th
+                mat-header-cell
+                *matHeaderCellDef
+                mat-sort-header
+                class="num"
+                [sortActionDescription]="sortActionDescription('Fire number')"
+              >
+                Fire No.
+              </th>
+              <td mat-cell *matCellDef="let incident" class="num mono">
+                {{ incident.fireNumber }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let incident">
+                <app-status-badge [status]="incident.status" />
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="fireAreaHectares">
+              <th mat-header-cell *matHeaderCellDef class="num">Area (ha)</th>
+              <td mat-cell *matCellDef="let incident" class="num mono">
+                {{ incident.fireAreaHectares ?? '—' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="incidentLevel">
+              <th mat-header-cell *matHeaderCellDef>Level</th>
+              <td mat-cell *matCellDef="let incident">{{ levelLabel(incident.incidentLevel) }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="isMajor">
+              <th mat-header-cell *matHeaderCellDef>Major</th>
+              <td mat-cell *matCellDef="let incident">
+                @if (incident.isMajor) {
+                  <mat-icon class="major-flag" aria-label="Major incident"
+                    >local_fire_department</mat-icon
+                  >
+                }
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="statusAsAt">
+              <th
+                mat-header-cell
+                *matHeaderCellDef
+                mat-sort-header
+                class="num"
+                [sortActionDescription]="sortActionDescription('Last report')"
+              >
+                Last Report
+              </th>
+              <td mat-cell *matCellDef="let incident" class="num mono">
+                {{ incident.statusAsAt | date: 'dd/MM/yy, HH:mm' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="nextReportDue">
+              <th mat-header-cell *matHeaderCellDef class="num">Next Due</th>
+              <td mat-cell *matCellDef="let incident" class="num mono">
+                <app-cadence-countdown
+                  [due]="isTerminalStatus(incident.status) ? null : (incident.nextReportDue ?? null)"
+                  [now]="now()"
+                />
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+
+        <mat-paginator
+          [length]="total()"
+          [pageSize]="pageState().pageSize"
+          [pageIndex]="pageState().pageIndex"
+          [pageSizeOptions]="pageSizeOptions"
+          (page)="onPage($event)"
+        />
+      </div>
+    }
   }
 }
+
+<ng-template #filterBar>
+  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-bar__field">
+    <mat-label>Financial year</mat-label>
+    <mat-select
+      aria-label="Financial year"
+      [value]="filters().fy"
+      (selectionChange)="setFy($event.value)"
+    >
+      @for (fy of fyOptions(); track fy) {
+        <mat-option [value]="fy">{{ fyLabel(fy) }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-button-toggle-group
+    aria-label="Status"
+    [value]="filters().group"
+    (change)="setStatusGroup($event.value)"
+    hideSingleSelectionIndicator
+  >
+    <mat-button-toggle value="all">All</mat-button-toggle>
+    <mat-button-toggle value="active">Active</mat-button-toggle>
+    <mat-button-toggle value="going">Going</mat-button-toggle>
+    <mat-button-toggle value="resolved">Resolved</mat-button-toggle>
+  </mat-button-toggle-group>
+
+  @if (showDistrictFilter()) {
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-bar__field">
+      <mat-label>District</mat-label>
+      <mat-select
+        aria-label="District"
+        [value]="filters().districtId"
+        (selectionChange)="setDistrict($event.value)"
+      >
+        <mat-option value="all">All districts</mat-option>
+        @for (district of districtOptions(); track district.id) {
+          <mat-option [value]="district.id">{{ district.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  }
+</ng-template>

@@ -1,4 +1,6 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,6 +12,15 @@ import {
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatIconModule } from '@angular/material/icon';
+import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSortModule, type Sort } from '@angular/material/sort';
+import { MatTableModule } from '@angular/material/table';
+import { RouterLink } from '@angular/router';
 import {
   computeFinancialYear,
   District,
@@ -17,8 +28,6 @@ import {
   FireStatus,
   INCIDENT_LEVEL_LABELS,
   type IncidentLevel,
-  type StatusTone,
-  statusTone,
   TERMINAL_STATUSES,
 } from '@workspace/shared-domain';
 import { ResultAsync } from 'neverthrow';
@@ -27,6 +36,9 @@ import { map } from 'rxjs';
 
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { canCreateIncident, canViewDistrictRollup } from '../../../shared/auth/permissions';
+import { CadenceCountdownComponent } from '../../../shared/components/cadence-countdown/cadence-countdown';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge';
+import { isTerminalStatus } from '../../../shared/util/fire-status';
 
 type StatusGroup = 'all' | 'active' | 'going' | 'resolved';
 type SortKey = 'name' | 'fireNumber' | 'statusAsAt' | 'districtId' | 'createdAt';
@@ -50,18 +62,42 @@ interface DistrictOption {
 }
 
 const DEFAULT_PAGE_SIZE = 25;
+const LARGE_PAGE_SIZE = 50;
+const LARGEST_PAGE_SIZE = 100;
+const PAGE_SIZE_OPTIONS = [DEFAULT_PAGE_SIZE, LARGE_PAGE_SIZE, LARGEST_PAGE_SIZE] as const;
 const FIRST_SEASON_FY = 2018;
 const DISTRICT_FETCH_LIMIT = 50;
 const TICK_INTERVAL_MS = 60_000;
-const PERCENT = 100;
 
 const toErr = (cause: unknown): Error =>
   cause instanceof Error ? cause : new Error(String(cause));
 
+// Human-readable column labels for the `LiveAnnouncer` on sort changes (§A.10).
+const SORT_LABEL: Readonly<Record<string, string>> = {
+  name: 'Name',
+  fireNumber: 'Fire number',
+  statusAsAt: 'Last report',
+  district: 'District',
+};
+
 @Component({
   selector: 'app-incident-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [],
+  imports: [
+    DatePipe,
+    NgTemplateOutlet,
+    RouterLink,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatIconModule,
+    MatPaginatorModule,
+    MatProgressBarModule,
+    MatSelectModule,
+    MatSortModule,
+    MatTableModule,
+    StatusBadgeComponent,
+    CadenceCountdownComponent,
+  ],
   templateUrl: './incident-list.html',
   styleUrl: './incident-list.css',
 })
@@ -69,6 +105,11 @@ export class IncidentListComponent {
   private readonly devAuth = inject(DevAuthService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly breakpoints = inject(BreakpointObserver);
+  private readonly announcer = inject(LiveAnnouncer);
+
+  // Template-facing reference to the terminal-status guard (gates the cadence countdown on closed fires).
+  protected readonly isTerminalStatus = isTerminalStatus;
+  protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
 
   protected readonly displayedColumns = [
     'name',
@@ -120,9 +161,6 @@ export class IncidentListComponent {
     }
     return this.total() === 0 ? 'empty' : 'content';
   });
-  protected readonly maxArea = computed(() =>
-    Math.max(1, ...this.rows().map((row) => row.fireAreaHectares ?? 0)),
-  );
 
   private readonly whereKey = computed(() => JSON.stringify(this.filters()));
   private unsubscribe: (() => void) | null = null;
@@ -215,9 +253,23 @@ export class IncidentListComponent {
     });
   }
 
-  protected onSortChange(event: { active: string; direction: 'asc' | 'desc' | '' }): void {
+  protected onSortChange(event: Sort): void {
     this.sortState.set({ active: event.active as SortKey, direction: event.direction });
     this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+    const label = SORT_LABEL[event.active] ?? event.active;
+    const message =
+      event.direction === ''
+        ? `Sorting cleared on ${label}`
+        : `Sorted by ${label}, ${event.direction === 'asc' ? 'ascending' : 'descending'}`;
+    this.announcer.announce(message, 'polite');
+  }
+
+  protected sortActionDescription(label: string): string {
+    return `Sort by ${label}`;
+  }
+
+  protected fyLabel(fy: number | 'all'): string {
+    return fy === 'all' ? 'All years' : `FY${fy}`;
   }
 
   protected onPage(event: { pageIndex: number; pageSize: number }): void {
@@ -239,16 +291,8 @@ export class IncidentListComponent {
     this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
   }
 
-  protected tone(status: FireStatus): StatusTone {
-    return statusTone(status);
-  }
-
   protected levelLabel(level: IncidentLevel): string {
     return INCIDENT_LEVEL_LABELS[level];
-  }
-
-  protected areaPct(incident: FireIncident): number {
-    return Math.min(PERCENT, ((incident.fireAreaHectares ?? 0) / this.maxArea()) * PERCENT);
   }
 
   private buildWhere(): EntityFilter<FireIncident> {

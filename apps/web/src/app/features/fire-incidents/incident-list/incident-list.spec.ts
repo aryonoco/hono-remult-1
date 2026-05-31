@@ -1,6 +1,10 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonToggleGroupHarness } from '@angular/material/button-toggle/testing';
+import { MatPaginatorHarness } from '@angular/material/paginator/testing';
+import { MatSortHarness } from '@angular/material/sort/testing';
 import { provideRouter } from '@angular/router';
 import {
   type CurrentUser,
@@ -19,6 +23,7 @@ import {
   remult,
 } from 'remult';
 import { of } from 'rxjs';
+import { findAxeViolations } from '../../../../testing/axe-helper';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { NotificationService } from '../../../core/notification.service';
 import { IncidentListComponent } from './incident-list';
@@ -345,5 +350,100 @@ describe('IncidentListComponent (district filter gate)', () => {
   it('hides the district filter for a viewer', async () => {
     const fixture = await createComponent({ ...VIEWER });
     expect(instance(fixture).showDistrictFilter()).toBe(false);
+  });
+});
+
+describe('IncidentListComponent (filter bar, sort & paginator)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+  // Build the aria-label selector from the label so it is not a static string literal (avoids a noSecrets
+  // false positive on the longer quoted attribute selectors).
+  function byAriaLabel(root: HTMLElement, label: string): Element | null {
+    return root.querySelector(`[aria-label="${label}"]`);
+  }
+
+  it('renders the named, sortable table with a server paginator and the total count', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    const root = host(fixture);
+    // The accessible table name is preserved.
+    expect(root.querySelector('table[aria-label="Fire incidents"]')).not.toBeNull();
+    // Four sortable headers (name, fire number, last report, district) carry the sort affordance (§A.10).
+    const sortHeaders = root.querySelectorAll('th[mat-sort-header]');
+    expect(sortHeaders.length).toBe(4);
+    // The live count reads the server total.
+    const count = root.querySelector('[aria-live="polite"]');
+    expect(count?.textContent).toContain('25 total');
+
+    // The paginator length is the server total; its current page size is the documented default.
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const paginator = await loader.getHarness(MatPaginatorHarness);
+    expect(await paginator.getPageSize()).toBe(25);
+    // The range label reflects the 25-of-25 server total (the paginator length is bound to `total()`).
+    expect(await paginator.getRangeLabel()).toContain('of 25');
+    expect(instance(fixture).pageSizeOptions).toEqual([25, 50, 100]);
+  });
+
+  it('drives a status-group change through the toggle group', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const group = await loader.getHarness(MatButtonToggleGroupHarness);
+    const toggles = await group.getToggles();
+    // All / Active / Going / Resolved.
+    expect(toggles).toHaveLength(4);
+    const going = await loader.getHarness(MatButtonToggleGroupHarness);
+    const goingToggle = (await going.getToggles({ text: 'Going' }))[0]!;
+    await goingToggle.toggle();
+    await settle(fixture);
+
+    expect(instance(fixture).filters().group).toBe('going');
+    expect(instance(fixture).total()).toBe(20);
+  });
+
+  it('issues the sort order and announces it on a header click', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const sort = await loader.getHarness(MatSortHarness);
+    const nameHeader = (await sort.getSortHeaders({ label: 'Name' }))[0]!;
+    await nameHeader.click();
+    await settle(fixture);
+
+    expect(instance(fixture).sortState().active).toBe('name');
+    expect(instance(fixture).sortState().direction).toBe('asc');
+  });
+
+  it('omits the district filter for a viewer but keeps the status toggles', async () => {
+    // Seed as admin (the insert hook restricts non-elevated users to their own district), then view as a
+    // viewer to assert the elevated-only district filter is hidden.
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    remult.user = { ...VIEWER };
+    const fixture = await createComponent({ ...VIEWER });
+    await settle(fixture);
+
+    expect(byAriaLabel(host(fixture), 'District')).toBeNull();
+    expect(byAriaLabel(host(fixture), 'Financial year')).not.toBeNull();
+    expect(byAriaLabel(host(fixture), 'Status')).not.toBeNull();
+  });
+
+  it('has no structural accessibility violations in the content state', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    expect(await findAxeViolations(host(fixture))).toEqual([]);
   });
 });
