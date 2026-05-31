@@ -16,7 +16,9 @@ import {
   FireIncident,
   FireStatus,
   IncidentLevel,
+  operatorName,
   SituationReport,
+  statusTone,
 } from '@workspace/shared-domain';
 import { remult } from 'remult';
 import { of } from 'rxjs';
@@ -36,6 +38,38 @@ const VIEWER = DEV_USERS[5]!; // viewer, dev-viewer-otway
 // writable value, matching the inert-transport approach in `incident-list.spec.ts`.
 const hang = (): Promise<never> => new Promise<never>(() => undefined);
 const httpStub = { get: hang, post: hang, put: hang, delete: hang };
+
+// jsdom lacks `matchMedia` (the IncidentMapComponent's ThemeService consults it) and `IntersectionObserver`
+// (Angular's `@defer (prefetch on idle)` map/final-report blocks register one). Stub both (test-only).
+function stubBrowserApis(): void {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockReturnValue({
+      matches: false,
+      media: '',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }),
+  );
+  class IntersectionObserverStub {
+    observe(): void {
+      /* no-op */
+    }
+    unobserve(): void {
+      /* no-op */
+    }
+    disconnect(): void {
+      /* no-op */
+    }
+    takeRecords(): [] {
+      return [];
+    }
+  }
+  vi.stubGlobal('IntersectionObserver', IntersectionObserverStub);
+}
 
 let notification: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 let announcer: { announce: ReturnType<typeof vi.fn> };
@@ -169,11 +203,13 @@ function actionSnapshot(
 
 beforeEach(() => {
   localStorage.clear();
+  stubBrowserApis();
   remult.apiClient.httpClient = httpStub;
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   localStorage.clear();
 });
 
@@ -390,5 +426,34 @@ describe('IncidentDetailComponent (actions)', () => {
     const spy = vi.spyOn(FinalReport, 'removeSignOff').mockResolvedValue(undefined);
     await instance(fixture).onRemoveSignOff();
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('IncidentDetailComponent (map points + author names)', () => {
+  it('derives one map point with the status tone when coordinates are present', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, {
+      status: FireStatus.going,
+      latitude: -38.1,
+      longitude: 143.5,
+      name: 'Coastal Fire',
+    });
+    const points = instance(fixture).detailMapPoints();
+    expect(points).toEqual([
+      { lat: -38.1, lng: 143.5, tone: statusTone(FireStatus.going), name: 'Coastal Fire' },
+    ]);
+  });
+
+  it('derives no map points when coordinates are missing', async () => {
+    const fixture = await setup(ADMIN);
+    // The seeded fire has no latitude/longitude, so the map falls back to its empty state.
+    await seed(fixture, {});
+    expect(instance(fixture).detailMapPoints()).toEqual([]);
+  });
+
+  it('resolves an author id to an operator display name', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, {});
+    expect(instance(fixture).authorName(EDITOR.id)).toBe(operatorName(EDITOR.id));
   });
 });

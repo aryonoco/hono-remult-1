@@ -4,9 +4,11 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   resource,
+  signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,8 +22,11 @@ import {
   FireIncident,
   INCIDENT_LEVEL_LABELS,
   type IncidentLevel,
+  operatorName,
   POTENTIAL_LABELS,
   type Potential,
+  type StatusTone,
+  statusTone,
 } from '@workspace/shared-domain';
 import { ResultAsync } from 'neverthrow';
 import { remult } from 'remult';
@@ -39,6 +44,7 @@ import {
   canSoftDelete,
   canViewFinalReport,
 } from '../../../shared/auth/permissions';
+import { CadenceCountdownComponent } from '../../../shared/components/cadence-countdown/cadence-countdown';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge';
 import {
   ConfirmDialogComponent,
@@ -49,15 +55,22 @@ import {
   type ConfirmReasonDialogData,
   type ConfirmReasonDialogResult,
 } from '../../../shared/dialogs/confirm-reason-dialog';
+import type { MapPoint } from '../../../shared/ui/tone-classes';
+import { isTerminalStatus } from '../../../shared/util/fire-status';
 import { toErrorMessage } from '../../../shared/util/to-error-message';
 import { EscalateDialogComponent, type EscalateDialogData } from '../dialogs/escalate-dialog';
 import { FinalReportPanelComponent } from './final-report-panel';
+import { IncidentMapComponent } from './incident-map/incident-map';
+import { IncidentTimelineComponent } from './incident-timeline/incident-timeline';
 
 interface FireRequest {
   id: string;
   userId: string;
   includeFinal: boolean;
 }
+
+// Re-tick the cadence countdown each minute so an overdue marker on a live fire stays honest between loads.
+const TICK_MS = 60_000;
 
 @Component({
   selector: 'app-incident-detail',
@@ -71,7 +84,10 @@ interface FireRequest {
     MatExpansionModule,
     MatProgressBarModule,
     StatusBadgeComponent,
+    CadenceCountdownComponent,
     FinalReportPanelComponent,
+    IncidentMapComponent,
+    IncidentTimelineComponent,
   ],
   templateUrl: './incident-detail.html',
   styles: `
@@ -202,6 +218,10 @@ export class IncidentDetailComponent {
   private readonly notification = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly destroyRef = inject(DestroyRef);
+
+  // A minute clock feeds the hero cadence countdown; cleared on destroy.
+  protected readonly now = signal(new Date());
 
   private readonly incidentId = toSignal(
     this.route.paramMap.pipe(map((params) => params.get('id') ?? '')),
@@ -298,6 +318,28 @@ export class IncidentDetailComponent {
     return this.canViewFinal() && report !== undefined && !report.isSignedOff;
   });
 
+  // One map point for the detail view (the map component fits a single-incident view); empty when the fire
+  // has no recorded coordinates, which the map renders as its empty state.
+  protected readonly detailMapPoints = computed<MapPoint[]>(() => {
+    const fire = this.fire();
+    return fire?.latitude != null && fire?.longitude != null
+      ? [
+          {
+            lat: fire.latitude,
+            lng: fire.longitude,
+            tone: statusTone(fire.status),
+            name: fire.name,
+          },
+        ]
+      : [];
+  });
+
+  // Hero tone follows the fire's status tone (a whole literal class on the hero element).
+  protected readonly heroToneClass = computed(() => {
+    const fire = this.fire();
+    return fire ? `detail-hero--${statusTone(fire.status)}` : '';
+  });
+
   private announcedId: string | null = null;
 
   constructor() {
@@ -308,6 +350,20 @@ export class IncidentDetailComponent {
         this.announcedId = fire.id;
       }
     });
+    const tick = setInterval(() => this.now.set(new Date()), TICK_MS);
+    this.destroyRef.onDestroy(() => clearInterval(tick));
+  }
+
+  protected authorName(id: string): string {
+    return operatorName(id);
+  }
+
+  protected cadenceDue(fire: FireIncident): Date | null {
+    return isTerminalStatus(fire.status) ? null : (fire.nextReportDue ?? null);
+  }
+
+  protected statusTone(status: FireIncident['status']): StatusTone {
+    return statusTone(status);
   }
 
   protected levelLabel(level: IncidentLevel): string {
