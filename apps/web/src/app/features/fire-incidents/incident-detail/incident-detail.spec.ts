@@ -470,7 +470,11 @@ describe('IncidentDetailComponent (hero, stats, map + timeline)', () => {
     expect(hero).not.toBeNull();
     expect(hero?.classList.contains('detail-hero--going')).toBe(true);
     expect(hero?.querySelector('app-status-badge')).not.toBeNull();
-    expect(hero?.querySelector('app-cadence-countdown')).not.toBeNull();
+    const countdown = hero?.querySelector('app-cadence-countdown');
+    expect(countdown).not.toBeNull();
+    // On the status-coloured hero the countdown must use the inverse appearance so it inherits the
+    // on-colour text rather than rendering its own (same-hue, invisible) status colour.
+    expect(countdown?.getAttribute('appearance')).toBe('inverse');
     expect(el(fixture).textContent).toContain('Level 2');
     expect(el(fixture).textContent).toContain(operatorName(EDITOR.id));
   });

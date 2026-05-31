@@ -4,11 +4,19 @@ import { CadenceCountdownComponent } from './cadence-countdown';
 
 const NOW = new Date('2026-05-31T12:00:00Z');
 const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
 
-async function render(due: Date | null): Promise<{ host: HTMLElement; text: string }> {
+async function render(
+  due: Date | null,
+  appearance?: 'tone' | 'inverse',
+): Promise<{ host: HTMLElement; text: string }> {
   const fixture = TestBed.createComponent(CadenceCountdownComponent);
   fixture.componentRef.setInput('now', NOW);
   fixture.componentRef.setInput('due', due);
+  if (appearance) {
+    fixture.componentRef.setInput('appearance', appearance);
+  }
   await fixture.whenStable();
   const host = fixture.nativeElement as HTMLElement;
   return { host, text: host.textContent?.trim() ?? '' };
@@ -45,5 +53,28 @@ describe('CadenceCountdownComponent', () => {
     const { host, text } = await render(new Date(NOW.getTime() + 100 * MIN));
     expect(text).toBe('in 1h 40m');
     expect(host.getAttribute('data-state')).toBe('upcoming');
+  });
+
+  it('formats a multi-day overdue as whole days', async () => {
+    const { host, text } = await render(new Date(NOW.getTime() - 3 * DAY));
+    expect(text).toBe('−3d');
+    expect(host.getAttribute('data-state')).toBe('overdue');
+    expect(host.querySelector('[role=status]')).not.toBeNull();
+  });
+
+  it('formats a multi-day upcoming as whole days', async () => {
+    const { host, text } = await render(new Date(NOW.getTime() + 5 * DAY));
+    expect(text).toBe('in 5d');
+    expect(host.getAttribute('data-state')).toBe('upcoming');
+  });
+
+  it('does not colour the value span under the inverse appearance but keeps the live status', async () => {
+    const { host } = await render(new Date(NOW.getTime() - 6 * MIN), 'inverse');
+    const span = host.querySelector('span');
+    expect(span).not.toBeNull();
+    expect(span?.className).not.toContain('text-status-');
+    expect(host.getAttribute('data-state')).toBe('overdue');
+    expect(host.querySelector('[role=status]')).not.toBeNull();
+    expect(await findAxeViolations(host)).toEqual([]);
   });
 });
