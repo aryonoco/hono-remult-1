@@ -7,5 +7,7 @@
   "[html]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "biome.lspBin": "./node_modules/@biomejs/biome/bin/biome"
+  "biome.lsp.bin": "./node_modules/@biomejs/biome/bin/biome",
+  "css.lint.unknownAtRules": "ignore",
+  "chat.mcp.access": "none"
 }

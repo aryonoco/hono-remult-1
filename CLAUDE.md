@@ -107,10 +107,33 @@ live in `apps/api/src/migrations/`. After changing an entity, run `just migrate-
 Entity conventions: `.claude/rules/entity-conventions.md`
 Angular conventions: `.claude/rules/angular-conventions.md`
 API conventions: `.claude/rules/api-conventions.md`
-Pattern skills (invoke on demand): `.claude/skills/remult/` and `.claude/skills/neverthrow/`
+Styling conventions: `.claude/rules/styling-conventions.md`
+Testing conventions: `.claude/rules/testing-conventions.md`
+Pattern skills: `.claude/skills/remult/`, `.claude/skills/neverthrow/`,
+`.claude/skills/styling-tailwind-v4/`, `.claude/skills/angular-material-m3/`, `.claude/skills/nx-workspace/`,
+`.claude/skills/data-performance/`, `.claude/skills/testing/`
 
 When creating new entities, follow `.claude/rules/entity-conventions.md` (rules load on Read, not Write — reference the
 rule when creating files).
+
+## MCP Servers
+
+`.mcp.json` configures mcp servers:
+
+- **context7** — current upstream docs
+- **nx** — workspace graph, project/target metadata, and Nx docs.
+- **angular-cli** — version-matched Angular best practices, docs search, and code examples.
+- **playwright** — drives a headless Chromium for UI snapshots, accessibility, and interaction.
+- **chrome-devtools** — drives a headless Chromium for performance traces and DevTools inspection.
+
+`tools/angular-cli-mcp/angular.json` exists solely so the angular-cli MCP can discover the `web` project.
+From `tools/` it is outside every builder's search path, so Nx and the builders ignore it.
+Pass its path to the MCP's `workspacePath` args.
+
+Both browser MCPs share one Chromium baked into the devcontainer at
+`/ms-playwright/chromium-stable` (Playwright's bundled Chromium).
+The app under test is served at `http://localhost:4200` (web) and `http://localhost:3000` (api) — start them
+with `bunx nx serve web` / `bunx nx serve api` before asking a browser MCP to open a page.
 
 ## Project Layout
 

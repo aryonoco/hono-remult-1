@@ -53,7 +53,6 @@ async function setup(
   });
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(FinalReportFormComponent);
-  fixture.detectChanges();
   TestBed.tick();
   return fixture;
 }
@@ -122,7 +121,6 @@ describe('FinalReportFormComponent (edit)', () => {
   it('excludes the Sign-off group', async () => {
     const fixture = await setup(ADMIN, 'edit', FIRE_ID);
     instance(fixture).editResource.set(reportRow());
-    fixture.detectChanges();
     TestBed.tick();
     expect(hasGroup(fixture, 'Sign-off')).toBe(false);
   });
@@ -130,7 +128,6 @@ describe('FinalReportFormComponent (edit)', () => {
   it('shows not-found when no report exists for the incident', async () => {
     const fixture = await setup(ADMIN, 'edit', FIRE_ID);
     instance(fixture).editResource.set(undefined);
-    fixture.detectChanges();
     TestBed.tick();
     expect(instance(fixture).pageState()).toBe('notFound');
   });
@@ -139,7 +136,6 @@ describe('FinalReportFormComponent (edit)', () => {
     const fixture = await setup(ADMIN, 'edit', FIRE_ID);
     const inst = instance(fixture);
     inst.editResource.set(reportRow());
-    fixture.detectChanges();
     TestBed.tick();
     expect(inst.pageState()).toBe('ready');
     vi.spyOn(remult.repo(FinalReport), 'validate').mockResolvedValue(undefined);

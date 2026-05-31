@@ -49,7 +49,6 @@ async function setup(
   });
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(SituationReportFormComponent);
-  fixture.detectChanges();
   TestBed.tick();
   return fixture;
 }

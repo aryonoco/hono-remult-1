@@ -30,7 +30,7 @@ import {
           <span
             class="inline-flex items-center gap-1 rounded-md border border-current/25 bg-status-safe-bg px-2 py-0.5 text-xs font-semibold text-status-safe"
           >
-            <mat-icon class="!h-4 !w-4 !text-[1rem]" aria-hidden="true">verified</mat-icon>
+            <mat-icon class="h-4! w-4! text-[1rem]!" aria-hidden="true">verified</mat-icon>
             Signed off by {{ r.signedOffBy }} · {{ r.signedOffAt | date: 'dd/MM/yy, HH:mm' }}
           </span>
         }
@@ -118,7 +118,7 @@ import {
       <div class="mt-4 flex flex-wrap gap-2">
         @if (canSign()) {
           <button
-            mat-stroked-button
+            matButton="outlined"
             type="button"
             data-testid="action-signoff"
             (click)="signOff.emit()"
@@ -129,7 +129,7 @@ import {
         }
         @if (canRemoveSign()) {
           <button
-            mat-stroked-button
+            matButton="outlined"
             type="button"
             data-testid="action-remove-signoff"
             (click)="removeSignOff.emit()"
@@ -140,7 +140,7 @@ import {
         }
         @if (canEditFinal()) {
           <a
-            mat-stroked-button
+            matButton="outlined"
             data-testid="action-edit-final"
             [routerLink]="['/incidents', fireId(), 'final', 'edit']"
           >

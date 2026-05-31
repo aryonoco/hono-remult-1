@@ -45,9 +45,9 @@ export interface ConfirmReasonDialogResult {
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close type="button">Cancel</button>
+      <button matButton mat-dialog-close type="button">Cancel</button>
       <button
-        mat-flat-button
+        matButton="filled"
         type="button"
         [disabled]="!canConfirm()"
         (click)="confirm()"

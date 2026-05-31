@@ -1,7 +1,13 @@
+import type { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { MatFormFieldHarness } from '@angular/material/form-field/testing';
+import { MatSelectHarness } from '@angular/material/select/testing';
+import { MatSlideToggleHarness } from '@angular/material/slide-toggle/testing';
 import { DynamicFormComponent } from './dynamic-form';
 import type { BuiltField, BuiltGroup } from './form-engine.types';
 
@@ -39,10 +45,11 @@ describe('DynamicFormComponent', () => {
     });
   });
 
-  function render(): {
+  async function render(): Promise<{
     el: HTMLElement;
+    loader: HarnessLoader;
     controls: Record<'txt' | 'sel' | 'chk' | 'tog' | 'dt', FormControl>;
-  } {
+  }> {
     const controls = {
       txt: new FormControl(''),
       sel: new FormControl<string | null>(null),
@@ -73,36 +80,44 @@ describe('DynamicFormComponent', () => {
     const fixture = TestBed.createComponent(DynamicFormComponent);
     fixture.componentRef.setInput('form', form);
     fixture.componentRef.setInput('groups', groups);
-    fixture.detectChanges();
-    return { el: fixture.nativeElement as HTMLElement, controls };
+    await fixture.whenStable();
+    return {
+      el: fixture.nativeElement as HTMLElement,
+      loader: TestbedHarnessEnvironment.loader(fixture),
+      controls,
+    };
   }
 
-  it('renders the matching Material control for each widget', () => {
-    const { el } = render();
-    expect(el.querySelector('mat-select')).toBeTruthy();
-    expect(el.querySelector('mat-checkbox')).toBeTruthy();
-    expect(el.querySelector('mat-slide-toggle')).toBeTruthy();
+  it('renders the matching Material control for each widget', async () => {
+    const { el, loader } = await render();
+    expect(await loader.hasHarness(MatSelectHarness)).toBe(true);
+    expect(await loader.hasHarness(MatCheckboxHarness)).toBe(true);
+    expect(await loader.hasHarness(MatSlideToggleHarness)).toBe(true);
     expect(el.querySelector('app-datetime-field')).toBeTruthy();
     expect(el.querySelector('input')).toBeTruthy();
   });
 
-  it('shows an error for a touched invalid control', () => {
-    const { el, controls } = render();
+  it('shows an error for a touched invalid control', async () => {
+    const { loader, controls } = await render();
     controls.txt.addValidators(Validators.required);
     controls.txt.setValue('');
     controls.txt.markAsTouched();
     controls.txt.updateValueAndValidity();
     TestBed.tick();
-    expect(el.querySelector('mat-error')?.textContent).toContain('required');
+    const formFields = await loader.getAllHarnesses(MatFormFieldHarness);
+    const errors = (await Promise.all(formFields.map((f) => f.getTextErrors()))).flat();
+    expect(errors.join(' ')).toContain('required');
   });
 
   // OnPush regression: server errors arrive from the parent's async submit, not a template event in this
   // view. Only the `form().events → markForCheck()` wiring makes the message render on the next tick.
-  it('renders a server error pushed from outside the view under OnPush', () => {
-    const { el, controls } = render();
+  it('renders a server error pushed from outside the view under OnPush', async () => {
+    const { loader, controls } = await render();
     controls.txt.setErrors({ server: 'Already exists' });
     controls.txt.markAsTouched();
     TestBed.tick();
-    expect(el.querySelector('mat-error')?.textContent).toContain('Already exists');
+    const formFields = await loader.getAllHarnesses(MatFormFieldHarness);
+    const errors = (await Promise.all(formFields.map((f) => f.getTextErrors()))).flat();
+    expect(errors.join(' ')).toContain('Already exists');
   });
 });

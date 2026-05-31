@@ -140,16 +140,16 @@ all in one language, one toolchain.
 
 ## Summary Table
 
-| Dimension | Current EMI | Proposed Stack | DX Delta |
-|---|---|---|---|
-| Artifacts per feature | 10-13 across 5-6 projects | 2-3 across 2 projects | Massive reduction |
-| Language boundary | C# and TypeScript via codegen | TypeScript only | Eliminated |
-| Validation | Written twice, can drift | Written once, isomorphic | Single source of truth |
-| Authorization | Scattered across layers | Declarative on entity | Consolidated |
-| Data fetching | Manual services + generated clients | `remult.repo()` + LiveQuery | Near-zero boilerplate |
-| Project count (per domain) | ~5-6 projects | ~1 shared + 2 apps | ~80% reduction |
-| Build pipeline | .NET + Angular + Java codegen | TypeScript-only Nx | Radically simpler |
-| Onboarding surface | 56 EMI projects, two languages | 3 folders, one language | Much faster ramp |
+| Dimension                  | Current EMI                         | Proposed Stack              | DX Delta               |
+| -------------------------- | ----------------------------------- | --------------------------- | ---------------------- |
+| Artifacts per feature      | 10-13 across 5-6 projects           | 2-3 across 2 projects       | Massive reduction      |
+| Language boundary          | C# and TypeScript via codegen       | TypeScript only             | Eliminated             |
+| Validation                 | Written twice, can drift            | Written once, isomorphic    | Single source of truth |
+| Authorization              | Scattered across layers             | Declarative on entity       | Consolidated           |
+| Data fetching              | Manual services + generated clients | `remult.repo()` + LiveQuery | Near-zero boilerplate  |
+| Project count (per domain) | ~5-6 projects                       | ~1 shared + 2 apps          | ~80% reduction         |
+| Build pipeline             | .NET + Angular + Java codegen       | TypeScript-only Nx          | Radically simpler      |
+| Onboarding surface         | 56 EMI projects, two languages      | 3 folders, one language     | Much faster ramp       |
 
 ---
 

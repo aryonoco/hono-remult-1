@@ -31,15 +31,15 @@ Remult's `ensureSchema`.
 
 ## Files involved
 
-| File | Role |
-|------|------|
-| `atlas.hcl` | Atlas env config — URLs (via `getenv`), migration dir, lint rules |
-| `apps/api/src/config.ts` | `entities` array and `SCHEMA` constant — single source of truth |
-| `apps/api/src/env.ts` | Typed env reader (`Bun.env.X`) — checks all required URLs exist |
-| `apps/api/src/db/sync-to-desired.ts` | Wipes `app` schema in `atlas_desired`, runs Remult `ensureSchema` |
-| `apps/api/src/db/migrate-generate.ts` | Orchestrator — runs sync-to-desired, then `atlas migrate diff` |
-| `apps/api/src/migrations/*.sql` | Committed migration history — reviewable in PRs |
-| `apps/api/src/migrations/atlas.sum` | Atlas's hash file — protects against silent edits |
+| File                                  | Role                                                              |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| `atlas.hcl`                           | Atlas env config — URLs (via `getenv`), migration dir, lint rules |
+| `apps/api/src/config.ts`              | `entities` array and `SCHEMA` constant — single source of truth   |
+| `apps/api/src/env.ts`                 | Typed env reader (`Bun.env.X`) — checks all required URLs exist   |
+| `apps/api/src/db/sync-to-desired.ts`  | Wipes `app` schema in `atlas_desired`, runs Remult `ensureSchema` |
+| `apps/api/src/db/migrate-generate.ts` | Orchestrator — runs sync-to-desired, then `atlas migrate diff`    |
+| `apps/api/src/migrations/*.sql`       | Committed migration history — reviewable in PRs                   |
+| `apps/api/src/migrations/atlas.sum`   | Atlas's hash file — protects against silent edits                 |
 
 ## Daily flow — worked example
 

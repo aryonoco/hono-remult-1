@@ -24,44 +24,44 @@ When the quick reference files are insufficient, read targeted sections from `ll
 
 ### State management
 
-| Need | Pattern |
-|------|---------|
-| Mutable state | `signal()` |
-| Derived (read-only) | `computed()` |
-| Derived (resettable) | `linkedSignal()` |
-| Side effect | `effect()` — sparingly |
-| Async data loading | `resource()` |
+| Need                 | Pattern                |
+| -------------------- | ---------------------- |
+| Mutable state        | `signal()`             |
+| Derived (read-only)  | `computed()`           |
+| Derived (resettable) | `linkedSignal()`       |
+| Side effect          | `effect()` — sparingly |
+| Async data loading   | `resource()`           |
 
 ### Component communication
 
-| Direction | Pattern |
-|-----------|---------|
+| Direction      | Pattern                        |
+| -------------- | ------------------------------ |
 | Parent → child | `input()` / `input.required()` |
-| Child → parent | `output()` |
-| Two-way | `model()` |
+| Child → parent | `output()`                     |
+| Two-way        | `model()`                      |
 
 ### Templates
 
-| Need | Syntax |
-|------|--------|
-| Conditional | `@if` / `@else` |
-| List | `@for (item of items(); track item.id)` |
-| Switch | `@switch` / `@case` |
-| Lazy load | `@defer (on viewport)` |
+| Need        | Syntax                                  |
+| ----------- | --------------------------------------- |
+| Conditional | `@if` / `@else`                         |
+| List        | `@for (item of items(); track item.id)` |
+| Switch      | `@switch` / `@case`                     |
+| Lazy load   | `@defer (on viewport)`                  |
 
 ### RxJS interop
 
-| Direction | Function |
-|-----------|----------|
+| Direction           | Function                           |
+| ------------------- | ---------------------------------- |
 | Observable → Signal | `toSignal(obs$, { initialValue })` |
-| Signal → Observable | `toObservable(signal)` |
+| Signal → Observable | `toObservable(signal)`             |
 
 ### Lifecycle
 
-| Need | Pattern |
-|------|---------|
-| Cleanup | `DestroyRef.onDestroy()` |
-| DOM operations | `afterRender()` / `afterNextRender()` |
+| Need              | Pattern                                        |
+| ----------------- | ---------------------------------------------- |
+| Cleanup           | `DestroyRef.onDestroy()`                       |
+| DOM operations    | `afterRender()` / `afterNextRender()`          |
 | Service injection | `inject()` in field initialiser or constructor |
 
 ## Key Principles

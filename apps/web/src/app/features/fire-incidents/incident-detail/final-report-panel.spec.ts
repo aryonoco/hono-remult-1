@@ -21,14 +21,16 @@ interface PanelFlags {
   canEditFinal?: boolean;
 }
 
-function render(flags: PanelFlags = {}): ComponentFixture<FinalReportPanelComponent> {
+async function render(
+  flags: PanelFlags = {},
+): Promise<ComponentFixture<FinalReportPanelComponent>> {
   const fixture = TestBed.createComponent(FinalReportPanelComponent);
   fixture.componentRef.setInput('report', reportRow());
   fixture.componentRef.setInput('fireId', 'fire-1');
   fixture.componentRef.setInput('canSign', flags.canSign ?? false);
   fixture.componentRef.setInput('canRemoveSign', flags.canRemoveSign ?? false);
   fixture.componentRef.setInput('canEditFinal', flags.canEditFinal ?? false);
-  fixture.detectChanges();
+  await fixture.whenStable();
   return fixture;
 }
 
@@ -46,15 +48,15 @@ describe('FinalReportPanelComponent', () => {
     });
   });
 
-  it('renders the final-report panel with its loss figures', () => {
-    const el = host(render());
+  it('renders the final-report panel with its loss figures', async () => {
+    const el = host(await render());
     expect(el.querySelector('[data-testid="final-report-panel"]')).not.toBeNull();
     expect(el.textContent).toContain('Stock lost');
     expect(el.textContent).toContain('Final report');
   });
 
-  it('emits signOff when the sign-off button is clicked', () => {
-    const fixture = render({ canSign: true });
+  it('emits signOff when the sign-off button is clicked', async () => {
+    const fixture = await render({ canSign: true });
     let emitted = false;
     fixture.componentInstance.signOff.subscribe(() => {
       emitted = true;
@@ -63,8 +65,8 @@ describe('FinalReportPanelComponent', () => {
     expect(emitted).toBe(true);
   });
 
-  it('emits removeSignOff when the remove-sign-off button is clicked', () => {
-    const fixture = render({ canRemoveSign: true });
+  it('emits removeSignOff when the remove-sign-off button is clicked', async () => {
+    const fixture = await render({ canRemoveSign: true });
     let emitted = false;
     fixture.componentInstance.removeSignOff.subscribe(() => {
       emitted = true;
@@ -75,23 +77,23 @@ describe('FinalReportPanelComponent', () => {
     expect(emitted).toBe(true);
   });
 
-  it('links the edit button to the final-report edit route', () => {
-    const edit = host(render({ canEditFinal: true })).querySelector(
+  it('links the edit button to the final-report edit route', async () => {
+    const edit = host(await render({ canEditFinal: true })).querySelector(
       '[data-testid="action-edit-final"]',
     );
     expect(edit?.getAttribute('href')).toBe('/incidents/fire-1/final/edit');
   });
 
-  it('hides every action when no permission is granted', () => {
-    const el = host(render());
+  it('hides every action when no permission is granted', async () => {
+    const el = host(await render());
     expect(el.querySelector('[data-testid="action-signoff"]')).toBeNull();
     expect(el.querySelector('[data-testid="action-remove-signoff"]')).toBeNull();
     expect(el.querySelector('[data-testid="action-edit-final"]')).toBeNull();
   });
 
   it('has no structural accessibility violations', async () => {
-    expect(await findAxeViolations(host(render({ canSign: true, canEditFinal: true })))).toEqual(
-      [],
-    );
+    expect(
+      await findAxeViolations(host(await render({ canSign: true, canEditFinal: true }))),
+    ).toEqual([]);
   });
 });

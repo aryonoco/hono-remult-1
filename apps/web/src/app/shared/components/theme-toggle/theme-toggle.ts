@@ -21,7 +21,7 @@ const THEME_LABELS: Readonly<Record<ThemeMode, string>> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatButtonModule, MatIconModule],
   template: `
-    <button mat-icon-button [attr.aria-label]="label()" (click)="theme.cycle()">
+    <button matIconButton [attr.aria-label]="label()" (click)="theme.cycle()">
       <mat-icon>{{ icon() }}</mat-icon>
     </button>
   `,

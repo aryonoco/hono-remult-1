@@ -76,7 +76,9 @@
     "EDITOR": "nano",
     "VISUAL": "nano",
     "NG_CLI_ANALYTICS": "false",
-    "NX_DAEMON": "true"
+    "NX_DAEMON": "true",
+    "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
+    "PLAYWRIGHT_SKIP_BROWSER_GC": "1"
   },
 
   "forwardPorts": [3000, 4200, 5432],
@@ -96,6 +98,7 @@
       "extensions": [
         "oven.bun-vscode",
         "biomejs.biome",
+        "bradlc.vscode-tailwindcss",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "angular.ng-template",
@@ -129,9 +132,10 @@
         "files.associations": { "justfile": "just" },
         "eslint.useFlatConfig": true,
         "eslint.workingDirectories": [{ "mode": "auto" }],
-        "typescript.tsdk": "node_modules/typescript/lib",
-        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "js/ts.tsdk.path": "node_modules/typescript/lib",
+        "js/ts.tsdk.promptToUseWorkspaceVersion": true,
         "cSpell.language": "en-GB",
+        "css.lint.unknownAtRules": "ignore",
         "errorLens.enabledDiagnosticLevels": ["error", "warning"],
         "sqltools.connections": [
           {

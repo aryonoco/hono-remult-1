@@ -59,7 +59,7 @@ async function createComponent(
   configure(user, matches);
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(IncidentListComponent);
-  fixture.detectChanges();
+  await fixture.whenStable();
   return fixture;
 }
 
@@ -114,7 +114,7 @@ describe('IncidentListComponent (create gating)', () => {
 });
 
 describe('IncidentListComponent (responsive content)', () => {
-  function forceContent(fixture: ComponentFixture<IncidentListComponent>): void {
+  async function forceContent(fixture: ComponentFixture<IncidentListComponent>): Promise<void> {
     const sample = Object.assign(new FireIncident(), {
       id: 'fire-1',
       name: 'Test Fire',
@@ -130,19 +130,19 @@ describe('IncidentListComponent (responsive content)', () => {
     ci.error.set(null);
     ci.rawIncidents.set([sample]);
     ci.loading.set(false);
-    fixture.detectChanges();
+    await fixture.whenStable();
   }
 
   it('renders a table on a wide viewport', async () => {
     const fixture = await createComponent(EDITOR, false);
-    forceContent(fixture);
+    await forceContent(fixture);
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('table')).not.toBeNull();
   });
 
   it('renders stacked cards instead of a table on handset', async () => {
     const fixture = await createComponent(EDITOR, true);
-    forceContent(fixture);
+    await forceContent(fixture);
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('table')).toBeNull();
     expect(host.querySelector('.card')).not.toBeNull();
@@ -151,7 +151,7 @@ describe('IncidentListComponent (responsive content)', () => {
 
   it('has no structural accessibility violations with the named table', async () => {
     const fixture = await createComponent(EDITOR, false);
-    forceContent(fixture);
+    await forceContent(fixture);
     expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
   });
 });

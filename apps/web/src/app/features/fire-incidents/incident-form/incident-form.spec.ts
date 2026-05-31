@@ -59,7 +59,6 @@ async function setup(
   });
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(IncidentFormComponent);
-  fixture.detectChanges();
   TestBed.tick();
   return fixture;
 }
@@ -141,7 +140,7 @@ describe('IncidentFormComponent (create)', () => {
     const inst = instance(fixture);
     inst.builtForm().form.get('name').setValue('');
     await inst.onSave();
-    fixture.detectChanges();
+    TestBed.tick();
     // The focus-on-error selector targets the control element directly (Angular puts ng-invalid there).
     expect(
       (fixture.nativeElement as HTMLElement).querySelector(INVALID_CONTROL_SELECTOR),
@@ -191,7 +190,6 @@ describe('IncidentFormComponent (edit)', () => {
   it('shows not-found when the record resolves empty', async () => {
     const fixture = await setup(ADMIN, 'fire-1');
     instance(fixture).editResource.set(undefined);
-    fixture.detectChanges();
     TestBed.tick();
     expect(instance(fixture).pageState()).toBe('notFound');
   });
@@ -200,7 +198,6 @@ describe('IncidentFormComponent (edit)', () => {
     const fixture = await setup(ADMIN, 'fire-1');
     const inst = instance(fixture);
     inst.editResource.set(seededFire());
-    fixture.detectChanges();
     TestBed.tick();
     expect(inst.pageState()).toBe('ready');
     inst.builtForm().form.get('name').setValue('Renamed');

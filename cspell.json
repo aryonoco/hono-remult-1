@@ -16,7 +16,11 @@
     "bun.lock",
     "*.lock",
     ".devcontainer/config/p10k.zsh",
-    ".claude/skills/**"
+    ".claude/skills/**",
+    ".gitignore",
+    ".dockerignore",
+    ".npmignore",
+    ".prettierignore"
   ],
   "ignoreRegExpList": ["Base64", "/(?:^|\\s)0x[0-9a-fA-F]+/", "/ghcr\\.io\\/[^\\s\"']+/"]
 }

@@ -39,7 +39,7 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
               }
             </span>
             <button
-              mat-stroked-button
+              matButton="outlined"
               type="button"
               data-testid="form-cancel"
               (click)="cancel.emit()"
@@ -47,7 +47,7 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
               Cancel
             </button>
             <button
-              mat-flat-button
+              matButton="filled"
               type="button"
               data-testid="form-save"
               [disabled]="submitting()"

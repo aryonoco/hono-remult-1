@@ -40,6 +40,11 @@ spell:
     cspell --no-progress "**/*.{ts,html,md,json}"
 markdownlint:
     markdownlint-cli2 "**/*.md" "#node_modules" "#.nx" "#.angular" "#dist" "#coverage" "#tmp"
+# Align all Markdown tables to MD060 "aligned" (markdownlint has no fixer; run after editing tables)
+align-tables:
+    python3 scripts/align-markdown-tables.py
+align-tables-check:
+    python3 scripts/align-markdown-tables.py --check
 
 # Tests
 test:

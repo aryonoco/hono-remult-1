@@ -10,15 +10,11 @@
    chrome, and so light/dark/system all follow the one `color-scheme` signal the ThemeService flips.
    Status tokens are the exception: Material has no fire-status concept, so they carry their own
    light/dark pair via `light-dark()` (the same mechanism Material uses internally).               */
-@theme {
-  /* Typography — Libre Franklin (display), Public Sans (body/UI), IBM Plex Mono (instrument data). */
-  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Libre Franklin', 'Public Sans', ui-sans-serif, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
-
-  /* Surface / text / line colours bridged to the active Material theme. `--color-muted` already
-     existed; the rest let Tailwind utilities (bg-surface, text-on-surface, border-outline…) stay in
-     lock-step with Material without hard-coded greys. */
+/* Runtime-variable bridges to Material's M3 system tokens. These MUST live in `@theme inline` so the
+   generated utilities reference the live `--mat-sys-*` variables (not a build-time snapshot), keeping
+   bg-surface, text-on-surface, border-outline… in lock-step with the active theme across
+   light/dark/system. */
+@theme inline {
   --color-muted: var(--mat-sys-on-surface-variant);
   --color-surface: var(--mat-sys-surface);
   --color-surface-container: var(--mat-sys-surface-container);
@@ -30,6 +26,13 @@
   --color-on-primary: var(--mat-sys-on-primary);
   --color-error: var(--mat-sys-error);
   --color-on-error: var(--mat-sys-on-error);
+}
+
+@theme {
+  /* Typography — Libre Franklin (display), Public Sans (body/UI), IBM Plex Mono (instrument data). */
+  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Libre Franklin', 'Public Sans', ui-sans-serif, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
 
   /* Fire-status tones — six semantic tones, each a light/dark pair. Foreground (text + border) and a
      tinted surface. Values follow well-established AA-compliant tint/shade pairings (≈100/800 in

@@ -50,6 +50,26 @@ fdfind
 batcat
 shfmt
 
+# Zsh config & devcontainer shell aliases (.devcontainer/config/zshrc)
+SAVEHIST
+DUPS
+apidev
+ngdev
+psqld
+justfile
+mountpoint
+reshim
+isready
+healthcheck
+FOWNER
+netcat
+procps
+nums
+appbar
+userchip
+mdlint
+PGPASSWORD
+
 # British spellings used in the codebase
 authorise
 authorised
@@ -99,6 +119,7 @@ errorlens
 # VS Code extension publisher IDs (used in devcontainer.json + .vscode/extensions.json)
 dbaeumer
 esbenp
+bradlc
 eamodio
 mhutchie
 usernamehw
@@ -141,3 +162,28 @@ testid
 testids
 maxlength
 inputmode
+
+# MCP servers / browser tooling
+Context7
+playwright
+puppeteer
+chromium
+devtools
+headless
+oklch
+jsdom
+Vitest
+npx
+CDP
+
+# Skill / rule vocabulary
+paginator
+cuid
+postcssrc
+tailwind
+tailwindcss
+scss
+Vite
+Testbed
+stdio
+setuid

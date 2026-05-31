@@ -1,0 +1,49 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": { "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY:-}" }
+    },
+    "nx": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": ["nx-mcp@latest", "/workspaces/hono-remult-1"]
+    },
+    "angular-cli": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": ["@angular/cli@21", "mcp"]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--headless",
+        "--executable-path",
+        "/ms-playwright/chromium-stable",
+        "--no-sandbox",
+        "--isolated",
+        "--output-dir",
+        "/workspaces/hono-remult-1/.mcp-artifacts/playwright"
+      ],
+      "env": { "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright" }
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--headless",
+        "--isolated",
+        "--executable-path",
+        "/ms-playwright/chromium-stable",
+        "--chrome-arg=--no-sandbox",
+        "--chrome-arg=--disable-setuid-sandbox",
+        "--chrome-arg=--disable-dev-shm-usage"
+      ],
+      "env": { "CI": "1" }
+    }
+  }
+}

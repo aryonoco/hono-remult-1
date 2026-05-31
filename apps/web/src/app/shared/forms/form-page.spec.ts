@@ -1,17 +1,19 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { MatProgressBarHarness } from '@angular/material/progress-bar/testing';
 import { findAxeViolations } from '../../../testing/axe-helper';
 import type { BuiltForm } from './form-engine.types';
 import { FormPageComponent, type FormPageState } from './form-page';
 
 const emptyBuilt: BuiltForm = { form: new FormGroup({}), groups: [] };
 
-function render(
+async function render(
   state: FormPageState,
   overrides: { submitting?: boolean } = {},
-): ComponentFixture<FormPageComponent> {
+): Promise<ComponentFixture<FormPageComponent>> {
   const fixture = TestBed.createComponent(FormPageComponent);
   fixture.componentRef.setInput('title', 'New incident');
   fixture.componentRef.setInput('state', state);
@@ -21,7 +23,7 @@ function render(
   if (overrides.submitting !== undefined) {
     fixture.componentRef.setInput('submitting', overrides.submitting);
   }
-  fixture.detectChanges();
+  await fixture.whenStable();
   return fixture;
 }
 
@@ -40,29 +42,32 @@ describe('FormPageComponent', () => {
     });
   });
 
-  it('renders the title in an h1 heading', () => {
-    expect(host(render('anonymous')).querySelector('h1')?.textContent).toContain('New incident');
+  it('renders the title in an h1 heading', async () => {
+    expect(host(await render('anonymous')).querySelector('h1')?.textContent).toContain(
+      'New incident',
+    );
   });
 
-  it('prompts for a dev user in the anonymous state', () => {
-    expect(host(render('anonymous')).textContent).toContain('Select a dev user');
+  it('prompts for a dev user in the anonymous state', async () => {
+    expect(host(await render('anonymous')).textContent).toContain('Select a dev user');
   });
 
-  it('shows the not-found message in the notFound state', () => {
-    expect(host(render('notFound')).textContent).toContain('Incident not found.');
+  it('shows the not-found message in the notFound state', async () => {
+    expect(host(await render('notFound')).textContent).toContain('Incident not found.');
   });
 
-  it('renders a progress bar while loading', () => {
-    expect(host(render('loading')).querySelector('mat-progress-bar')).not.toBeNull();
+  it('renders a progress bar while loading', async () => {
+    const loader = TestbedHarnessEnvironment.loader(await render('loading'));
+    expect(await loader.hasHarness(MatProgressBarHarness)).toBe(true);
   });
 
-  it('renders the dynamic form and a labelled save button when ready', () => {
-    const save = host(render('ready')).querySelector('[data-testid="form-save"]');
+  it('renders the dynamic form and a labelled save button when ready', async () => {
+    const save = host(await render('ready')).querySelector('[data-testid="form-save"]');
     expect(save?.textContent).toContain('Save incident');
   });
 
-  it('emits save and cancel from the action bar', () => {
-    const fixture = render('ready');
+  it('emits save and cancel from the action bar', async () => {
+    const fixture = await render('ready');
     let saved = false;
     let cancelled = false;
     fixture.componentInstance.save.subscribe(() => {
@@ -77,14 +82,14 @@ describe('FormPageComponent', () => {
     expect(cancelled).toBe(true);
   });
 
-  it('disables save while submitting', () => {
-    const save = host(render('ready', { submitting: true })).querySelector<HTMLButtonElement>(
+  it('disables save while submitting', async () => {
+    const save = host(await render('ready', { submitting: true })).querySelector<HTMLButtonElement>(
       '[data-testid="form-save"]',
     );
     expect(save?.disabled).toBe(true);
   });
 
   it('has no structural accessibility violations when ready', async () => {
-    expect(await findAxeViolations(host(render('ready')))).toEqual([]);
+    expect(await findAxeViolations(host(await render('ready')))).toEqual([]);
   });
 });

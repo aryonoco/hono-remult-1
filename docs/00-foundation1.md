@@ -282,13 +282,13 @@ cannot accidentally depend on each other's frameworks.
 
 Despite maximum sharing, some code is inherently platform-specific:
 
-| Web Application | API Application |
-|-----------------|-----------------|
-| Components, templates | Hono middleware |
-| Route guards | Database connection |
-| UI state (modals, toasts) | OAuth callbacks |
-| Styling | Webhook handlers |
-| Build configuration | Environment secrets |
+| Web Application           | API Application     |
+| ------------------------- | ------------------- |
+| Components, templates     | Hono middleware     |
+| Route guards              | Database connection |
+| UI state (modals, toasts) | OAuth callbacks     |
+| Styling                   | Webhook handlers    |
+| Build configuration       | Environment secrets |
 
 This separation is natural and correct. The goal is not to share everything — it's to share everything that CAN be
 shared, and clearly separate what cannot.
@@ -297,16 +297,16 @@ shared, and clearly separate what cannot.
 
 ## Comparison to F#/SAFE Stack
 
-| SAFE Stack | This Architecture |
-|------------|-------------------|
-| Shared F# types | Remult entity classes |
-| Fable.Remoting | BackendMethods |
+| SAFE Stack             | This Architecture              |
+| ---------------------- | ------------------------------ |
+| Shared F# types        | Remult entity classes          |
+| Fable.Remoting         | BackendMethods                 |
 | Server-side validation | Entity validators (isomorphic) |
-| Giraffe/Saturn routing | Hono + Remult auto-routes |
-| Elmish | Angular signals |
-| F# type safety | TypeScript + Remult metadata |
-| Paket | npm/pnpm |
-| FAKE | NX task runner |
+| Giraffe/Saturn routing | Hono + Remult auto-routes      |
+| Elmish                 | Angular signals                |
+| F# type safety         | TypeScript + Remult metadata   |
+| Paket                  | npm/pnpm                       |
+| FAKE                   | NX task runner                 |
 
 The philosophy is identical: define your domain model once, let the framework derive everything else. The implementation
 differs by language and ecosystem, but the developer experience — write it once, trust it everywhere — is preserved.

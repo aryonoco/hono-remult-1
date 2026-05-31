@@ -31,16 +31,16 @@ free here; the default EULA-licensed build paywalls it as of v0.38.
 
 ## Project commands
 
-| Action | Wrapper | Underlying |
-|--------|---------|------------|
+| Action                                      | Wrapper                           | Underlying                                |
+| ------------------------------------------- | --------------------------------- | ----------------------------------------- |
 | Generate a migration after editing entities | `bun run migrate:generate <name>` | sync-to-desired.ts → `atlas migrate diff` |
-| Preview pending migrations (dry-run) | `bun run migrate:plan` | `atlas migrate apply --dry-run` |
-| Apply pending migrations | `bun run migrate:apply` | `atlas migrate apply` |
-| Lint latest migration for destructive ops | `bun run migrate:lint` | `atlas migrate lint --latest 1` |
-| Show applied/pending counts | `bun run migrate:status` | `atlas migrate status` |
-| Verify migrations dir integrity | `bun run migrate:validate` | `atlas migrate validate` |
-| Re-hash atlas.sum after manual edit | `bun run migrate:hash` | `atlas migrate hash` |
-| Inspect live schema (target DB) | `bun run schema:inspect` | `atlas schema inspect --format sql` |
+| Preview pending migrations (dry-run)        | `bun run migrate:plan`            | `atlas migrate apply --dry-run`           |
+| Apply pending migrations                    | `bun run migrate:apply`           | `atlas migrate apply`                     |
+| Lint latest migration for destructive ops   | `bun run migrate:lint`            | `atlas migrate lint --latest 1`           |
+| Show applied/pending counts                 | `bun run migrate:status`          | `atlas migrate status`                    |
+| Verify migrations dir integrity             | `bun run migrate:validate`        | `atlas migrate validate`                  |
+| Re-hash atlas.sum after manual edit         | `bun run migrate:hash`            | `atlas migrate hash`                      |
+| Inspect live schema (target DB)             | `bun run schema:inspect`          | `atlas schema inspect --format sql`       |
 
 All wrappers also have `just migrate-*` / `just schema-inspect` equivalents.
 
@@ -58,22 +58,22 @@ Schema change needed
 └─ git add apps/api/src/migrations/ && commit
 ```
 
-| Symptom | Tool |
-|---------|------|
-| "What's currently in the DB?" | `bun run schema:inspect` |
-| "Did I forget to apply a migration?" | `bun run migrate:status` |
-| "Will this break anything destructive?" | `bun run migrate:lint` |
-| "Manually edited a .sql file" | `bun run migrate:hash` then commit the updated `atlas.sum` |
-| "atlas.sum doesn't match" | `bun run migrate:validate` (read-only check) |
+| Symptom                                 | Tool                                                       |
+| --------------------------------------- | ---------------------------------------------------------- |
+| "What's currently in the DB?"           | `bun run schema:inspect`                                   |
+| "Did I forget to apply a migration?"    | `bun run migrate:status`                                   |
+| "Will this break anything destructive?" | `bun run migrate:lint`                                     |
+| "Manually edited a .sql file"           | `bun run migrate:hash` then commit the updated `atlas.sum` |
+| "atlas.sum doesn't match"               | `bun run migrate:validate` (read-only check)               |
 
 ## Database roles (two-role least-privilege)
 
-| Role | URL env var | Purpose |
-|------|-------------|---------|
-| `hrm_runtime` | `DATABASE_URL` | API runtime — DML only. Cannot CREATE/ALTER/DROP. |
-| `hrm_app` | `DATABASE_URL_MIGRATIONS` | Atlas's target — full DDL. Only the migration pipeline uses this. |
-| `hrm_app` | `ATLAS_DESIRED_URL` | Atlas `src` — scratch DB populated by sync-to-desired.ts. |
-| `hrm_app` | `ATLAS_DEV_URL` | Atlas `dev` — replay scratch. Atlas owns this DB end-to-end. |
+| Role          | URL env var               | Purpose                                                           |
+| ------------- | ------------------------- | ----------------------------------------------------------------- |
+| `hrm_runtime` | `DATABASE_URL`            | API runtime — DML only. Cannot CREATE/ALTER/DROP.                 |
+| `hrm_app`     | `DATABASE_URL_MIGRATIONS` | Atlas's target — full DDL. Only the migration pipeline uses this. |
+| `hrm_app`     | `ATLAS_DESIRED_URL`       | Atlas `src` — scratch DB populated by sync-to-desired.ts.         |
+| `hrm_app`     | `ATLAS_DEV_URL`           | Atlas `dev` — replay scratch. Atlas owns this DB end-to-end.      |
 
 All four URLs live in `.env` (and `.env.example`). `mise` loads `.env` into the shell via `_.file = ".env"` in
 `.mise.toml` so Atlas (a Go subprocess) sees them — `bun run` alone does NOT propagate `.env` to subprocesses.

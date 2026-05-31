@@ -71,6 +71,15 @@
   },
   "overrides": [
     {
+      "includes": [".vscode/*.json", "**/tsconfig*.json", "**/*.code-workspace"],
+      "json": {
+        "parser": {
+          "allowComments": true,
+          "allowTrailingCommas": true
+        }
+      }
+    },
+    {
       "includes": ["libs/shared/*/src/index.ts"],
       "linter": {
         "rules": {

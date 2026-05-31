@@ -1,6 +1,9 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { IncidentLevel } from '@workspace/shared-domain';
 import { EscalateDialogComponent, type EscalateDialogData } from './escalate-dialog';
 
@@ -20,12 +23,13 @@ async function createComponent(
   });
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(EscalateDialogComponent);
-  fixture.detectChanges();
+  await fixture.whenStable();
   return fixture;
 }
 
-function radioCount(fixture: ComponentFixture<EscalateDialogComponent>): number {
-  return (fixture.nativeElement as HTMLElement).querySelectorAll('mat-radio-button').length;
+async function radioCount(fixture: ComponentFixture<EscalateDialogComponent>): Promise<number> {
+  const loader = TestbedHarnessEnvironment.loader(fixture);
+  return (await loader.getAllHarnesses(MatRadioButtonHarness)).length;
 }
 
 beforeEach(() => {
@@ -35,21 +39,22 @@ beforeEach(() => {
 describe('EscalateDialogComponent', () => {
   it('offers two levels above level one', async () => {
     const fixture = await createComponent(IncidentLevel.levelOne);
-    expect(radioCount(fixture)).toBe(2);
+    expect(await radioCount(fixture)).toBe(2);
   });
 
   it('offers one level above level two', async () => {
     const fixture = await createComponent(IncidentLevel.levelTwo);
-    expect(radioCount(fixture)).toBe(1);
+    expect(await radioCount(fixture)).toBe(1);
   });
 
   it('offers no levels and disables Confirm at level three', async () => {
     const fixture = await createComponent(IncidentLevel.levelThree);
     const host = fixture.nativeElement as HTMLElement;
-    expect(radioCount(fixture)).toBe(0);
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    expect(await radioCount(fixture)).toBe(0);
     expect(host.textContent).toContain('Already at the highest level.');
-    const confirm = host.querySelectorAll('button')[1] as HTMLButtonElement;
-    expect(confirm.disabled).toBe(true);
+    const buttons = await loader.getAllHarnesses(MatButtonHarness);
+    expect(await buttons[1]!.isDisabled()).toBe(true);
   });
 
   it('closes with the chosen level on confirm', async () => {

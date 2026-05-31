@@ -169,13 +169,13 @@ protected readonly results = toSignal(
 
 ## What NOT to Use
 
-| Deprecated | Modern Replacement |
-|-----------|-------------------|
-| `BehaviorSubject` | `signal()` |
-| `@Input()` decorator | `input()` function |
-| `@Output()` + `EventEmitter` | `output()` function |
-| `*ngIf`, `*ngFor` | `@if`, `@for` |
-| Constructor injection | `inject()` function |
-| `ngOnDestroy` | `DestroyRef.onDestroy()` |
-| `ngAfterViewInit` | `afterRender()` / `afterNextRender()` |
-| Zone.js | `provideZonelessChangeDetection()` |
+| Deprecated                   | Modern Replacement                    |
+| ---------------------------- | ------------------------------------- |
+| `BehaviorSubject`            | `signal()`                            |
+| `@Input()` decorator         | `input()` function                    |
+| `@Output()` + `EventEmitter` | `output()` function                   |
+| `*ngIf`, `*ngFor`            | `@if`, `@for`                         |
+| Constructor injection        | `inject()` function                   |
+| `ngOnDestroy`                | `DestroyRef.onDestroy()`              |
+| `ngAfterViewInit`            | `afterRender()` / `afterNextRender()` |
+| Zone.js                      | `provideZonelessChangeDetection()`    |

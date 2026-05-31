@@ -69,7 +69,9 @@ async function setup(
   });
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(IncidentDetailComponent);
-  fixture.detectChanges();
+  // The fire is loaded via `resource()` over a transport stubbed to hang, so the app is never "stable";
+  // drive change detection synchronously with `TestBed.tick()` instead of awaiting `whenStable()`.
+  TestBed.tick();
   return fixture;
 }
 
@@ -102,12 +104,12 @@ async function seed(
     overrides,
   );
   instance(fixture).fireResource.set(fire);
-  fixture.detectChanges();
+  TestBed.tick();
   // Render the final-report `@defer` block to Complete so its panel/actions can be asserted (no-op when the
   // guard hides it — e.g. for a viewer or an incident with no final report).
   const deferBlocks = await fixture.getDeferBlocks();
   await Promise.all(deferBlocks.map((block) => block.render(DeferBlockState.Complete)));
-  fixture.detectChanges();
+  TestBed.tick();
   return fire;
 }
 
@@ -309,7 +311,7 @@ describe('IncidentDetailComponent (gating matrix)', () => {
   it('shows not-found when the incident resolves empty', async () => {
     const fixture = await setup(ADMIN);
     instance(fixture).fireResource.set(undefined);
-    fixture.detectChanges();
+    TestBed.tick();
     expect(text(fixture)).toContain('Incident not found');
   });
 

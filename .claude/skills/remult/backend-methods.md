@@ -163,11 +163,11 @@ RPC boundary; the frontend wraps the call in `ResultAsync.fromPromise`. Full pat
 
 ## When to Use What
 
-| Scenario | Pattern |
-|----------|---------|
+| Scenario               | Pattern                          |
+| ---------------------- | -------------------------------- |
 | Toggle a boolean field | Instance BackendMethod on entity |
-| Approve/archive a row | Instance BackendMethod on entity |
-| Bulk status update | Static BackendMethod on entity |
-| Generate a report | Static BackendMethod on entity |
-| Auth sign-in flow | Mutable Controller |
-| Cross-entity workflow | Controller or operations file |
+| Approve/archive a row  | Instance BackendMethod on entity |
+| Bulk status update     | Static BackendMethod on entity   |
+| Generate a report      | Static BackendMethod on entity   |
+| Auth sign-in flow      | Mutable Controller               |
+| Cross-entity workflow  | Controller or operations file    |

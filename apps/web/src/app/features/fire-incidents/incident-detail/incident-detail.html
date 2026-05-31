@@ -73,26 +73,26 @@
 
           <div class="detail-actions">
             @if (canEdit()) {
-              <a mat-stroked-button data-testid="action-edit" [routerLink]="['/incidents', f.id, 'edit']">
+              <a matButton="outlined" data-testid="action-edit" [routerLink]="['/incidents', f.id, 'edit']">
                 <mat-icon>edit</mat-icon>
                 Edit
               </a>
             }
             @if (canEscalateFire()) {
-              <button mat-stroked-button type="button" data-testid="action-escalate" (click)="onEscalate()">
+              <button matButton="outlined" type="button" data-testid="action-escalate" (click)="onEscalate()">
                 <mat-icon>arrow_upward</mat-icon>
                 Escalate
               </button>
             }
             @if (canNewSitrep()) {
-              <a mat-stroked-button data-testid="action-sitrep" [routerLink]="['/incidents', f.id, 'sitrep']">
+              <a matButton="outlined" data-testid="action-sitrep" [routerLink]="['/incidents', f.id, 'sitrep']">
                 <mat-icon>note_add</mat-icon>
                 New Situation Report
               </a>
             }
             @if (canNewFinal()) {
               <a
-                mat-stroked-button
+                matButton="outlined"
                 data-testid="action-create-final"
                 [routerLink]="['/incidents', f.id, 'final']"
               >
@@ -103,7 +103,7 @@
             @if (canDelete()) {
               <span class="detail-actions__spacer"></span>
               <button
-                mat-stroked-button
+                matButton="outlined"
                 type="button"
                 class="danger"
                 data-testid="action-delete"

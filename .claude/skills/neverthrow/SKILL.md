@@ -26,37 +26,37 @@ When the quick reference is insufficient, read `llms-full.txt` for the authorita
 
 ### Which constructor?
 
-| Scenario | Constructor |
-|----------|------------|
-| Wrapping a Promise | `ResultAsync.fromPromise(promise, errorMapper)` |
-| Wrapping sync throwing fn | `Result.fromThrowable(fn, errorMapper)()` |
-| Wrapping async throwing fn | `ResultAsync.fromThrowable(fn, errorMapper)()` |
-| Promise that won't reject | `ResultAsync.fromSafePromise(promise)` |
-| Known success value | `ok(value)` / `okAsync(value)` |
-| Known error value | `err(error)` / `errAsync(error)` |
-| Returning void | `ok()` / `err()` (v8.2.0) |
+| Scenario                   | Constructor                                     |
+| -------------------------- | ----------------------------------------------- |
+| Wrapping a Promise         | `ResultAsync.fromPromise(promise, errorMapper)` |
+| Wrapping sync throwing fn  | `Result.fromThrowable(fn, errorMapper)()`       |
+| Wrapping async throwing fn | `ResultAsync.fromThrowable(fn, errorMapper)()`  |
+| Promise that won't reject  | `ResultAsync.fromSafePromise(promise)`          |
+| Known success value        | `ok(value)` / `okAsync(value)`                  |
+| Known error value          | `err(error)` / `errAsync(error)`                |
+| Returning void             | `ok()` / `err()` (v8.2.0)                       |
 
 ### Which combinator?
 
-| Intent | Combinator |
-|--------|-----------|
-| Transform success value | `.map(fn)` |
-| Transform error value | `.mapErr(fn)` |
-| Chain fallible sync op | `.andThen(fn)` |
-| Chain fallible async op | `.asyncAndThen(fn)` |
-| Side effect on success (preserve value) | `.andTee(fn)` |
-| Side effect on error (preserve error) | `.orTee(fn)` (v8.2.0) |
-| Fallible side effect on success | `.andThrough(fn)` |
-| Recover from error | `.orElse(fn)` |
-| Multi-step happy path | `safeTry(function* () { yield* ... })` |
-| Extract final value | `.match(ok, err)` or `.unwrapOr(default)` |
+| Intent                                  | Combinator                                |
+| --------------------------------------- | ----------------------------------------- |
+| Transform success value                 | `.map(fn)`                                |
+| Transform error value                   | `.mapErr(fn)`                             |
+| Chain fallible sync op                  | `.andThen(fn)`                            |
+| Chain fallible async op                 | `.asyncAndThen(fn)`                       |
+| Side effect on success (preserve value) | `.andTee(fn)`                             |
+| Side effect on error (preserve error)   | `.orTee(fn)` (v8.2.0)                     |
+| Fallible side effect on success         | `.andThrough(fn)`                         |
+| Recover from error                      | `.orElse(fn)`                             |
+| Multi-step happy path                   | `safeTry(function* () { yield* ... })`    |
+| Extract final value                     | `.match(ok, err)` or `.unwrapOr(default)` |
 
 ### Combining multiple Results?
 
-| Behaviour | Function |
-|-----------|----------|
-| Short-circuit on first error | `Result.combine([...])` |
-| Collect ALL errors | `Result.combineWithAllErrors([...])` |
+| Behaviour                    | Function                             |
+| ---------------------------- | ------------------------------------ |
+| Short-circuit on first error | `Result.combine([...])`              |
+| Collect ALL errors           | `Result.combineWithAllErrors([...])` |
 
 ## Critical: v8.0 Breaking Change
 

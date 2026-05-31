@@ -13,26 +13,26 @@ This is not a migration plan. It is a proof-of-concept that demonstrates what ne
 
 ### In Scope
 
-| Concept | Why |
-|---|---|
-| Four entities (`FireIncident`, `SituationReport`, `FinalReport`, `District`) | Cover the core aggregate, sitrep timeline, sign-off lifecycle, and a small Relations.toOne lookup |
-| Eleven enums (FireStatus, IncidentLevel, CauseSource, ControlAgency, FuelType, Potential, CostClass, FireDetectionMethod, YesNo, InvestigationType, LegalActionStatus) | Enum-driven domains are the bread and butter |
-| Role-based permissions (4 roles, 15-row matrix) | Declarative permission model is a headline feature |
-| Row-level filtering (district-scoped visibility) | Users only see incidents in their district |
-| Backend operations (`getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`) | Business logic on entities, not scattered across layers |
-| Frontend feature (list + detail + form) | Full frontend story with entity metadata |
-| Isomorphic validation | The "add a field" demo moment |
+| Concept                                                                                                                                                                | Why                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Four entities (`FireIncident`, `SituationReport`, `FinalReport`, `District`)                                                                                           | Cover the core aggregate, sitrep timeline, sign-off lifecycle, and a small Relations.toOne lookup |
+| Eleven enums (FireStatus, IncidentLevel, CauseSource, ControlAgency, FuelType, Potential, CostClass, FireDetectionMethod, YesNo, InvestigationType, LegalActionStatus) | Enum-driven domains are the bread and butter                                                      |
+| Role-based permissions (4 roles, 15-row matrix)                                                                                                                        | Declarative permission model is a headline feature                                                |
+| Row-level filtering (district-scoped visibility)                                                                                                                       | Users only see incidents in their district                                                        |
+| Backend operations (`getNextFireNumber`, `escalate`, `softDelete`, `removeSignOff`)                                                                                    | Business logic on entities, not scattered across layers                                           |
+| Frontend feature (list + detail + form)                                                                                                                                | Full frontend story with entity metadata                                                          |
+| Isomorphic validation                                                                                                                                                  | The "add a field" demo moment                                                                     |
 
 ### Out of Scope
 
-| Concept | Why |
-|---|---|
-| ISP (Incident Shift Plans) | Separate complex subsystem — its own showcase later |
-| PDF generation | Infrastructure concern, not an architecture pattern |
-| External system integrations (mapping, resources, messaging) | Not what we're demonstrating |
-| Full 150+ report fields | Diminishing returns — representative fields prove the same point |
-| Attachment/file handling | Platform concern, not a domain pattern |
-| Dashboard aggregation | Follow-up showcase (cross-domain query story) |
+| Concept                                                      | Why                                                              |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| ISP (Incident Shift Plans)                                   | Separate complex subsystem — its own showcase later              |
+| PDF generation                                               | Infrastructure concern, not an architecture pattern              |
+| External system integrations (mapping, resources, messaging) | Not what we're demonstrating                                     |
+| Full 150+ report fields                                      | Diminishing returns — representative fields prove the same point |
+| Attachment/file handling                                     | Platform concern, not a domain pattern                           |
+| Dashboard aggregation                                        | Follow-up showcase (cross-domain query story)                    |
 
 ---
 
@@ -113,12 +113,12 @@ Incidents are never hard-deleted. A soft delete sets `isDeleted = true`, clears 
 
 ### Role Definitions
 
-| Identifier | String value | Label | Notes |
-|---|---|---|---|
-| `Roles.viewer` | `viewer` | Viewer | Read-only across all incident information. District-scoped (`apiPrefilter` matches `districtId`). |
-| `Roles.incidentEditor` | `incidentEditor` | Incident Editor | Create/edit own fires (pre-sitrep), insert sitreps, create/edit FinalReport. District-scoped. |
-| `Roles.stateOfficer` | `stateOfficer` | State Officer | All IncidentEditor permissions; delete sitreps; soft-delete fires; remove sign-off; edit any fire pre-sign-off; cross-district visibility. |
-| `Roles.admin` | `admin` | Admin | Unrestricted access. Cross-district visibility. Sole role allowed to seed/edit `District`. |
+| Identifier             | String value     | Label           | Notes                                                                                                                                      |
+| ---------------------- | ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Roles.viewer`         | `viewer`         | Viewer          | Read-only across all incident information. District-scoped (`apiPrefilter` matches `districtId`).                                          |
+| `Roles.incidentEditor` | `incidentEditor` | Incident Editor | Create/edit own fires (pre-sitrep), insert sitreps, create/edit FinalReport. District-scoped.                                              |
+| `Roles.stateOfficer`   | `stateOfficer`   | State Officer   | All IncidentEditor permissions; delete sitreps; soft-delete fires; remove sign-off; edit any fire pre-sign-off; cross-district visibility. |
+| `Roles.admin`          | `admin`          | Admin           | Unrestricted access. Cross-district visibility. Sole role allowed to seed/edit `District`.                                                 |
 
 The constant lives at `libs/shared/domain/src/auth/roles.ts`:
 
@@ -135,23 +135,23 @@ export const Roles = {
 
 For the showcase, implement these key permissions:
 
-| Action | Viewer | IncidentEditor | StateOfficer | Admin |
-|---|---|---|---|---|
-| View incident list and summary | Yes | Yes | Yes | Yes |
-| View initial report | Yes | Yes | Yes | Yes |
-| View situation reports (including history) | Yes | Yes | Yes | Yes |
-| View final report | No | Yes | Yes | Yes |
-| Create initial report | No | Yes | Yes | Yes |
-| Edit own initial report | No | Yes | Yes | Yes |
-| Edit others' initial report | No | No | Yes | Yes |
-| Create situation report | No | Yes | Yes | Yes |
-| Edit situation report | No | No | No | No |
-| Delete situation report | No | No | Yes | Yes |
-| Create final report | No | Yes | Yes | Yes |
-| Edit final report | No | Yes | Yes | Yes |
-| Sign off final report | No | Yes | Yes | Yes |
-| Remove sign-off on final report | No | No | Yes | Yes |
-| Delete incident (soft) | No | No | Yes | Yes |
+| Action                                     | Viewer | IncidentEditor | StateOfficer | Admin |
+| ------------------------------------------ | ------ | -------------- | ------------ | ----- |
+| View incident list and summary             | Yes    | Yes            | Yes          | Yes   |
+| View initial report                        | Yes    | Yes            | Yes          | Yes   |
+| View situation reports (including history) | Yes    | Yes            | Yes          | Yes   |
+| View final report                          | No     | Yes            | Yes          | Yes   |
+| Create initial report                      | No     | Yes            | Yes          | Yes   |
+| Edit own initial report                    | No     | Yes            | Yes          | Yes   |
+| Edit others' initial report                | No     | No             | Yes          | Yes   |
+| Create situation report                    | No     | Yes            | Yes          | Yes   |
+| Edit situation report                      | No     | No             | No           | No    |
+| Delete situation report                    | No     | No             | Yes          | Yes   |
+| Create final report                        | No     | Yes            | Yes          | Yes   |
+| Edit final report                          | No     | Yes            | Yes          | Yes   |
+| Sign off final report                      | No     | Yes            | Yes          | Yes   |
+| Remove sign-off on final report            | No     | No             | Yes          | Yes   |
+| Delete incident (soft)                     | No     | No             | Yes          | Yes   |
 
 "Edit situation report" is "No" for every role because sitreps are immutable once inserted (see Modelling Decisions). To
 correct a sitrep, insert another sitrep; StateOfficer/Admin may delete an erroneous sitrep via the delete action.
@@ -172,13 +172,13 @@ correct a sitrep, insert another sitrep; StateOfficer/Admin may delete an errone
 Sourced from EMI's `WorkforceContext.cs` district list. Five rows across four regions, seeded via a hand-written Atlas
 migration:
 
-| id | name | regionId | regionName |
-|---|---|---|---|
-| 12 | Otway | 8 | Barwon South West |
-| 14 | Far South West | 8 | Barwon South West |
-| 22 | Mallee | 7 | Loddon Mallee |
-| 47 | Latrobe | 4 | Gippsland |
-| 53 | Yarra | 5 | Port Phillip |
+| id  | name           | regionId | regionName        |
+| --- | -------------- | -------- | ----------------- |
+| 12  | Otway          | 8        | Barwon South West |
+| 14  | Far South West | 8        | Barwon South West |
+| 22  | Mallee         | 7        | Loddon Mallee     |
+| 47  | Latrobe        | 4        | Gippsland         |
+| 53  | Yarra          | 5        | Port Phillip      |
 
 `isActive` defaults to true on all five.
 
@@ -201,16 +201,16 @@ INSERT INTO "districts" ("id", "name", "regionId", "regionName", "isActive") VAL
 
 Eight identities — three districts × {incidentEditor, viewer} plus global admin and stateOfficer:
 
-| id | name | roles | districtId |
-|---|---|---|---|
-| dev-admin | Sarah Admin | `[Roles.admin]` | null |
-| dev-state-officer | Priya Officer | `[Roles.stateOfficer]` | null |
-| dev-editor-otway | Ali Editor | `[Roles.incidentEditor]` | 12 |
-| dev-editor-latrobe | Kenji Editor | `[Roles.incidentEditor]` | 47 |
-| dev-editor-mallee | Mateo Editor | `[Roles.incidentEditor]` | 22 |
-| dev-viewer-otway | Saanvi Viewer | `[Roles.viewer]` | 12 |
-| dev-viewer-latrobe | Lin Viewer | `[Roles.viewer]` | 47 |
-| dev-viewer-mallee | Aroha Viewer | `[Roles.viewer]` | 22 |
+| id                 | name          | roles                    | districtId |
+| ------------------ | ------------- | ------------------------ | ---------- |
+| dev-admin          | Sarah Admin   | `[Roles.admin]`          | null       |
+| dev-state-officer  | Priya Officer | `[Roles.stateOfficer]`   | null       |
+| dev-editor-otway   | Ali Editor    | `[Roles.incidentEditor]` | 12         |
+| dev-editor-latrobe | Kenji Editor  | `[Roles.incidentEditor]` | 47         |
+| dev-editor-mallee  | Mateo Editor  | `[Roles.incidentEditor]` | 22         |
+| dev-viewer-otway   | Saanvi Viewer | `[Roles.viewer]`         | 12         |
+| dev-viewer-latrobe | Lin Viewer    | `[Roles.viewer]`         | 47         |
+| dev-viewer-mallee  | Aroha Viewer  | `[Roles.viewer]`         | 22         |
 
 Three of the five seeded districts (Otway 12, Latrobe 47, Mallee 22) have direct user affiliation; the other two (Far
 South West 14, Yarra 53) exist as available but unstaffed districts in the dropdowns of incident-create forms — they
@@ -267,50 +267,50 @@ Decorator:
 
 #### Identity and Tracking
 
-| Field | Type | Description |
-|---|---|---|
-| id | UUID, auto | Primary key (`Fields.id()`). |
-| financialYear | integer, computed, `allowApiUpdate: false` | Computed at insert in the saving hook from current Melbourne time. Formula: `month > 6 ? year + 1 : year`. |
-| fireNumber | integer, computed, `allowApiUpdate: false` | Per-district per-FY sequence. Computed at insert as `(count of fires where districtId = X and financialYear = currentFY, including isDeleted rows) + 1`. Display zero-padded to 3 digits. |
+| Field            | Type                                       | Description                                                                                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id               | UUID, auto                                 | Primary key (`Fields.id()`).                                                                                                                                                                                                                                                                                  |
+| financialYear    | integer, computed, `allowApiUpdate: false` | Computed at insert in the saving hook from current Melbourne time. Formula: `month > 6 ? year + 1 : year`.                                                                                                                                                                                                    |
+| fireNumber       | integer, computed, `allowApiUpdate: false` | Per-district per-FY sequence. Computed at insert as `(count of fires where districtId = X and financialYear = currentFY, including isDeleted rows) + 1`. Display zero-padded to 3 digits.                                                                                                                     |
 | globalIncidentId | integer, computed, `allowApiUpdate: false` | Computed once at insert. Formula: `parseInt("10" + (financialYear % 100).padStart(2,"0") + districtId.padStart(2,"0") + fireNumber.padStart(3,"0"), 10)`. Never re-derived after insert. Worked example: fire #42 in district 47 (Latrobe) in FY26 → `parseInt("10" + "26" + "47" + "042", 10) = 1026470042`. |
-| name | string, required, 1–255 chars | Canonical fire name. Editable by IncidentEditor pre-sitrep, by StateOfficer/Admin until FinalReport sign-off. |
-| createdBy | string, `allowApiUpdate: false` | Set in saving hook on insert from `remult.user.id`. |
-| createdAt | datetime, auto | `Fields.createdAt()`. |
-| updatedAt | datetime, auto | `Fields.updatedAt()`. |
+| name             | string, required, 1–255 chars              | Canonical fire name. Editable by IncidentEditor pre-sitrep, by StateOfficer/Admin until FinalReport sign-off.                                                                                                                                                                                                 |
+| createdBy        | string, `allowApiUpdate: false`            | Set in saving hook on insert from `remult.user.id`.                                                                                                                                                                                                                                                           |
+| createdAt        | datetime, auto                             | `Fields.createdAt()`.                                                                                                                                                                                                                                                                                         |
+| updatedAt        | datetime, auto                             | `Fields.updatedAt()`.                                                                                                                                                                                                                                                                                         |
 
 #### Location
 
-| Field | Type | Description |
-|---|---|---|
-| districtId | integer, required | FK to `District.id`. Determines row-level visibility and fire-number scoping. |
-| locationDescription | string, optional, 0–500 chars | Free text. |
-| latitude | number, optional, -90 to 90 | Decimal degrees. |
-| longitude | number, optional, -180 to 180 | Decimal degrees. |
+| Field               | Type                          | Description                                                                   |
+| ------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
+| districtId          | integer, required             | FK to `District.id`. Determines row-level visibility and fire-number scoping. |
+| locationDescription | string, optional, 0–500 chars | Free text.                                                                    |
+| latitude            | number, optional, -90 to 90   | Decimal degrees.                                                              |
+| longitude           | number, optional, -180 to 180 | Decimal degrees.                                                              |
 
 The District's `name`, `regionId`, and `regionName` are read via `@Relations.toOne(() => District, 'districtId')
 district?: District` on FireIncident.
 
 #### Status and Classification
 
-| Field | Type | Description |
-|---|---|---|
-| status | FireStatus enum, required | Current status. Set on insert; subsequent changes happen via SituationReport `saved` hook. Direct entity-level updates by StateOfficer/Admin remain possible only pre-sitrep. |
-| statusAsAt | datetime, `allowApiUpdate: false` | Set in saving hook to `now` whenever `status` changes (or on insert). |
-| incidentLevel | IncidentLevel enum, required, default `LevelOne` | Set on insert; only updated via `escalate` BackendMethod thereafter (validated monotonically increasing). |
-| isMajor | boolean, default false | One-way transition. Once true, never false. Validated in saving hook. |
-| declaredBySource | string, optional, 0–200 chars | Who declared the fire major. Required and 1–200 chars when `isMajor = true`. |
-| declaredByTimestamp | datetime, optional | When the major declaration was made. Required and ≤ now when `isMajor = true`. Client-provided. |
+| Field               | Type                                             | Description                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| status              | FireStatus enum, required                        | Current status. Set on insert; subsequent changes happen via SituationReport `saved` hook. Direct entity-level updates by StateOfficer/Admin remain possible only pre-sitrep. |
+| statusAsAt          | datetime, `allowApiUpdate: false`                | Set in saving hook to `now` whenever `status` changes (or on insert).                                                                                                         |
+| incidentLevel       | IncidentLevel enum, required, default `LevelOne` | Set on insert; only updated via `escalate` BackendMethod thereafter (validated monotonically increasing).                                                                     |
+| isMajor             | boolean, default false                           | One-way transition. Once true, never false. Validated in saving hook.                                                                                                         |
+| declaredBySource    | string, optional, 0–200 chars                    | Who declared the fire major. Required and 1–200 chars when `isMajor = true`.                                                                                                  |
+| declaredByTimestamp | datetime, optional                               | When the major declaration was made. Required and ≤ now when `isMajor = true`. Client-provided.                                                                               |
 
 #### Timeline
 
-| Field | Type | Description |
-|---|---|---|
-| reportedAt | datetime, required, ≤ now | When the fire was first reported. |
-| fireStartedAt | datetime, optional | Best estimate of when the fire actually started. |
-| fireDetectedAt | datetime, optional | When the fire was first detected. |
-| firstCrewSentAt | datetime, optional | When the first crew was dispatched. |
-| firstCrewArrivedAt | datetime, optional | When the first crew arrived on scene. |
-| detectionMethod | FireDetectionMethod enum, optional | How the fire was first detected. |
+| Field              | Type                               | Description                                      |
+| ------------------ | ---------------------------------- | ------------------------------------------------ |
+| reportedAt         | datetime, required, ≤ now          | When the fire was first reported.                |
+| fireStartedAt      | datetime, optional                 | Best estimate of when the fire actually started. |
+| fireDetectedAt     | datetime, optional                 | When the fire was first detected.                |
+| firstCrewSentAt    | datetime, optional                 | When the first crew was dispatched.              |
+| firstCrewArrivedAt | datetime, optional                 | When the first crew arrived on scene.            |
+| detectionMethod    | FireDetectionMethod enum, optional | How the fire was first detected.                 |
 
 The saving hook validates adjacent-pair ordering (chain, not full cross-product): each of the four pairs
 `(fireStartedAt, fireDetectedAt)`, `(fireDetectedAt, reportedAt)`, `(reportedAt, firstCrewSentAt)`, `(firstCrewSentAt,
@@ -318,52 +318,52 @@ firstCrewArrivedAt)` is checked only when both values are non-null. Same rule on
 
 #### Cause
 
-| Field | Type | Description |
-|---|---|---|
-| causeSource | CauseSource enum, optional | EMI's 26-value enum (full list in Enums). |
-| causeSourceOther | string, optional, 0–500 chars | Free text when `causeSource = Other`. |
-| isCauseConfirmed | boolean, default false | Whether the cause is confirmed. |
+| Field            | Type                          | Description                               |
+| ---------------- | ----------------------------- | ----------------------------------------- |
+| causeSource      | CauseSource enum, optional    | EMI's 26-value enum (full list in Enums). |
+| causeSourceOther | string, optional, 0–500 chars | Free text when `causeSource = Other`.     |
+| isCauseConfirmed | boolean, default false        | Whether the cause is confirmed.           |
 
 #### Initial Response
 
-| Field | Type | Description |
-|---|---|---|
-| isLandManagerNotified | YesNo enum, optional | |
-| isControlAgencyNotified | YesNo enum, optional | |
-| isFireMapAttached | boolean, default false | |
-| controlAgency | ControlAgency enum, optional | EMI's 4-value enum. |
-| fuelType | FuelType enum, optional | EMI's 8-value enum. |
+| Field                   | Type                         | Description         |
+| ----------------------- | ---------------------------- | ------------------- |
+| isLandManagerNotified   | YesNo enum, optional         |                     |
+| isControlAgencyNotified | YesNo enum, optional         |                     |
+| isFireMapAttached       | boolean, default false       |                     |
+| controlAgency           | ControlAgency enum, optional | EMI's 4-value enum. |
+| fuelType                | FuelType enum, optional      | EMI's 8-value enum. |
 
 #### Area
 
-| Field | Type | Description |
-|---|---|---|
-| fireAreaHectares | number, optional, ≥ 0 | Current area. Auto-zeroed in saving hook when `status === SafeOverrun` (on every save). |
-| burntAreaHectares | number, optional, ≥ 0 | Total area burnt. Separate from current `fireAreaHectares`. |
+| Field             | Type                  | Description                                                                             |
+| ----------------- | --------------------- | --------------------------------------------------------------------------------------- |
+| fireAreaHectares  | number, optional, ≥ 0 | Current area. Auto-zeroed in saving hook when `status === SafeOverrun` (on every save). |
+| burntAreaHectares | number, optional, ≥ 0 | Total area burnt. Separate from current `fireAreaHectares`.                             |
 
 **Resources** (denormalised totals from latest sitrep)
 
-| Field | Type | Description |
-|---|---|---|
+| Field          | Type                                        | Description                              |
+| -------------- | ------------------------------------------- | ---------------------------------------- |
 | totalPersonnel | integer, default 0, `allowApiUpdate: false` | Updated by SituationReport `saved` hook. |
-| totalVehicles | integer, default 0, `allowApiUpdate: false` | Updated by SituationReport `saved` hook. |
-| totalAircraft | integer, default 0, `allowApiUpdate: false` | Updated by SituationReport `saved` hook. |
+| totalVehicles  | integer, default 0, `allowApiUpdate: false` | Updated by SituationReport `saved` hook. |
+| totalAircraft  | integer, default 0, `allowApiUpdate: false` | Updated by SituationReport `saved` hook. |
 
 #### Lifecycle
 
-| Field | Type | Description |
-|---|---|---|
-| nextReportDue | datetime, optional, `allowApiUpdate: false` | When the next sitrep is due. Set on insert to `now + 30 minutes`. Updated by SituationReport `saved` hook per cadence. Set to `null` on FinalReport sign-off and on `softDelete`. |
-| isDeleted | boolean, default false, `allowApiUpdate: false` | Soft-delete flag. Mutated only by the `softDelete` BackendMethod. |
-| deletionReason | string, optional, 0–500 chars, `allowApiUpdate: false` | Set by `softDelete`. Required and 1–500 chars when `isDeleted = true`. |
+| Field          | Type                                                   | Description                                                                                                                                                                       |
+| -------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nextReportDue  | datetime, optional, `allowApiUpdate: false`            | When the next sitrep is due. Set on insert to `now + 30 minutes`. Updated by SituationReport `saved` hook per cadence. Set to `null` on FinalReport sign-off and on `softDelete`. |
+| isDeleted      | boolean, default false, `allowApiUpdate: false`        | Soft-delete flag. Mutated only by the `softDelete` BackendMethod.                                                                                                                 |
+| deletionReason | string, optional, 0–500 chars, `allowApiUpdate: false` | Set by `softDelete`. Required and 1–500 chars when `isDeleted = true`.                                                                                                            |
 
 #### Relations
 
-| Relation | Type | Description |
-|---|---|---|
-| district | `@Relations.toOne(() => District, 'districtId')` | The parent district. |
-| situationReports | `@Relations.toMany(() => SituationReport, 'fireIncidentId')` | All sitreps for this fire. |
-| finalReport | `@Relations.toOne(() => FinalReport, { fields: { fireIncidentId: 'id' } })` | The single optional FinalReport. |
+| Relation         | Type                                                                        | Description                      |
+| ---------------- | --------------------------------------------------------------------------- | -------------------------------- |
+| district         | `@Relations.toOne(() => District, 'districtId')`                            | The parent district.             |
+| situationReports | `@Relations.toMany(() => SituationReport, 'fireIncidentId')`                | All sitreps for this fire.       |
+| finalReport      | `@Relations.toOne(() => FinalReport, { fields: { fireIncidentId: 'id' } })` | The single optional FinalReport. |
 
 ### SituationReport
 
@@ -393,50 +393,50 @@ Decorator:
 
 #### Identity
 
-| Field | Type | Description |
-|---|---|---|
-| id | UUID, auto | `Fields.id()`. |
-| fireIncidentId | UUID, required | FK to `FireIncident.id`. |
-| reportNumber | integer, computed, `allowApiUpdate: false` | Per-fire sequence. Set on insert as `(max reportNumber where fireIncidentId = X) + 1`, or 1 if none. |
-| districtId | integer, `allowApiUpdate: false` | Denormalised from parent. Set in saving hook on insert. |
-| isParentDeleted | boolean, default false, `allowApiUpdate: false` | Denormalised flag set by `softDelete`. |
+| Field           | Type                                            | Description                                                                                          |
+| --------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| id              | UUID, auto                                      | `Fields.id()`.                                                                                       |
+| fireIncidentId  | UUID, required                                  | FK to `FireIncident.id`.                                                                             |
+| reportNumber    | integer, computed, `allowApiUpdate: false`      | Per-fire sequence. Set on insert as `(max reportNumber where fireIncidentId = X) + 1`, or 1 if none. |
+| districtId      | integer, `allowApiUpdate: false`                | Denormalised from parent. Set in saving hook on insert.                                              |
+| isParentDeleted | boolean, default false, `allowApiUpdate: false` | Denormalised flag set by `softDelete`.                                                               |
 
 #### Content
 
-| Field | Type | Description |
-|---|---|---|
-| fireName | string, 1–255 chars | Defaults to parent's `name` if empty. |
-| status | FireStatus enum, required | Propagates to parent on `saved`. |
-| fireAreaHectares | number, ≥ 0 | Auto-zeroed when `status === SafeOverrun`. |
-| weatherConditions | string, optional, 0–1000 chars | |
-| currentStrategy | string, optional, 0–1000 chars | |
-| significantEvents | string, optional, 0–5000 chars | |
-| predictedBehaviour | string, optional, 0–1000 chars | |
-| controlProgress | string, optional, 0–1000 chars | |
-| communityImpact | string, optional, 0–1000 chars | |
-| potentialLoss | Potential enum, optional | Drives `nextReportDue` cadence. |
-| potentialSpread | Potential enum, optional | Drives `nextReportDue` cadence. |
+| Field              | Type                           | Description                                |
+| ------------------ | ------------------------------ | ------------------------------------------ |
+| fireName           | string, 1–255 chars            | Defaults to parent's `name` if empty.      |
+| status             | FireStatus enum, required      | Propagates to parent on `saved`.           |
+| fireAreaHectares   | number, ≥ 0                    | Auto-zeroed when `status === SafeOverrun`. |
+| weatherConditions  | string, optional, 0–1000 chars |                                            |
+| currentStrategy    | string, optional, 0–1000 chars |                                            |
+| significantEvents  | string, optional, 0–5000 chars |                                            |
+| predictedBehaviour | string, optional, 0–1000 chars |                                            |
+| controlProgress    | string, optional, 0–1000 chars |                                            |
+| communityImpact    | string, optional, 0–1000 chars |                                            |
+| potentialLoss      | Potential enum, optional       | Drives `nextReportDue` cadence.            |
+| potentialSpread    | Potential enum, optional       | Drives `nextReportDue` cadence.            |
 
 **Resources** (per-report snapshot)
 
-| Field | Type | Description |
-|---|---|---|
-| personnel | integer, ≥ 0, default 0 | |
-| vehicles | integer, ≥ 0, default 0 | |
-| aircraft | integer, ≥ 0, default 0 | |
+| Field     | Type                    | Description |
+| --------- | ----------------------- | ----------- |
+| personnel | integer, ≥ 0, default 0 |             |
+| vehicles  | integer, ≥ 0, default 0 |             |
+| aircraft  | integer, ≥ 0, default 0 |             |
 
 #### Audit
 
-| Field | Type | Description |
-|---|---|---|
-| submittedBy | string, `allowApiUpdate: false` | Set in saving hook on insert. |
+| Field       | Type                              | Description                   |
+| ----------- | --------------------------------- | ----------------------------- |
+| submittedBy | string, `allowApiUpdate: false`   | Set in saving hook on insert. |
 | submittedAt | datetime, `allowApiUpdate: false` | Set in saving hook on insert. |
-| createdAt | datetime, auto | `Fields.createdAt()`. |
+| createdAt   | datetime, auto                    | `Fields.createdAt()`.         |
 
 #### Relations
 
-| Relation | Type | Description |
-|---|---|---|
+| Relation     | Type                                                     | Description      |
+| ------------ | -------------------------------------------------------- | ---------------- |
 | fireIncident | `@Relations.toOne(() => FireIncident, 'fireIncidentId')` | The parent fire. |
 
 ### FinalReport
@@ -466,70 +466,70 @@ Decorator:
 
 #### Identity
 
-| Field | Type | Description |
-|---|---|---|
-| id | UUID, auto | |
-| fireIncidentId | UUID, required, unique | FK to FireIncident. UNIQUE constraint enforces 1-to-1. |
-| districtId | integer, `allowApiUpdate: false` | Denormalised. |
-| isParentDeleted | boolean, default false, `allowApiUpdate: false` | Denormalised flag. |
-| createdAt | datetime, auto | |
-| createdBy | string, `allowApiUpdate: false` | |
-| updatedAt | datetime, auto | |
+| Field           | Type                                            | Description                                            |
+| --------------- | ----------------------------------------------- | ------------------------------------------------------ |
+| id              | UUID, auto                                      |                                                        |
+| fireIncidentId  | UUID, required, unique                          | FK to FireIncident. UNIQUE constraint enforces 1-to-1. |
+| districtId      | integer, `allowApiUpdate: false`                | Denormalised.                                          |
+| isParentDeleted | boolean, default false, `allowApiUpdate: false` | Denormalised flag.                                     |
+| createdAt       | datetime, auto                                  |                                                        |
+| createdBy       | string, `allowApiUpdate: false`                 |                                                        |
+| updatedAt       | datetime, auto                                  |                                                        |
 
 #### Content — Losses
 
-| Field | Type | Description |
-|---|---|---|
-| stockLost | integer, optional, ≥ 0 | Livestock count. |
-| homesLost | integer, optional, ≥ 0 | |
-| shedsLost | integer, optional, ≥ 0 | Sheds and outbuildings. |
-| fencingLostKm | number, optional, ≥ 0 | Kilometres of fencing. |
-| cropLossHectares | number, optional, ≥ 0 | Hectares of agricultural crop. |
-| infrastructureLosses | string, optional, 0–500 chars | Free text. |
-| otherLosses | string, optional, 0–500 chars | Free text. |
+| Field                | Type                          | Description                    |
+| -------------------- | ----------------------------- | ------------------------------ |
+| stockLost            | integer, optional, ≥ 0        | Livestock count.               |
+| homesLost            | integer, optional, ≥ 0        |                                |
+| shedsLost            | integer, optional, ≥ 0        | Sheds and outbuildings.        |
+| fencingLostKm        | number, optional, ≥ 0         | Kilometres of fencing.         |
+| cropLossHectares     | number, optional, ≥ 0         | Hectares of agricultural crop. |
+| infrastructureLosses | string, optional, 0–500 chars | Free text.                     |
+| otherLosses          | string, optional, 0–500 chars | Free text.                     |
 
 #### Content — Investigation
 
-| Field | Type | Description |
-|---|---|---|
-| investigationType | InvestigationType enum, optional | |
-| investigationBy | string, optional, 0–200 chars | |
-| isOffenceSuspected | boolean, default false | |
-| legalActionStatus | LegalActionStatus enum, optional | |
+| Field              | Type                             | Description |
+| ------------------ | -------------------------------- | ----------- |
+| investigationType  | InvestigationType enum, optional |             |
+| investigationBy    | string, optional, 0–200 chars    |             |
+| isOffenceSuspected | boolean, default false           |             |
+| legalActionStatus  | LegalActionStatus enum, optional |             |
 
 #### Content — Cost
 
-| Field | Type | Description |
-|---|---|---|
-| costClass | CostClass enum, optional | |
+| Field     | Type                     | Description |
+| --------- | ------------------------ | ----------- |
+| costClass | CostClass enum, optional |             |
 
 **Content — Burnt Land** (each is hectares, ≥ 0)
 
-| Field | Type | Description |
-|---|---|---|
-| burntStateForest | number, optional, ≥ 0 | |
-| burntNationalPark | number, optional, ≥ 0 | |
-| burntPrivateProperty | number, optional, ≥ 0 | |
-| burntPlantation | number, optional, ≥ 0 | |
-| burntOther | number, optional, ≥ 0 | |
+| Field                | Type                  | Description |
+| -------------------- | --------------------- | ----------- |
+| burntStateForest     | number, optional, ≥ 0 |             |
+| burntNationalPark    | number, optional, ≥ 0 |             |
+| burntPrivateProperty | number, optional, ≥ 0 |             |
+| burntPlantation      | number, optional, ≥ 0 |             |
+| burntOther           | number, optional, ≥ 0 |             |
 
 #### Sign-off
 
-| Field | Type | Description |
-|---|---|---|
-| isSignedOff | boolean, default false | Sign-off flag. While true, all writes to parent FireIncident and to this FinalReport are rejected. Toggle false→true via standard PATCH (any of incidentEditor/stateOfficer/admin). Toggle true→false only via `removeSignOff` BackendMethod (stateOfficer/admin). |
-| signedOffAt | datetime, optional, `allowApiUpdate: false` | Set in saving hook when transitioning false→true. |
-| signedOffBy | string, default '', `allowApiUpdate: false` | Set in saving hook when transitioning false→true. |
-| signOffRemovedAt | datetime, optional, `allowApiUpdate: false` | Set by `removeSignOff` BackendMethod. |
-| signOffRemovedBy | string, default '', `allowApiUpdate: false` | Set by `removeSignOff` BackendMethod. |
-| signOffRemovedReason | string, default '', `allowApiUpdate: false` | Reason captured by `removeSignOff` (1–500 chars). Mirrors `FireIncident.deletionReason`. |
+| Field                | Type                                        | Description                                                                                                                                                                                                                                                        |
+| -------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| isSignedOff          | boolean, default false                      | Sign-off flag. While true, all writes to parent FireIncident and to this FinalReport are rejected. Toggle false→true via standard PATCH (any of incidentEditor/stateOfficer/admin). Toggle true→false only via `removeSignOff` BackendMethod (stateOfficer/admin). |
+| signedOffAt          | datetime, optional, `allowApiUpdate: false` | Set in saving hook when transitioning false→true.                                                                                                                                                                                                                  |
+| signedOffBy          | string, default '', `allowApiUpdate: false` | Set in saving hook when transitioning false→true.                                                                                                                                                                                                                  |
+| signOffRemovedAt     | datetime, optional, `allowApiUpdate: false` | Set by `removeSignOff` BackendMethod.                                                                                                                                                                                                                              |
+| signOffRemovedBy     | string, default '', `allowApiUpdate: false` | Set by `removeSignOff` BackendMethod.                                                                                                                                                                                                                              |
+| signOffRemovedReason | string, default '', `allowApiUpdate: false` | Reason captured by `removeSignOff` (1–500 chars). Mirrors `FireIncident.deletionReason`.                                                                                                                                                                           |
 
 These five sign-off fields capture only the most recent event of each kind. No separate event-history entity.
 
 #### Relations
 
-| Relation | Type | Description |
-|---|---|---|
+| Relation     | Type                                                     | Description      |
+| ------------ | -------------------------------------------------------- | ---------------- |
 | fireIncident | `@Relations.toOne(() => FireIncident, 'fireIncidentId')` | The parent fire. |
 
 ### District
@@ -548,13 +548,13 @@ Decorator:
 })
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| id | integer, manual PK, 1 ≤ id ≤ 99 | Used directly in the `globalIncidentId` formula (zero-padded to 2 digits). |
-| name | string, required, unique, 1–100 chars | District display name. |
-| regionId | integer, required | Region this district belongs to. |
-| regionName | string, required, 1–100 chars | Region display name (denormalised). |
-| isActive | boolean, default true | Inactive districts cannot host new fires; existing fires remain visible. |
+| Field      | Type                                  | Description                                                                |
+| ---------- | ------------------------------------- | -------------------------------------------------------------------------- |
+| id         | integer, manual PK, 1 ≤ id ≤ 99       | Used directly in the `globalIncidentId` formula (zero-padded to 2 digits). |
+| name       | string, required, unique, 1–100 chars | District display name.                                                     |
+| regionId   | integer, required                     | Region this district belongs to.                                           |
+| regionName | string, required, 1–100 chars         | Region display name (denormalised).                                        |
+| isActive   | boolean, default true                 | Inactive districts cannot host new fires; existing fires remain visible.   |
 
 ---
 
@@ -585,17 +585,17 @@ export type FireStatus = (typeof FireStatus)[keyof typeof FireStatus];
 
 Represents fire control state at a point in time. Ordered by priority (highest urgency first):
 
-| Identifier | String value | Display Name | Meaning |
-|---|---|---|---|
-| Going | `going` | Going | Fire is actively burning and spreading. |
-| Contained | `contained` | Contained | Spread halted within control lines; active management ongoing. |
-| UnderControlFirst | `underControlFirst` | Under Control - 1 | First stage of progressive fire control. |
-| UnderControlSecond | `underControlSecond` | Under Control - 2 | Second stage of progressive fire control. |
-| Safe | `safe` | Safe | Fire is completely extinguished. |
-| SafeOverrun | `safeOverrun` | Safe - Overrun | Fire area exceeded estimates but is now safely contained. `fireAreaHectares` auto-set to 0. |
-| SafeNotFound | `safeNotFound` | Safe - Not Found | Reported fire was not located or confirmed at scene. |
-| SafeFalseAlarm | `safeFalseAlarm` | Safe - False Alarm | Reported fire was a false alarm. |
-| NotFound | `notFound` | Not Found | Fire could not be located during initial assessment. |
+| Identifier         | String value         | Display Name       | Meaning                                                                                     |
+| ------------------ | -------------------- | ------------------ | ------------------------------------------------------------------------------------------- |
+| Going              | `going`              | Going              | Fire is actively burning and spreading.                                                     |
+| Contained          | `contained`          | Contained          | Spread halted within control lines; active management ongoing.                              |
+| UnderControlFirst  | `underControlFirst`  | Under Control - 1  | First stage of progressive fire control.                                                    |
+| UnderControlSecond | `underControlSecond` | Under Control - 2  | Second stage of progressive fire control.                                                   |
+| Safe               | `safe`               | Safe               | Fire is completely extinguished.                                                            |
+| SafeOverrun        | `safeOverrun`        | Safe - Overrun     | Fire area exceeded estimates but is now safely contained. `fireAreaHectares` auto-set to 0. |
+| SafeNotFound       | `safeNotFound`       | Safe - Not Found   | Reported fire was not located or confirmed at scene.                                        |
+| SafeFalseAlarm     | `safeFalseAlarm`     | Safe - False Alarm | Reported fire was a false alarm.                                                            |
+| NotFound           | `notFound`           | Not Found          | Fire could not be located during initial assessment.                                        |
 
 **Terminal statuses** (FinalReport-eligibility AND softDelete-eligibility): `Safe`, `SafeOverrun`, `SafeNotFound`,
 `SafeFalseAlarm`, `NotFound`. Codified as `TERMINAL_STATUSES` in `helpers.ts`.
@@ -606,137 +606,137 @@ Represents fire control state at a point in time. Ordered by priority (highest u
 ### IncidentLevel (3 values)
 
 | Identifier | String value | Display Name |
-|---|---|---|
-| LevelOne | `levelOne` | Level 1 |
-| LevelTwo | `levelTwo` | Level 2 |
-| LevelThree | `levelThree` | Level 3 |
+| ---------- | ------------ | ------------ |
+| LevelOne   | `levelOne`   | Level 1      |
+| LevelTwo   | `levelTwo`   | Level 2      |
+| LevelThree | `levelThree` | Level 3      |
 
 Numeric ordering: `LevelOne < LevelTwo < LevelThree`. The `escalate` BackendMethod uses a `LEVEL_ORDER:
 Record<IncidentLevel, number>` table for the comparison. Escalation can only go up.
 
 ### CauseSource (26 values, EMI verbatim)
 
-| Identifier | String value | Display Name |
-|---|---|---|
-| BurningBuilding | `burningBuilding` | Burning Building |
-| BurningHouseStoveFlue | `burningHouseStoveFlue` | Burning House, Stove, Flue |
-| BurningOffDepartmentalPrescribed | `burningOffDepartmentalPrescribed` | Burning Off (Departmental Prescribed) |
-| BurningOffStubbleGrassScrub | `burningOffStubbleGrassScrub` | Burning Off, Stubble, Grass, Scrub |
-| BurningOffWindrowHeap | `burningOffWindrowHeap` | Burning Off, Windrow, Heap |
-| BurningVehicleMachine | `burningVehicleMachine` | Burning Vehicle, Machine |
-| BurningVehicleMachineMalicious | `burningVehicleMachineMalicious` | Burning Vehicle, Machine - Malicious |
-| CampfireBarbeque | `campfireBarbeque` | Campfire, Barbeque |
-| DeliberateLightingMalicious | `deliberateLightingMalicious` | Deliberate Lighting (Malicious) |
-| ExhaustChainsaw | `exhaustChainsaw` | Exhaust, Chainsaw |
-| ExhaustOther | `exhaustOther` | Exhaust, Other |
-| Fireworks | `fireworks` | Fireworks |
-| Lightning | `lightning` | Lightning |
-| NonDeliberateLightingMischievous | `nonDeliberateLightingMischievous` | Non-Deliberate Lighting (Mischievous) |
-| Other | `other` | Other |
-| PipeCigaretteMatch | `pipeCigaretteMatch` | Pipe, Cigarette, Match |
-| PowerTransmission | `powerTransmission` | Power Transmission |
-| RelightBurningOff | `relightBurningOff` | Relight - Burning Off |
-| RelightPrescribedFire | `relightPrescribedFire` | Relight - Prescribed Fire |
-| RelightWildfire | `relightWildfire` | Relight - Wildfire |
-| SniggingHauling | `sniggingHauling` | Snigging, Hauling |
-| Train | `train` | Train |
+| Identifier                                | String value                                | Display Name                                    |
+| ----------------------------------------- | ------------------------------------------- | ----------------------------------------------- |
+| BurningBuilding                           | `burningBuilding`                           | Burning Building                                |
+| BurningHouseStoveFlue                     | `burningHouseStoveFlue`                     | Burning House, Stove, Flue                      |
+| BurningOffDepartmentalPrescribed          | `burningOffDepartmentalPrescribed`          | Burning Off (Departmental Prescribed)           |
+| BurningOffStubbleGrassScrub               | `burningOffStubbleGrassScrub`               | Burning Off, Stubble, Grass, Scrub              |
+| BurningOffWindrowHeap                     | `burningOffWindrowHeap`                     | Burning Off, Windrow, Heap                      |
+| BurningVehicleMachine                     | `burningVehicleMachine`                     | Burning Vehicle, Machine                        |
+| BurningVehicleMachineMalicious            | `burningVehicleMachineMalicious`            | Burning Vehicle, Machine - Malicious            |
+| CampfireBarbeque                          | `campfireBarbeque`                          | Campfire, Barbeque                              |
+| DeliberateLightingMalicious               | `deliberateLightingMalicious`               | Deliberate Lighting (Malicious)                 |
+| ExhaustChainsaw                           | `exhaustChainsaw`                           | Exhaust, Chainsaw                               |
+| ExhaustOther                              | `exhaustOther`                              | Exhaust, Other                                  |
+| Fireworks                                 | `fireworks`                                 | Fireworks                                       |
+| Lightning                                 | `lightning`                                 | Lightning                                       |
+| NonDeliberateLightingMischievous          | `nonDeliberateLightingMischievous`          | Non-Deliberate Lighting (Mischievous)           |
+| Other                                     | `other`                                     | Other                                           |
+| PipeCigaretteMatch                        | `pipeCigaretteMatch`                        | Pipe, Cigarette, Match                          |
+| PowerTransmission                         | `powerTransmission`                         | Power Transmission                              |
+| RelightBurningOff                         | `relightBurningOff`                         | Relight - Burning Off                           |
+| RelightPrescribedFire                     | `relightPrescribedFire`                     | Relight - Prescribed Fire                       |
+| RelightWildfire                           | `relightWildfire`                           | Relight - Wildfire                              |
+| SniggingHauling                           | `sniggingHauling`                           | Snigging, Hauling                               |
+| Train                                     | `train`                                     | Train                                           |
 | UnattendedCampfireContainedWithinBoundary | `unattendedCampfireContainedWithinBoundary` | Unattended Campfire - Contained Within Boundary |
-| Unknown | `unknown` | Unknown |
-| WasteDisposalDomestic | `wasteDisposalDomestic` | Waste Disposal, Domestic |
-| WasteDisposalIndustrialSawmillTip | `wasteDisposalIndustrialSawmillTip` | Waste Disposal, Industrial, Sawmill, Tip |
+| Unknown                                   | `unknown`                                   | Unknown                                         |
+| WasteDisposalDomestic                     | `wasteDisposalDomestic`                     | Waste Disposal, Domestic                        |
+| WasteDisposalIndustrialSawmillTip         | `wasteDisposalIndustrialSawmillTip`         | Waste Disposal, Industrial, Sawmill, Tip        |
 
 ### ControlAgency (4 values)
 
 | Identifier | String value | Display Name |
-|---|---|---|
-| Deeca | `deeca` | DEECA |
-| Cfa | `cfa` | CFA |
-| Frv | `frv` | FRV |
-| Interstate | `interstate` | Interstate |
+| ---------- | ------------ | ------------ |
+| Deeca      | `deeca`      | DEECA        |
+| Cfa        | `cfa`        | CFA          |
+| Frv        | `frv`        | FRV          |
+| Interstate | `interstate` | Interstate   |
 
 ### FuelType (8 values)
 
-| Identifier | String value | Display Name |
-|---|---|---|
-| Grassland | `grassland` | Grassland |
-| Woodland | `woodland` | Woodland |
-| Spinifex | `spinifex` | Spinifex |
+| Identifier  | String value  | Display Name |
+| ----------- | ------------- | ------------ |
+| Grassland   | `grassland`   | Grassland    |
+| Woodland    | `woodland`    | Woodland     |
+| Spinifex    | `spinifex`    | Spinifex     |
 | MalleeHeath | `malleeHeath` | Mallee-heath |
-| Shrubland | `shrubland` | Shrubland |
-| Buttongrass | `buttongrass` | Buttongrass |
-| Forest | `forest` | Forest |
-| Pine | `pine` | Pine |
+| Shrubland   | `shrubland`   | Shrubland    |
+| Buttongrass | `buttongrass` | Buttongrass  |
+| Forest      | `forest`      | Forest       |
+| Pine        | `pine`        | Pine         |
 
 ### Potential (3 values)
 
 | Identifier | String value | Display Name |
-|---|---|---|
-| Low | `low` | Low |
-| Moderate | `moderate` | Moderate |
-| High | `high` | High |
+| ---------- | ------------ | ------------ |
+| Low        | `low`        | Low          |
+| Moderate   | `moderate`   | Moderate     |
+| High       | `high`       | High         |
 
 Numeric ordering for "escalation" checks: `Low < Moderate < High`. Cadence logic uses a `POTENTIAL_ORDER:
 Record<Potential, number>` table.
 
 ### CostClass (7 values)
 
-| Identifier | String value | Display Name |
-|---|---|---|
-| LessThanThousand | `lessThanThousand` | Less Than $1,000 |
-| ThousandToFourNineNineNine | `thousandToFourNineNineNine` | $1,000 - $4,999 |
-| FiveThousandToNineNineNineNine | `fiveThousandToNineNineNineNine` | $5,000 - $9,999 |
-| TenThousandToNineteenNineNineNine | `tenThousandToNineteenNineNineNine` | $10,000 - $19,999 |
-| TwentyThousandToFortyNineNineNineNine | `twentyThousandToFortyNineNineNineNine` | $20,000 - $49,999 |
-| FiftyThousandToNinetyNineNineNineNine | `fiftyThousandToNinetyNineNineNineNine` | $50,000 - $99,999 |
-| HundredThousandOrGreater | `hundredThousandOrGreater` | $100,000 Or Greater |
+| Identifier                            | String value                            | Display Name        |
+| ------------------------------------- | --------------------------------------- | ------------------- |
+| LessThanThousand                      | `lessThanThousand`                      | Less Than $1,000    |
+| ThousandToFourNineNineNine            | `thousandToFourNineNineNine`            | $1,000 - $4,999     |
+| FiveThousandToNineNineNineNine        | `fiveThousandToNineNineNineNine`        | $5,000 - $9,999     |
+| TenThousandToNineteenNineNineNine     | `tenThousandToNineteenNineNineNine`     | $10,000 - $19,999   |
+| TwentyThousandToFortyNineNineNineNine | `twentyThousandToFortyNineNineNineNine` | $20,000 - $49,999   |
+| FiftyThousandToNinetyNineNineNineNine | `fiftyThousandToNinetyNineNineNineNine` | $50,000 - $99,999   |
+| HundredThousandOrGreater              | `hundredThousandOrGreater`              | $100,000 Or Greater |
 
 ### FireDetectionMethod (13 values, EMI verbatim)
 
-| Identifier | String value | Display Name |
-|---|---|---|
-| FireTower | `fireTower` | Fire Tower |
-| Ground | `ground` | Ground |
-| AircraftPatrol | `aircraftPatrol` | Aircraft Patrol |
-| AircraftNonPatrol | `aircraftNonPatrol` | Aircraft (Non-Patrol) |
-| ForestIndustryEmployee | `forestIndustryEmployee` | Forest Industry Employee |
-| OtherIndustryEmployee | `otherIndustryEmployee` | Other Industry Employee |
-| LandownerResident | `landownerResident` | Landowner / Resident |
-| Traveller | `traveller` | Traveller |
-| Unknown | `unknown` | Unknown |
-| Other | `other` | Other |
-| FireLookout | `fireLookout` | Fire Lookout |
-| DepartmentPatrolAircraft | `departmentPatrolAircraft` | Department Patrol Aircraft |
+| Identifier                | String value                | Display Name                |
+| ------------------------- | --------------------------- | --------------------------- |
+| FireTower                 | `fireTower`                 | Fire Tower                  |
+| Ground                    | `ground`                    | Ground                      |
+| AircraftPatrol            | `aircraftPatrol`            | Aircraft Patrol             |
+| AircraftNonPatrol         | `aircraftNonPatrol`         | Aircraft (Non-Patrol)       |
+| ForestIndustryEmployee    | `forestIndustryEmployee`    | Forest Industry Employee    |
+| OtherIndustryEmployee     | `otherIndustryEmployee`     | Other Industry Employee     |
+| LandownerResident         | `landownerResident`         | Landowner / Resident        |
+| Traveller                 | `traveller`                 | Traveller                   |
+| Unknown                   | `unknown`                   | Unknown                     |
+| Other                     | `other`                     | Other                       |
+| FireLookout               | `fireLookout`               | Fire Lookout                |
+| DepartmentPatrolAircraft  | `departmentPatrolAircraft`  | Department Patrol Aircraft  |
 | DepartmentGroundPersonnel | `departmentGroundPersonnel` | Department Ground Personnel |
 
 ### YesNo (2 values)
 
 | Identifier | String value | Display Name |
-|---|---|---|
-| Yes | `yes` | Yes |
-| No | `no` | No |
+| ---------- | ------------ | ------------ |
+| Yes        | `yes`        | Yes          |
+| No         | `no`         | No           |
 
 ### InvestigationType (4 values, EMI verbatim)
 
-| Identifier | String value | Display Name |
-|---|---|---|
-| AccreditedInvestigatorReportAttended | `accreditedInvestigatorReportAttended` | Accredited Investigator Report (Attended) |
+| Identifier                              | String value                              | Display Name                                  |
+| --------------------------------------- | ----------------------------------------- | --------------------------------------------- |
+| AccreditedInvestigatorReportAttended    | `accreditedInvestigatorReportAttended`    | Accredited Investigator Report (Attended)     |
 | AccreditedInvestigatorReportNotAttended | `accreditedInvestigatorReportNotAttended` | Accredited Investigator Report (Not Attended) |
-| FirstAttackReport | `firstAttackReport` | First Attack Report |
-| NotInvestigated | `notInvestigated` | Not Investigated |
+| FirstAttackReport                       | `firstAttackReport`                       | First Attack Report                           |
+| NotInvestigated                         | `notInvestigated`                         | Not Investigated                              |
 
 ### LegalActionStatus (9 values, EMI verbatim)
 
-| Identifier | String value | Display Name |
-|---|---|---|
-| NoAction | `noAction` | No Action |
-| DeptInvestigationContinuing | `deptInvestigationContinuing` | Dept Investigation Continuing |
-| DeptPoliceInvestigationContinuing | `deptPoliceInvestigationContinuing` | Dept/Police Investigation Continuing |
-| DeptOtherAgencyInvestigation | `deptOtherAgencyInvestigation` | Dept/Other Agency Investigation |
-| ReferredToPolice | `referredToPolice` | Referred To Police |
-| ReferredToDeptProsecutions | `referredToDeptProsecutions` | Referred To Dept Prosecutions |
-| EducationAwarenessWarningLetter | `educationAwarenessWarningLetter` | Education / Awareness / Warning Letter |
-| CivilActionBeingUndertaken | `civilActionBeingUndertaken` | Civil Action Being Undertaken |
-| InfringementNoticeIssued | `infringementNoticeIssued` | Infringement Notice Issued |
+| Identifier                        | String value                        | Display Name                           |
+| --------------------------------- | ----------------------------------- | -------------------------------------- |
+| NoAction                          | `noAction`                          | No Action                              |
+| DeptInvestigationContinuing       | `deptInvestigationContinuing`       | Dept Investigation Continuing          |
+| DeptPoliceInvestigationContinuing | `deptPoliceInvestigationContinuing` | Dept/Police Investigation Continuing   |
+| DeptOtherAgencyInvestigation      | `deptOtherAgencyInvestigation`      | Dept/Other Agency Investigation        |
+| ReferredToPolice                  | `referredToPolice`                  | Referred To Police                     |
+| ReferredToDeptProsecutions        | `referredToDeptProsecutions`        | Referred To Dept Prosecutions          |
+| EducationAwarenessWarningLetter   | `educationAwarenessWarningLetter`   | Education / Awareness / Warning Letter |
+| CivilActionBeingUndertaken        | `civilActionBeingUndertaken`        | Civil Action Being Undertaken          |
+| InfringementNoticeIssued          | `infringementNoticeIssued`          | Infringement Notice Issued             |
 
 ---
 
@@ -978,15 +978,15 @@ Cadence rules with **explicit precedence**: the FIRST matching rule applies. Inp
 
 Rules, evaluated top-down — first match wins:
 
-| # | Condition | Result |
-|---|---|---|
-| 1 | `ACTIVE_CONTAINED_STATUSES.includes(previousStatus) && newStatus === Going` | `now + 15 min` |
-| 2 | `ACTIVE_CONTAINED_STATUSES.includes(newStatus) && (escalated(prevLoss, newLoss) \|\| escalated(prevSpread, newSpread))` where `escalated(prev, next) = next !== undefined && (prev === undefined \|\| POTENTIAL_ORDER[next] > POTENTIAL_ORDER[prev])` | `now + 15 min` |
-| 3 | `SAFE_VARIANT_STATUSES.includes(newStatus)` | `now + 30 days` |
-| 4 | `newStatus === NotFound` | `null` |
-| 5 | `newStatus === Going && (newLoss === High \|\| newSpread === High)` | `now + 2 hours` |
-| 6 | `ACTIVE_CONTAINED_STATUSES.includes(newStatus)` (catch-all for active fires that did not match 1 or 2) | `now + 24 hours` |
-| 7 | `newStatus === Going` (catch-all for Going that did not match 5) | `now + 2 hours` |
+| #   | Condition                                                                                                                                                                                                                                             | Result           |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 1   | `ACTIVE_CONTAINED_STATUSES.includes(previousStatus) && newStatus === Going`                                                                                                                                                                           | `now + 15 min`   |
+| 2   | `ACTIVE_CONTAINED_STATUSES.includes(newStatus) && (escalated(prevLoss, newLoss) \|\| escalated(prevSpread, newSpread))` where `escalated(prev, next) = next !== undefined && (prev === undefined \|\| POTENTIAL_ORDER[next] > POTENTIAL_ORDER[prev])` | `now + 15 min`   |
+| 3   | `SAFE_VARIANT_STATUSES.includes(newStatus)`                                                                                                                                                                                                           | `now + 30 days`  |
+| 4   | `newStatus === NotFound`                                                                                                                                                                                                                              | `null`           |
+| 5   | `newStatus === Going && (newLoss === High \|\| newSpread === High)`                                                                                                                                                                                   | `now + 2 hours`  |
+| 6   | `ACTIVE_CONTAINED_STATUSES.includes(newStatus)` (catch-all for active fires that did not match 1 or 2)                                                                                                                                                | `now + 24 hours` |
+| 7   | `newStatus === Going` (catch-all for Going that did not match 5)                                                                                                                                                                                      | `now + 2 hours`  |
 
 Every possible `newStatus` matches exactly one rule.
 
@@ -1071,59 +1071,59 @@ list:
 
 ### FireIncident
 
-| Field | Rule |
-|---|---|
-| name | required, 1–255 chars |
-| locationDescription | 0–500 chars |
-| latitude | -90 ≤ x ≤ 90 (when non-null) |
-| longitude | -180 ≤ x ≤ 180 (when non-null) |
-| fireAreaHectares | ≥ 0 |
-| burntAreaHectares | ≥ 0 |
-| totalPersonnel, totalVehicles, totalAircraft | integer ≥ 0; server-managed |
-| declaredBySource | 0–200 chars; required & 1–200 chars when `isMajor = true` (cross-field, saving hook) |
-| declaredByTimestamp | ≤ now when `isMajor = true` (cross-field, saving hook) |
-| deletionReason | 0–500 chars; required & 1–500 chars when `isDeleted = true` (cross-field, saving hook) |
-| financialYear | integer (server-set) |
-| fireNumber | integer ≥ 1 (server-set) |
-| globalIncidentId | integer (server-set) |
-| districtId | required; FK validity + `isActive` verified in saving hook on insert |
-| reportedAt | required, ≤ now |
-| fireStartedAt, fireDetectedAt, firstCrewSentAt, firstCrewArrivedAt | adjacent-pair ordering (saving hook) |
-| isDeleted | server-managed |
+| Field                                                              | Rule                                                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| name                                                               | required, 1–255 chars                                                                  |
+| locationDescription                                                | 0–500 chars                                                                            |
+| latitude                                                           | -90 ≤ x ≤ 90 (when non-null)                                                           |
+| longitude                                                          | -180 ≤ x ≤ 180 (when non-null)                                                         |
+| fireAreaHectares                                                   | ≥ 0                                                                                    |
+| burntAreaHectares                                                  | ≥ 0                                                                                    |
+| totalPersonnel, totalVehicles, totalAircraft                       | integer ≥ 0; server-managed                                                            |
+| declaredBySource                                                   | 0–200 chars; required & 1–200 chars when `isMajor = true` (cross-field, saving hook)   |
+| declaredByTimestamp                                                | ≤ now when `isMajor = true` (cross-field, saving hook)                                 |
+| deletionReason                                                     | 0–500 chars; required & 1–500 chars when `isDeleted = true` (cross-field, saving hook) |
+| financialYear                                                      | integer (server-set)                                                                   |
+| fireNumber                                                         | integer ≥ 1 (server-set)                                                               |
+| globalIncidentId                                                   | integer (server-set)                                                                   |
+| districtId                                                         | required; FK validity + `isActive` verified in saving hook on insert                   |
+| reportedAt                                                         | required, ≤ now                                                                        |
+| fireStartedAt, fireDetectedAt, firstCrewSentAt, firstCrewArrivedAt | adjacent-pair ordering (saving hook)                                                   |
+| isDeleted                                                          | server-managed                                                                         |
 
 ### SituationReport
 
-| Field | Rule |
-|---|---|
-| fireName | 1–255 chars |
-| weatherConditions, currentStrategy, predictedBehaviour, controlProgress, communityImpact | each 0–1000 chars |
-| significantEvents | 0–5000 chars |
-| fireAreaHectares | ≥ 0 |
-| personnel, vehicles, aircraft | integer ≥ 0 |
-| reportNumber | integer ≥ 1 (server-set) |
-| districtId, isParentDeleted, submittedAt, submittedBy | server-managed |
+| Field                                                                                    | Rule                     |
+| ---------------------------------------------------------------------------------------- | ------------------------ |
+| fireName                                                                                 | 1–255 chars              |
+| weatherConditions, currentStrategy, predictedBehaviour, controlProgress, communityImpact | each 0–1000 chars        |
+| significantEvents                                                                        | 0–5000 chars             |
+| fireAreaHectares                                                                         | ≥ 0                      |
+| personnel, vehicles, aircraft                                                            | integer ≥ 0              |
+| reportNumber                                                                             | integer ≥ 1 (server-set) |
+| districtId, isParentDeleted, submittedAt, submittedBy                                    | server-managed           |
 
 ### FinalReport
 
-| Field | Rule |
-|---|---|
-| stockLost, homesLost, shedsLost | integer ≥ 0 |
-| fencingLostKm, cropLossHectares | number ≥ 0 |
-| burntStateForest, burntNationalPark, burntPrivateProperty, burntPlantation, burntOther | number ≥ 0 |
-| infrastructureLosses, otherLosses | 0–500 chars |
-| investigationBy | 0–200 chars |
-| fireIncidentId | required, unique (DB UNIQUE constraint + saving hook check on insert) |
-| districtId, isParentDeleted, signedOffAt, signedOffBy, signOffRemovedAt, signOffRemovedBy, signOffRemovedReason | server-managed |
+| Field                                                                                                           | Rule                                                                  |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| stockLost, homesLost, shedsLost                                                                                 | integer ≥ 0                                                           |
+| fencingLostKm, cropLossHectares                                                                                 | number ≥ 0                                                            |
+| burntStateForest, burntNationalPark, burntPrivateProperty, burntPlantation, burntOther                          | number ≥ 0                                                            |
+| infrastructureLosses, otherLosses                                                                               | 0–500 chars                                                           |
+| investigationBy                                                                                                 | 0–200 chars                                                           |
+| fireIncidentId                                                                                                  | required, unique (DB UNIQUE constraint + saving hook check on insert) |
+| districtId, isParentDeleted, signedOffAt, signedOffBy, signOffRemovedAt, signOffRemovedBy, signOffRemovedReason | server-managed                                                        |
 
 ### District
 
-| Field | Rule |
-|---|---|
-| id | integer, 1 ≤ id ≤ 99, manual PK |
-| name | 1–100 chars, unique |
-| regionId | required, integer |
-| regionName | 1–100 chars |
-| isActive | boolean, default true |
+| Field      | Rule                            |
+| ---------- | ------------------------------- |
+| id         | integer, 1 ≤ id ≤ 99, manual PK |
+| name       | 1–100 chars, unique             |
+| regionId   | required, integer               |
+| regionName | 1–100 chars                     |
+| isActive   | boolean, default true           |
 
 ---
 
@@ -1135,14 +1135,14 @@ Tailwind utility classes applied to a `<span class="...">` badge, exposed as `ST
 Readonly<Record<FireStatus, string>>` in `libs/shared/domain/src/fire/ui.ts` (with the shared `STATUS_BADGE_BASE` base
 class):
 
-| Status | Classes |
-|---|---|
-| Going | `bg-red-100 text-red-800 border-red-300` |
-| Contained | `bg-amber-100 text-amber-800 border-amber-300` |
+| Status                                | Classes                                           |
+| ------------------------------------- | ------------------------------------------------- |
+| Going                                 | `bg-red-100 text-red-800 border-red-300`          |
+| Contained                             | `bg-amber-100 text-amber-800 border-amber-300`    |
 | UnderControlFirst, UnderControlSecond | `bg-yellow-100 text-yellow-800 border-yellow-300` |
-| Safe, SafeOverrun | `bg-green-100 text-green-800 border-green-300` |
-| SafeNotFound, SafeFalseAlarm | `bg-gray-100 text-gray-800 border-gray-300` |
-| NotFound | `bg-orange-100 text-orange-800 border-orange-300` |
+| Safe, SafeOverrun                     | `bg-green-100 text-green-800 border-green-300`    |
+| SafeNotFound, SafeFalseAlarm          | `bg-gray-100 text-gray-800 border-gray-300`       |
+| NotFound                              | `bg-orange-100 text-orange-800 border-orange-300` |
 
 ### Enum Display Location
 
@@ -1766,17 +1766,17 @@ A `<app-dynamic-form>` component renders the built form: `@for` over groups → 
 
 #### 4.3 Widget resolution (first match wins)
 
-| # | Condition | Widget | Control |
-|---|---|---|---|
-| 1 | `hint.widget` present | that kind | per kind |
-| 2 | `hint.optionsSignal` present | `select` (data-driven) | `FormControl<number \| string \| null>` |
-| 3 | `hint.enumValues` present | `select` (`mat-select`) | `FormControl<string \| null>` |
-| 4 | `field.valueType === Date` | `datetime` (`<app-datetime-field>`) | `FormControl<Date \| null>` |
-| 5 | `field.valueType === Boolean` | `checkbox` (or `slideToggle` if hinted) | `FormControl<boolean>` |
-| 6 | `field.valueType === Number` + integer hint | `integer` (number input, `step=1`) | `FormControl<number \| null>` |
-| 7 | `field.valueType === Number` | `number` | `FormControl<number \| null>` |
-| 8 | `field.valueType === String` + `maxLength ≥ TEXTAREA_THRESHOLD` | `textarea` | `FormControl<string>` |
-| 9 | `field.valueType === String` (fallback) | `text` | `FormControl<string>` |
+| #   | Condition                                                       | Widget                                  | Control                                 |
+| --- | --------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
+| 1   | `hint.widget` present                                           | that kind                               | per kind                                |
+| 2   | `hint.optionsSignal` present                                    | `select` (data-driven)                  | `FormControl<number \| string \| null>` |
+| 3   | `hint.enumValues` present                                       | `select` (`mat-select`)                 | `FormControl<string \| null>`           |
+| 4   | `field.valueType === Date`                                      | `datetime` (`<app-datetime-field>`)     | `FormControl<Date \| null>`             |
+| 5   | `field.valueType === Boolean`                                   | `checkbox` (or `slideToggle` if hinted) | `FormControl<boolean>`                  |
+| 6   | `field.valueType === Number` + integer hint                     | `integer` (number input, `step=1`)      | `FormControl<number \| null>`           |
+| 7   | `field.valueType === Number`                                    | `number`                                | `FormControl<number \| null>`           |
+| 8   | `field.valueType === String` + `maxLength ≥ TEXTAREA_THRESHOLD` | `textarea`                              | `FormControl<string>`                   |
+| 9   | `field.valueType === String` (fallback)                         | `text`                                  | `FormControl<string>`                   |
 
 **Critical caveat (state in doc):** `Fields.literal(() => VALUES)` reports `valueType: String`, so an enum field is
 **not** auto-detectable from metadata. Therefore **every enum field MUST carry an `enumValues` + `enumLabels` hint**
@@ -1835,14 +1835,14 @@ Field lists are the entity fields minus the auto-excluded server-managed/relatio
 **FireIncident — create & edit, grouped sections** (decision: grouped sections). `incidentLevel` is **excluded** by
 config (escalate-only; defaults to `levelOne` on create):
 
-| Group | Fields (widget) |
-|---|---|
-| Identity & Location | `name` (text, required) · `districtId` (select, `optionsSignal` from District repo) · `locationDescription` (textarea ≤500) · `latitude` (number, −90..90) · `longitude` (number, −180..180) |
-| Status & Classification | `status` (select FireStatus, required) · `isMajor` (slideToggle) · `declaredBySource` (text ≤200) · `declaredByTimestamp` (datetime, `maxNow`) |
-| Timeline | `reportedAt` (datetime, required, `maxNow`) · `fireStartedAt` · `fireDetectedAt` · `firstCrewSentAt` · `firstCrewArrivedAt` (all datetime) · `detectionMethod` (select FireDetectionMethod) |
-| Cause | `causeSource` (select CauseSource) · `causeSourceOther` (textarea ≤500) · `isCauseConfirmed` (checkbox) |
-| Initial Response | `isLandManagerNotified` (select YesNo) · `isControlAgencyNotified` (select YesNo) · `isFireMapAttached` (checkbox) · `controlAgency` (select ControlAgency) · `fuelType` (select FuelType) |
-| Area | `fireAreaHectares` (number ≥0) · `burntAreaHectares` (number ≥0) |
+| Group                   | Fields (widget)                                                                                                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identity & Location     | `name` (text, required) · `districtId` (select, `optionsSignal` from District repo) · `locationDescription` (textarea ≤500) · `latitude` (number, −90..90) · `longitude` (number, −180..180) |
+| Status & Classification | `status` (select FireStatus, required) · `isMajor` (slideToggle) · `declaredBySource` (text ≤200) · `declaredByTimestamp` (datetime, `maxNow`)                                               |
+| Timeline                | `reportedAt` (datetime, required, `maxNow`) · `fireStartedAt` · `fireDetectedAt` · `firstCrewSentAt` · `firstCrewArrivedAt` (all datetime) · `detectionMethod` (select FireDetectionMethod)  |
+| Cause                   | `causeSource` (select CauseSource) · `causeSourceOther` (textarea ≤500) · `isCauseConfirmed` (checkbox)                                                                                      |
+| Initial Response        | `isLandManagerNotified` (select YesNo) · `isControlAgencyNotified` (select YesNo) · `isFireMapAttached` (checkbox) · `controlAgency` (select ControlAgency) · `fuelType` (select FuelType)   |
+| Area                    | `fireAreaHectares` (number ≥0) · `burntAreaHectares` (number ≥0)                                                                                                                             |
 
 The `districtId` `optionsSignal` is fed from `remult.repo(District).find()` (active districts) loaded via `resource()`.
 For an IncidentEditor the create form locks `districtId` to the user's own district (matches the server insert rule).
@@ -1851,25 +1851,25 @@ Enum hints required (rule 3): `status`, `detectionMethod`, `causeSource`, `isLan
 
 **SituationReport — single grouped form** (no datetime fields):
 
-| Group | Fields (widget) |
-|---|---|
-| Identity (read-only) | `fireIncidentId` (prefilled from route, `readonly`) · `fireName` (text ≤255; placeholder = parent name) |
-| Status & Area | `status` (select FireStatus, required) · `fireAreaHectares` (number ≥0) |
-| Narrative | `weatherConditions` · `currentStrategy` · `predictedBehaviour` · `controlProgress` · `communityImpact` (textarea ≤1000 each) · `significantEvents` (textarea ≤5000) |
-| Potential | `potentialLoss` (select Potential) · `potentialSpread` (select Potential) |
-| Resources | `personnel` · `vehicles` · `aircraft` (integer ≥0) |
+| Group                | Fields (widget)                                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identity (read-only) | `fireIncidentId` (prefilled from route, `readonly`) · `fireName` (text ≤255; placeholder = parent name)                                                             |
+| Status & Area        | `status` (select FireStatus, required) · `fireAreaHectares` (number ≥0)                                                                                             |
+| Narrative            | `weatherConditions` · `currentStrategy` · `predictedBehaviour` · `controlProgress` · `communityImpact` (textarea ≤1000 each) · `significantEvents` (textarea ≤5000) |
+| Potential            | `potentialLoss` (select Potential) · `potentialSpread` (select Potential)                                                                                           |
+| Resources            | `personnel` · `vehicles` · `aircraft` (integer ≥0)                                                                                                                  |
 
 Enum hints: `status`, `potentialLoss`, `potentialSpread`.
 
 **FinalReport — single grouped form** (no datetime fields):
 
-| Group | Fields (widget) |
-|---|---|
-| Losses | `stockLost` · `homesLost` · `shedsLost` (integer ≥0) · `fencingLostKm` · `cropLossHectares` (number ≥0) · `infrastructureLosses` · `otherLosses` (text ≤500) |
-| Investigation | `investigationType` (select) · `investigationBy` (text ≤200) · `isOffenceSuspected` (checkbox) · `legalActionStatus` (select) |
-| Cost | `costClass` (select) |
-| Burnt Land | `burntStateForest` · `burntNationalPark` · `burntPrivateProperty` · `burntPlantation` · `burntOther` (number ≥0) |
-| Sign-off | `isSignedOff` (slideToggle) — **create form only**; hidden on edit (sign-off toggled via the detail button) |
+| Group         | Fields (widget)                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Losses        | `stockLost` · `homesLost` · `shedsLost` (integer ≥0) · `fencingLostKm` · `cropLossHectares` (number ≥0) · `infrastructureLosses` · `otherLosses` (text ≤500) |
+| Investigation | `investigationType` (select) · `investigationBy` (text ≤200) · `isOffenceSuspected` (checkbox) · `legalActionStatus` (select)                                |
+| Cost          | `costClass` (select)                                                                                                                                         |
+| Burnt Land    | `burntStateForest` · `burntNationalPark` · `burntPrivateProperty` · `burntPlantation` · `burntOther` (number ≥0)                                             |
+| Sign-off      | `isSignedOff` (slideToggle) — **create form only**; hidden on edit (sign-off toggled via the detail button)                                                  |
 
 `fireIncidentId` is prefilled (read-only) from the route. Enum hints: `investigationType`, `legalActionStatus`,
 `costClass`.
@@ -1986,16 +1986,16 @@ edit unless signed-off or deleted. The doc includes the hook-line → helper map
   are `<a routerLink>`; mutations open a dialog (§9) then call the BackendMethod through a shared `ResultAsync` helper
   that surfaces success via `NotificationService` + CDK `LiveAnnouncer` and reloads.
 
-  | Button | Shown when (predicate) | Action |
-  |---|---|---|
-  | Edit | `canEditFire` (own/pre-sitrep for editor; SO/admin unless signed-off/deleted) | route → `:id/edit` |
-  | Escalate | `canEscalate` (SO/admin; `!isDeleted && !isSignedOff && level < 3`) | `EscalateDialog` → `FireIncident.escalate` |
-  | New Situation Report | `canCreateSitrep` (editor+; `!isDeleted && !isSignedOff && !hasFinalReport`) | route → `:id/sitrep` |
-  | Create Final Report | `canCreateFinalReport` (editor+; terminal && `!isDeleted` && no FinalReport) | route → `:id/final` |
-  | Delete (soft) | `canSoftDelete` (SO/admin; terminal && `!isSignedOff` && `!isDeleted`) | `ConfirmReasonDialog` → `FireIncident.softDelete` → list |
-  | Sign off (subpanel) | `canSignOff` (editor+; `!isSignedOff` && terminal parent) | `ConfirmDialog` → `repo(FinalReport).update({ isSignedOff: true })` |
-  | Remove sign-off (subpanel) | `canRemoveSignOff` (SO/admin; `isSignedOff`) | `ConfirmReasonDialog` → `FinalReport.removeSignOff` |
-  | Edit final (subpanel) | `canViewFinal && !isSignedOff` | route → `:id/final/edit` |
+  | Button                     | Shown when (predicate)                                                        | Action                                                              |
+  | -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+  | Edit                       | `canEditFire` (own/pre-sitrep for editor; SO/admin unless signed-off/deleted) | route → `:id/edit`                                                  |
+  | Escalate                   | `canEscalate` (SO/admin; `!isDeleted && !isSignedOff && level < 3`)           | `EscalateDialog` → `FireIncident.escalate`                          |
+  | New Situation Report       | `canCreateSitrep` (editor+; `!isDeleted && !isSignedOff && !hasFinalReport`)  | route → `:id/sitrep`                                                |
+  | Create Final Report        | `canCreateFinalReport` (editor+; terminal && `!isDeleted` && no FinalReport)  | route → `:id/final`                                                 |
+  | Delete (soft)              | `canSoftDelete` (SO/admin; terminal && `!isSignedOff` && `!isDeleted`)        | `ConfirmReasonDialog` → `FireIncident.softDelete` → list            |
+  | Sign off (subpanel)        | `canSignOff` (editor+; `!isSignedOff` && terminal parent)                     | `ConfirmDialog` → `repo(FinalReport).update({ isSignedOff: true })` |
+  | Remove sign-off (subpanel) | `canRemoveSignOff` (SO/admin; `isSignedOff`)                                  | `ConfirmReasonDialog` → `FinalReport.removeSignOff`                 |
+  | Edit final (subpanel)      | `canViewFinal && !isSignedOff`                                                | route → `:id/final/edit`                                            |
 
   The incident / situation-report / final-report **create & edit pages are routed** (`/incidents/new`,
   `/incidents/:id/edit`, `/incidents/:id/sitrep`, `/incidents/:id/final`, `/incidents/:id/final/edit`); those routes
@@ -2328,16 +2328,16 @@ only frontend touch is one line adding it to a group in `fire-incident.form-conf
 
 ## What the Team Sees in the Demo
 
-| What you're showing | Current stack | Showcase |
-|---|---|---|
-| Add a field | 10-13 files, 2 languages, codegen | 2 files, 1 language |
-| Define permissions | Permission enum + customiser + role attributes + controller attributes + middleware | Decorators on the entity |
-| Row-level security | Permission customiser + database query filter + service layer check | Pre-filter on entity — 3 lines |
-| Create an API endpoint | Controller + service interface + service impl + DI registration + codegen | Entity exists, endpoint exists |
-| Business operation | Controller action → service method → repository call → mapping | Method on the entity |
-| Validation | Backend validation + separate frontend form config (can drift) | Entity field definition (runs identically both sides) |
-| Type safety across boundary | Generated TypeScript client (can be stale) | Direct import — same object |
-| New domain from scratch | ~6 new projects, generators, codegen setup | 1 entity file, register in array |
+| What you're showing         | Current stack                                                                       | Showcase                                              |
+| --------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Add a field                 | 10-13 files, 2 languages, codegen                                                   | 2 files, 1 language                                   |
+| Define permissions          | Permission enum + customiser + role attributes + controller attributes + middleware | Decorators on the entity                              |
+| Row-level security          | Permission customiser + database query filter + service layer check                 | Pre-filter on entity — 3 lines                        |
+| Create an API endpoint      | Controller + service interface + service impl + DI registration + codegen           | Entity exists, endpoint exists                        |
+| Business operation          | Controller action → service method → repository call → mapping                      | Method on the entity                                  |
+| Validation                  | Backend validation + separate frontend form config (can drift)                      | Entity field definition (runs identically both sides) |
+| Type safety across boundary | Generated TypeScript client (can be stale)                                          | Direct import — same object                           |
+| New domain from scratch     | ~6 new projects, generators, codegen setup                                          | 1 entity file, register in array                      |
 
 ---
 

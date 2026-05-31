@@ -1,5 +1,7 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmDialogComponent, type ConfirmDialogData } from './confirm-dialog';
 
@@ -22,7 +24,7 @@ async function createComponent(): Promise<ComponentFixture<ConfirmDialogComponen
   });
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(ConfirmDialogComponent);
-  fixture.detectChanges();
+  await fixture.whenStable();
   return fixture;
 }
 
@@ -40,8 +42,9 @@ describe('ConfirmDialogComponent', () => {
 
   it('closes with true on confirm', async () => {
     const fixture = await createComponent();
-    const host = fixture.nativeElement as HTMLElement;
-    (host.querySelectorAll('button')[1] as HTMLButtonElement).click();
+    const buttons =
+      await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(MatButtonHarness);
+    await buttons[1]!.click();
     expect(dialogRefStub.close).toHaveBeenCalledWith(true);
   });
 });

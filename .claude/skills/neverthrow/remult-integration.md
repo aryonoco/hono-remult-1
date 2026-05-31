@@ -184,15 +184,15 @@ ResultAsync.fromPromise(repo.find(), toError)
 
 ## When to Use neverthrow vs Remult's Built-in Error Handling
 
-| Scenario | Use |
-|----------|-----|
-| Field validation (required, minLength) | Remult validators on entity |
-| Cross-field validation | Remult `validation` lifecycle hook |
-| Component-level error display | neverthrow `ResultAsync` + signal |
-| Chaining multiple Remult operations | neverthrow `safeTry` or `.andThen()` |
-| BackendMethod errors (server) | model with `safeTry`/`Result` inside; throw only at the RPC boundary |
-| BackendMethod errors (frontend) | wrap the call in `ResultAsync.fromPromise` |
-| LiveQuery errors | Remult's built-in subscription error handling |
+| Scenario                               | Use                                                                  |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| Field validation (required, minLength) | Remult validators on entity                                          |
+| Cross-field validation                 | Remult `validation` lifecycle hook                                   |
+| Component-level error display          | neverthrow `ResultAsync` + signal                                    |
+| Chaining multiple Remult operations    | neverthrow `safeTry` or `.andThen()`                                 |
+| BackendMethod errors (server)          | model with `safeTry`/`Result` inside; throw only at the RPC boundary |
+| BackendMethod errors (frontend)        | wrap the call in `ResultAsync.fromPromise`                           |
+| LiveQuery errors                       | Remult's built-in subscription error handling                        |
 
 **Rule of thumb:** Remult handles validation and auth errors at the entity level. neverthrow handles error propagation
 and display at the component level.

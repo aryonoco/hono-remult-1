@@ -1,5 +1,7 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import {
   ConfirmReasonDialogComponent,
@@ -25,7 +27,7 @@ async function createComponent(): Promise<ComponentFixture<ConfirmReasonDialogCo
   });
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(ConfirmReasonDialogComponent);
-  fixture.detectChanges();
+  await fixture.whenStable();
   return fixture;
 }
 
@@ -45,26 +47,28 @@ describe('ConfirmReasonDialogComponent', () => {
   it('disables Confirm until a non-blank reason is entered', async () => {
     const fixture = await createComponent();
     const comp = fixture.componentInstance as unknown as { reason: { setValue(v: string): void } };
-    const host = fixture.nativeElement as HTMLElement;
-    const confirm = host.querySelectorAll('button')[1] as HTMLButtonElement;
-    expect(confirm.disabled).toBe(true);
+    const buttons =
+      await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(MatButtonHarness);
+    const confirm = buttons[1]!;
+    expect(await confirm.isDisabled()).toBe(true);
 
     comp.reason.setValue('   ');
-    fixture.detectChanges();
-    expect(confirm.disabled).toBe(true);
+    TestBed.tick();
+    expect(await confirm.isDisabled()).toBe(true);
 
     comp.reason.setValue('  cleanup  ');
-    fixture.detectChanges();
-    expect(confirm.disabled).toBe(false);
+    TestBed.tick();
+    expect(await confirm.isDisabled()).toBe(false);
   });
 
   it('closes with a trimmed reason on confirm', async () => {
     const fixture = await createComponent();
     const comp = fixture.componentInstance as unknown as { reason: { setValue(v: string): void } };
     comp.reason.setValue('  cleanup  ');
-    fixture.detectChanges();
-    const host = fixture.nativeElement as HTMLElement;
-    (host.querySelectorAll('button')[1] as HTMLButtonElement).click();
+    TestBed.tick();
+    const buttons =
+      await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(MatButtonHarness);
+    await buttons[1]!.click();
     expect(dialogRefStub.close).toHaveBeenCalledWith({ reason: 'cleanup' });
   });
 });

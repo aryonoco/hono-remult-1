@@ -350,6 +350,9 @@ passwords.json
 .claude/settings.local.json
 .anthropic/
 
+# MCP server artifacts (Playwright MCP --output-dir)
+/.mcp-artifacts/
+
 # OpenAI
 .openai/
 .gpt*
