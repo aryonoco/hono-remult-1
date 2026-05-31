@@ -88,6 +88,9 @@ export function buildFireIncidentFormConfig(
         enumLabels: FIRE_STATUS_LABELS,
       },
       { field: 'incidentLevel', exclude: true },
+      // The fire-extent polygon is GeoJSON set programmatically (seed / future map-draw), never typed
+      // into this form — exclude it so the form engine does not demand a field group for it.
+      { field: 'firePerimeterGeo', exclude: true },
       {
         field: 'isMajor',
         widget: 'slideToggle',
