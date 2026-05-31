@@ -1,9 +1,11 @@
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { FinalReport } from '@workspace/shared-domain';
+import { FinalReport, operatorName } from '@workspace/shared-domain';
 import { findAxeViolations } from '../../../../testing/axe-helper';
 import { FinalReportPanelComponent } from './final-report-panel';
+
+const SIGN_OFF_OPERATOR = 'op-53-1';
 
 function reportRow(): FinalReport {
   return Object.assign(new FinalReport(), {
@@ -15,6 +17,16 @@ function reportRow(): FinalReport {
   });
 }
 
+function signedReportRow(): FinalReport {
+  return Object.assign(new FinalReport(), {
+    id: 'fr-1',
+    fireIncidentId: 'fire-1',
+    isSignedOff: true,
+    signedOffBy: SIGN_OFF_OPERATOR,
+    signedOffAt: new Date('2026-02-01T03:30:00Z'),
+  });
+}
+
 interface PanelFlags {
   canSign?: boolean;
   canRemoveSign?: boolean;
@@ -23,9 +35,10 @@ interface PanelFlags {
 
 async function render(
   flags: PanelFlags = {},
+  report: FinalReport = reportRow(),
 ): Promise<ComponentFixture<FinalReportPanelComponent>> {
   const fixture = TestBed.createComponent(FinalReportPanelComponent);
-  fixture.componentRef.setInput('report', reportRow());
+  fixture.componentRef.setInput('report', report);
   fixture.componentRef.setInput('fireId', 'fire-1');
   fixture.componentRef.setInput('canSign', flags.canSign ?? false);
   fixture.componentRef.setInput('canRemoveSign', flags.canRemoveSign ?? false);
@@ -82,6 +95,14 @@ describe('FinalReportPanelComponent', () => {
       '[data-testid="action-edit-final"]',
     );
     expect(edit?.getAttribute('href')).toBe('/incidents/fire-1/final/edit');
+  });
+
+  it('resolves the signed-off operator id to a display name', async () => {
+    const el = host(await render({}, signedReportRow()));
+    const resolved = operatorName(SIGN_OFF_OPERATOR);
+    expect(resolved).not.toBe(SIGN_OFF_OPERATOR);
+    expect(el.textContent).toContain(`Signed off by ${resolved}`);
+    expect(el.textContent).not.toContain(SIGN_OFF_OPERATOR);
   });
 
   it('hides every action when no permission is granted', async () => {
