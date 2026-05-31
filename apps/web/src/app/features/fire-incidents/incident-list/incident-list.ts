@@ -31,7 +31,7 @@ import {
   TERMINAL_STATUSES,
 } from '@workspace/shared-domain';
 import { ResultAsync } from 'neverthrow';
-import { type EntityFilter, type EntityOrderBy, remult } from 'remult';
+import { type EntityFilter, type EntityOrderBy, type LiveQueryChangeInfo, remult } from 'remult';
 import { map } from 'rxjs';
 
 import { DevAuthService } from '../../../core/dev-auth.service';
@@ -41,6 +41,7 @@ import { SeverityTileComponent } from '../../../shared/components/severity-tile/
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge';
 import { SPINE_TONE } from '../../../shared/ui/tone-classes';
 import { isTerminalStatus } from '../../../shared/util/fire-status';
+import { toErrorMessage } from '../../../shared/util/to-error-message';
 
 type StatusGroup = 'all' | 'active' | 'going' | 'resolved';
 type SortKey = 'name' | 'fireNumber' | 'statusAsAt' | 'districtId' | 'createdAt';
@@ -76,6 +77,8 @@ const FIRST_SEASON_FY = 2018;
 const DISTRICT_FETCH_LIMIT = 50;
 const TICK_INTERVAL_MS = 60_000;
 const PERCENT = 100;
+// A short, fixed run of shimmer placeholders rendered while the first page loads (LIST-8).
+const SKELETON_ROWS = Array.from({ length: 8 });
 
 const toErr = (cause: unknown): Error =>
   cause instanceof Error ? cause : new Error(String(cause));
@@ -121,6 +124,7 @@ export class IncidentListComponent {
   protected readonly isTerminalStatus = isTerminalStatus;
   protected readonly spineTone = SPINE_TONE;
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
+  protected readonly skeletonRows = SKELETON_ROWS;
   // Row density persists across sessions so a controller's preferred information density is remembered.
   protected readonly density = signal<Density>(readDensity());
 
@@ -180,6 +184,8 @@ export class IncidentListComponent {
   );
 
   private readonly whereKey = computed(() => JSON.stringify(this.filters()));
+  // Bumped by `retry()` to force the count + live-query effects to re-run after a transient failure.
+  private readonly reloadTrigger = signal(0);
   private unsubscribe: (() => void) | null = null;
 
   constructor() {
@@ -218,6 +224,7 @@ export class IncidentListComponent {
     effect(() => {
       const id = this.currentUser()?.id;
       this.whereKey();
+      this.reloadTrigger();
       if (!id) {
         this.total.set(0);
         return;
@@ -245,6 +252,7 @@ export class IncidentListComponent {
       this.whereKey();
       const sort = this.sortState();
       const page = this.pageState();
+      this.reloadTrigger();
       this.unsubscribe?.();
       this.unsubscribe = null;
       if (!id) {
@@ -263,9 +271,18 @@ export class IncidentListComponent {
           limit: page.pageSize,
           page: page.pageIndex + 1,
         })
-        .subscribe((info) => {
-          this.rows.set(info.items);
-          this.loading.set(false);
+        // The listener form surfaces SSE/transport failures: without an `error` handler a dropped
+        // change channel would leave the list stuck loading or silently stale (LIST-6/DATA-1).
+        .subscribe({
+          next: (info: LiveQueryChangeInfo<FireIncident>) => {
+            this.rows.set(info.items);
+            this.loading.set(false);
+            this.error.set(null);
+          },
+          error: (cause: unknown) => {
+            this.error.set(toErrorMessage(cause));
+            this.loading.set(false);
+          },
         });
     });
   }
@@ -313,12 +330,31 @@ export class IncidentListComponent {
     localStorage.setItem(DENSITY_KEY, density);
   }
 
+  // Re-run the count + live query after a transient failure (the error-state Retry button, LIST-6/8).
+  protected retry(): void {
+    this.error.set(null);
+    this.loading.set(true);
+    this.reloadTrigger.update((n) => n + 1);
+  }
+
+  // Clear all filters back to their defaults (the empty-state "Clear filters" action, LIST-8).
+  protected resetFilters(): void {
+    this.filters.set({ fy: 'all', group: 'all', districtId: 'all' });
+    this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+  }
+
   protected tone(status: FireStatus): StatusTone {
     return statusTone(status);
   }
 
   protected areaPct(incident: FireIncident): number {
     return Math.min(PERCENT, ((incident.fireAreaHectares ?? 0) / this.maxArea()) * PERCENT);
+  }
+
+  // Accessible text equivalent for the decorative area bar (LIST-2): the figure colour-only bars hide.
+  protected areaLabel(incident: FireIncident): string {
+    const area = incident.fireAreaHectares;
+    return area == null ? 'Area not recorded' : `${area} hectares`;
   }
 
   private buildWhere(): EntityFilter<FireIncident> {

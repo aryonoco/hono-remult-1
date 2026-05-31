@@ -589,6 +589,76 @@ describe('IncidentListComponent (persisted density toggle)', () => {
   });
 });
 
+describe('IncidentListComponent (live-query error handling)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('surfaces an error and offers retry when the live query fails, then recovers', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    // Force the initial-load transport (the live query's first fetch) to reject so the subscription's
+    // `error` listener fires — modelling an SSE/transport drop (LIST-6/DATA-1).
+    const failQueryElseEmpty = (url: string): Promise<unknown> =>
+      url.includes(LIVE_QUERY_ACTION)
+        ? Promise.reject(new Error('Event Source Error'))
+        : Promise.resolve([]);
+    const failingClient = {
+      ...liveHttpClient,
+      get: failQueryElseEmpty,
+      post: failQueryElseEmpty,
+    };
+    remult.apiClient.httpClient = failingClient;
+
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    // The error is surfaced (state + a non-null message + visible alert + retry copy), not swallowed.
+    // Remult wraps the transport failure before it reaches the subscription's `error` listener, so the
+    // exact text is transport-defined; the contract is that some message reaches the error signal.
+    expect(instance(fixture).viewState()).toBe('error');
+    expect(instance(fixture).error()).toBeTruthy();
+    expect(host(fixture).querySelector('[role="alert"]')).not.toBeNull();
+    expect(text(fixture)).toContain('Could not load incidents');
+
+    // Restore a healthy transport and retry: the list recovers to content.
+    remult.apiClient.httpClient = liveHttpClient;
+    instance(fixture).retry();
+    await settle(fixture);
+
+    expect(instance(fixture).error()).toBeNull();
+    expect(instance(fixture).viewState()).toBe('content');
+  });
+});
+
+describe('IncidentListComponent (empty-state filter reset)', () => {
+  it('clears all filters back to their defaults from the empty state', async () => {
+    remult.user = { ...ADMIN };
+    await seedDistrict();
+    await seedFire({
+      id: 'prior-only',
+      name: 'Prior Only',
+      status: FireStatus.going,
+      financialYear: PRIOR_FY,
+    });
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    // The default current-FY filter hides the only (prior-year) fire.
+    expect(instance(fixture).viewState()).toBe('empty');
+
+    // Clearing filters drops the FY restriction so the prior-year fire becomes visible.
+    instance(fixture).resetFilters();
+    await settle(fixture);
+
+    expect(instance(fixture).filters().fy).toBe('all');
+    expect(instance(fixture).filters().group).toBe('all');
+    expect(instance(fixture).filters().districtId).toBe('all');
+    expect(instance(fixture).total()).toBe(1);
+    expect(instance(fixture).viewState()).toBe('content');
+  });
+});
+
 describe('IncidentListComponent (handset severity cards)', () => {
   function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
     return fixture.nativeElement as HTMLElement;
@@ -622,6 +692,8 @@ describe('IncidentListComponent (handset severity cards)', () => {
     const root = host(fixture);
     // The table is replaced by cards; each card is a routerLink to the incident.
     expect(root.querySelector('table')).toBeNull();
+    // The cards honour the density signal so the toggle is consistent across layouts (LIST-9).
+    expect(root.querySelector('.cards')?.getAttribute('data-density')).toBe('comfortable');
     const cards = root.querySelectorAll('a.card');
     expect(cards.length).toBe(2);
     expect((cards[0] as HTMLAnchorElement).getAttribute('href')).toContain('/incidents/');

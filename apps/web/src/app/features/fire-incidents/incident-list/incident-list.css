@@ -26,6 +26,7 @@
   flex: 1 1 auto;
 }
 
+/* ── Status panels (loading / empty / error / anonymous) ── */
 .panel {
   margin: 0;
   padding: 1.25rem 1.5rem;
@@ -35,9 +36,116 @@
   color: var(--mat-sys-on-surface);
 }
 
+/* Polished status states: a centred icon + copy + (where useful) a retry action. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.state__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 2.5rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.state__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}
+
+.state__body {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 0.875rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.state__detail {
+  margin: 0;
+  max-width: 32rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-field);
+  background: var(--mat-sys-surface-container);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.state__action {
+  margin-top: 0.25rem;
+}
+
 .panel--error {
   border-color: var(--mat-sys-error);
+}
+
+.panel--error .state__icon {
   color: var(--mat-sys-error);
+}
+
+.panel--error .state__title {
+  color: var(--mat-sys-error);
+}
+
+/* The loading affordance: an indeterminate bar plus a labelled skeleton block so the wait reads as
+   intentional rather than a bare progress line. */
+.loading {
+  border: var(--app-grid-border);
+  border-radius: var(--app-radius-card);
+  overflow: hidden;
+  background: var(--mat-sys-surface);
+}
+
+.loading__caption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 1rem 1rem;
+}
+
+.skeleton__row {
+  height: 2.5rem;
+  border-radius: var(--radius-field);
+  background: linear-gradient(
+    90deg,
+    var(--mat-sys-surface-container-low) 25%,
+    var(--mat-sys-surface-container) 50%,
+    var(--mat-sys-surface-container-low) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton__row {
+    animation: none;
+  }
 }
 
 /* ── Filter bar ── */
@@ -50,7 +158,36 @@
 }
 
 .filter-bar__field {
-  min-width: 9rem;
+  flex: 0 1 11rem;
+  min-width: 8rem;
+}
+
+/* Tablet/handset: the bar becomes a single responsive column. The spacer collapses so the density
+   toggle no longer fights the selects for the row, fields stretch to fill, and the toggle groups
+   wrap as whole units rather than truncating their labels. */
+@media (max-width: 768px) {
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.625rem;
+  }
+
+  .filter-bar__field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .filter-bar .spacer {
+    display: none;
+  }
+
+  .filter-bar mat-button-toggle-group {
+    width: 100%;
+  }
+
+  .filter-bar mat-button-toggle {
+    flex: 1 1 0;
+  }
 }
 
 /* ── Table ── */
@@ -67,6 +204,23 @@
 
 table {
   width: 100%;
+  /* Fixed layout gives every column a predictable share of the width so the name column no longer
+     starves the numeric columns, and right-aligned figures stop drifting. Per-column widths come
+     from the header-cell classes below. */
+  table-layout: fixed;
+  min-width: 64rem;
+}
+
+/* Vertical cell dividers: a subtle rule between columns so dense rows scan as a grid. */
+th.mat-mdc-header-cell,
+td.mat-mdc-cell {
+  border-right: 1px solid var(--mat-sys-outline-variant);
+  vertical-align: middle;
+}
+
+th.mat-mdc-header-cell:last-of-type,
+td.mat-mdc-cell:last-of-type {
+  border-right: none;
 }
 
 /* Sticky header sits on a solid container tint so rows scroll cleanly beneath it. */
@@ -83,13 +237,54 @@ tr.mat-mdc-row:hover {
   background: var(--mat-sys-surface-container-high);
 }
 
+/* Balanced per-column widths (sum 100%). Name leads; numeric columns get tighter, predictable shares. */
+.col-name {
+  width: 24%;
+}
+.col-district {
+  width: 14%;
+}
+.col-fire-number {
+  width: 9%;
+}
+.col-status {
+  width: 12%;
+}
+.col-area {
+  width: 13%;
+}
+.col-level {
+  width: 7%;
+}
+.col-major {
+  width: 7%;
+}
+.col-last-report {
+  width: 9%;
+}
+.col-next-due {
+  width: 5%;
+}
+
 .num {
   text-align: right;
+}
+
+/* Material lays cell content out with flex; right-aligned numeric cells need the flex line pushed to
+   the end so the figure tracks the column's right edge under the fixed layout. */
+td.mat-mdc-cell.num,
+th.mat-mdc-header-cell.num {
+  justify-content: flex-end;
 }
 
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* Centre the single-glyph / icon columns (Level, Major) within their cells. */
+td.mat-mdc-cell.cell-center {
+  justify-content: center;
 }
 
 .row-link {
@@ -101,6 +296,29 @@ tr.mat-mdc-row:hover {
   vertical-align: middle;
 }
 
+/* ── Sort affordance (LIST-4) ── */
+/* Sortable headers show a persistent, low-emphasis sort indicator so they read as interactive before
+   the first click; on hover/active the cue strengthens. Non-sortable headers are visually muted and
+   carry a default cursor so the two are clearly distinguishable. */
+th.mat-mdc-header-cell .mat-sort-header-arrow {
+  opacity: 0.45;
+  transform: none;
+}
+
+th.mat-mdc-header-cell:hover .mat-sort-header-arrow,
+th.mat-mdc-header-cell.mat-sort-header-sorted .mat-sort-header-arrow {
+  opacity: 1;
+}
+
+.mat-sort-header-content {
+  font-weight: inherit;
+}
+
+th.col-unsortable {
+  color: var(--mat-sys-on-surface-variant);
+  cursor: default;
+}
+
 mat-paginator {
   border-top: var(--app-grid-border);
 }
@@ -110,6 +328,7 @@ mat-paginator {
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
+  min-width: 0;
 }
 
 /* The status spine is a thin accent rail; its colour comes from the SPINE_TONE literal class. */
@@ -117,11 +336,18 @@ mat-paginator {
   flex: none;
   width: 3px;
   align-self: stretch;
-  min-height: 1.5rem;
+  min-height: 1.25rem;
   border-radius: 9999px;
 }
 
+.row-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .major-chip {
+  flex: none;
   padding: 0.0625rem 0.375rem;
   border-radius: 9999px;
   background: var(--color-status-going-bg);
@@ -136,14 +362,19 @@ mat-paginator {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.25rem;
+  gap: 0.3125rem;
+  width: 100%;
 }
 
+/* Area bar (LIST-2): a taller, status-toned (gold) bar with an accessible per-row label and a tracked
+   well, so the relative-area cue is legible and meaningful. A caption below the table states the
+   scale. */
 .area-bar {
   display: block;
-  width: 4rem;
-  height: 4px;
-  border-radius: 9999px;
+  width: 100%;
+  max-width: 5rem;
+  height: 0.5rem;
+  border-radius: 0.125rem;
   background: var(--mat-sys-surface-container-highest);
   overflow: hidden;
 }
@@ -151,12 +382,17 @@ mat-paginator {
 .area-bar i {
   display: block;
   height: 100%;
-  border-radius: 9999px;
-  background: var(--color-primary);
+  min-width: 0.125rem;
+  border-radius: 0.125rem;
+  background: var(--color-status-contained);
 }
 
-[data-density='compact'] td {
-  padding-block: 0.25rem;
+.area-caption {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-top: var(--app-grid-border);
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.75rem;
 }
 
 /* ── Handset cards ── */
@@ -205,6 +441,18 @@ mat-paginator {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+/* Card density (LIST-9): the toggle tightens the cards on handset just as the height tokens tighten
+   table rows on desktop, so the control's effect is consistent across layouts. */
+.cards[data-density='compact'] .card {
+  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+}
+
+.cards[data-density='compact'] .card__meta {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
 }
 
 .cards-paginator {
