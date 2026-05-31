@@ -157,6 +157,39 @@
         container-shape: var(--radius-card),
       )
     );
+
+    // Paginator chrome reads as part of the table surface (it sits inside the same outlined panel),
+    // rather than Material's default plain background.
+    @include mat.paginator-overrides(
+      (
+        container-background-color: var(--mat-sys-surface-container-low),
+        container-text-color: var(--mat-sys-on-surface-variant),
+      )
+    );
+  }
+
+  // Runtime row-density for the incident list. Material exposes table row/header height as density
+  // tokens (`--mat-table-*-container-height`); `mat.table-overrides()` emits those custom properties
+  // onto the scoped selector, and Material's own `.mat-mdc-row`/`.mat-mdc-header-row` rules read them
+  // via `var()`. Scoping the overrides under the density attribute lets the toggle switch row height
+  // at runtime with no `.mat-mdc-*` override, no `::ng-deep`, and no `!important`. The handset card
+  // view honours the same attribute through component CSS (see incident-list.css).
+  [data-density='comfortable'] {
+    @include mat.table-overrides(
+      (
+        header-container-height: 48px,
+        row-item-container-height: 48px,
+      )
+    );
+  }
+
+  [data-density='compact'] {
+    @include mat.table-overrides(
+      (
+        header-container-height: 36px,
+        row-item-container-height: 32px,
+      )
+    );
   }
 
   html[data-theme='light'] {
