@@ -1,4 +1,4 @@
-h1:nv5A5wKhfZWFkzvGUz10pJYgOv62ErrXczjRL/8WVy8=
+h1:jhdyiBCm4XNnyC3MgeFhGKsJ/6xtuC098E7/uHgH1u8=
 20260528054300_initial.sql h1:pguS8q+sDIwdhNwC3wYLxHiwHrdyHlsFLQauCa4hFFo=
 20260528125801_add_fire_entities.sql h1:nFRk5RTgsjwzi2a3TmgbF52cSPVQ9A1mAckKtotDFmE=
 20260528125802_seed_districts.sql h1:U+YvWvbVeMLwOzA8d5a3Py4dRIUlPTYlxlhN4clmGIM=
@@ -8,3 +8,4 @@ h1:nv5A5wKhfZWFkzvGUz10pJYgOv62ErrXczjRL/8WVy8=
 20260529112903_drop_tasks.sql h1:ZYbXq2yV7IPayLg0mVOgg8xQgUpsKHwGznzjVYbFqL4=
 20260531124342_enrich_districts.sql h1:++uiMp5cVjmOd8bPU150tawqvXrkBY8MDNo5Y9sMHYc=
 20260531124343_seed_remaining_districts.sql h1:ET3GDh2s1ZzP5R5i1BcSQxFAKUOk6cHzwG5fbgFuVnA=
+20260531190846_add_fire_perimeter_geo.sql h1:W5H8qQN7iZau2eQ1yfjfOjj5pyn+cfP/Kc4MkBvylnk=

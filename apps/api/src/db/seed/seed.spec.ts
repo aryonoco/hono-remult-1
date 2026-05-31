@@ -16,6 +16,7 @@ import {
   SituationReport,
   TERMINAL_STATUSES,
   TIMESTAMP_PAIRS,
+  validateFirePerimeter,
   YES_NO_VALUES,
 } from '@workspace/shared-domain';
 import { InMemoryDataProvider, remult } from 'remult';
@@ -200,6 +201,72 @@ describe('geography', () => {
     for (const f of data.fires) {
       expect(known.has(f.districtId)).toBe(true);
     }
+  });
+});
+
+describe('fire perimeter geometry', () => {
+  const NoPerimeterStatuses = new Set([
+    'safeOverrun',
+    'notFound',
+    'safeNotFound',
+    'safeFalseAlarm',
+  ]);
+
+  it('emits well-formed closed rings clipped to the district polygon', () => {
+    for (const f of data.fires) {
+      if (f.firePerimeterGeo === null) {
+        continue;
+      }
+      // Domain validator: type Polygon, closed outer ring of >=4 in-bounds points.
+      expect(validateFirePerimeter(f.firePerimeterGeo)).toBe(true);
+      const ring = f.firePerimeterGeo.coordinates[0]!;
+      expect(ring.length).toBeGreaterThanOrEqual(4);
+      const first = ring[0]!;
+      const last = ring[ring.length - 1]!;
+      expect(last[0]).toBe(first[0]);
+      expect(last[1]).toBe(first[1]);
+      const district = districtByCode(f.districtId);
+      for (const [lng, lat] of ring) {
+        expect(
+          pointInPolygon(lng, lat, district.polygon),
+          `perimeter vertex of fire ${f.globalIncidentId} outside ${district.name}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('nulls the perimeter for every no-fire terminal outcome', () => {
+    // The footprint decision keys off the *terminal* status, so every fire that
+    // ends safeOverrun / notFound / safeNotFound / safeFalseAlarm carries a null
+    // perimeter — including overruns reached via the resolved (sitrep-bearing)
+    // path, whose area is reset to zero. The pin stays the sole locator.
+    const skipped = data.fires.filter((f) => NoPerimeterStatuses.has(f.status));
+    expect(skipped.length).toBeGreaterThan(0);
+    for (const f of skipped) {
+      expect(
+        f.firePerimeterGeo,
+        `fire ${f.globalIncidentId} ended ${f.status} but kept a perimeter`,
+      ).toBeNull();
+    }
+  });
+
+  it('covers the resolved-path safeOverrun no-perimeter case', () => {
+    // safeOverrun arises almost entirely via the resolved path (sitreps present,
+    // area zeroed). Guard that this regression-prone case is actually exercised:
+    // such fires must exist, have sitreps, zero area, and a null perimeter.
+    const overruns = data.fires.filter(
+      (f) => f.status === 'safeOverrun' && (sitrepsByFire.get(f.id)?.length ?? 0) > 0,
+    );
+    expect(overruns.length).toBeGreaterThan(0);
+    for (const f of overruns) {
+      expect(f.fireAreaHectares).toBe(0);
+      expect(f.firePerimeterGeo).toBeNull();
+    }
+  });
+
+  it('covers both the perimeter and the null-perimeter paths', () => {
+    expect(data.fires.some((f) => f.firePerimeterGeo !== null)).toBe(true);
+    expect(data.fires.some((f) => f.firePerimeterGeo === null)).toBe(true);
   });
 });
 

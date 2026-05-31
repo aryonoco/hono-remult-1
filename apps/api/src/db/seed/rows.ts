@@ -3,6 +3,7 @@ import type {
   ControlAgency,
   CostClass,
   FireDetectionMethod,
+  FirePerimeter,
   FireStatus,
   FuelType,
   IncidentLevel,
@@ -51,6 +52,7 @@ export interface FireIncidentRow {
   isFireMapAttached: boolean;
   controlAgency: ControlAgency | null;
   fuelType: FuelType | null;
+  firePerimeterGeo: FirePerimeter | null;
   fireAreaHectares: number | null;
   burntAreaHectares: number | null;
   totalPersonnel: number;

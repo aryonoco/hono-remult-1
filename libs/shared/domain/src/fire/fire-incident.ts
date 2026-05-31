@@ -9,6 +9,7 @@ import {
   Relations,
   type Remult,
   remult,
+  type ValidateFieldEvent,
   Validators,
 } from 'remult';
 
@@ -32,6 +33,7 @@ import {
   type YesNo,
 } from './enums';
 import { FinalReport } from './final-report';
+import { type FirePerimeter, validateFirePerimeter } from './geo-types';
 import {
   computeFinancialYear,
   computeGlobalIncidentId,
@@ -45,6 +47,22 @@ import {
   withServerInternal,
 } from './helpers';
 import { SituationReport } from './situation-report';
+
+// Surface the isomorphic perimeter validator's message through Remult's field
+// validation. A null/absent perimeter is allowed (allowNull); only a present
+// value is checked.
+function validateFirePerimeterField(
+  _fire: FireIncident,
+  e: ValidateFieldEvent<FireIncident, FirePerimeter | null>,
+): void {
+  if (e.value === null || e.value === undefined) {
+    return;
+  }
+  const result = validateFirePerimeter(e.value);
+  if (result !== true) {
+    e.error = result;
+  }
+}
 
 async function fireIncidentSaving(
   fire: FireIncident,
@@ -350,6 +368,16 @@ export class FireIncident {
 
   @Fields.literal(() => FUEL_TYPE_VALUES, { allowNull: true })
   fuelType?: FuelType;
+
+  @Fields.json<FireIncident, FirePerimeter | null>({
+    allowNull: true,
+    // Persist as Postgres jsonb (binary, indexable) rather than the json the
+    // provider would default to — the perimeter is queried/decoded, never
+    // round-tripped as raw text.
+    valueConverter: { fieldTypeInDb: 'jsonb' },
+    validate: validateFirePerimeterField,
+  })
+  firePerimeterGeo?: FirePerimeter | null;
 
   @Fields.number({ allowNull: true, validate: Validators.min(0) })
   fireAreaHectares?: number;

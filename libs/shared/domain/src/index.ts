@@ -48,6 +48,7 @@ export {
 } from './fire/enums';
 export { FinalReport, finalReportSchemaExtras } from './fire/final-report';
 export { FireIncident, fireIncidentSchemaExtras } from './fire/fire-incident';
+export { type FirePerimeter, validateFirePerimeter } from './fire/geo-types';
 export {
   ACTIVE_CONTAINED_STATUSES,
   computeFinancialYear,

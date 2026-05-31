@@ -1,6 +1,7 @@
 import {
   type CostClass,
   computeNextReportDue,
+  type FirePerimeter,
   type FireStatus,
   type IncidentLevel,
   type InvestigationType,
@@ -25,6 +26,7 @@ import {
 import type { DistrictGeo } from './districts';
 import type { LatLng } from './geo';
 import { sampleClusteredPoint } from './geo';
+import { buildFirePerimeter } from './geo-perimeter';
 import { type NamedLocation, pickNamedLocation } from './names';
 import {
   causeSourceOther,
@@ -121,6 +123,16 @@ const GOING_PATH: readonly FireStatus[] = [
 
 const POTENTIALS: readonly Potential[] = ['low', 'moderate', 'high'];
 
+// Terminal outcomes that never had a mapped fire extent: an overrun resets the
+// area to zero, and "not found" / "false alarm" never had a footprint at all.
+// These get a null perimeter, leaving the pin as the sole locator.
+const NO_PERIMETER_STATUSES: ReadonlySet<FireStatus> = new Set<FireStatus>([
+  Status.safeOverrun,
+  Status.notFound,
+  Status.safeNotFound,
+  Status.safeFalseAlarm,
+]);
+
 function weightedFrom<V extends string>(
   raw: readonly { readonly value: string; readonly weight: number }[],
 ): Weighted<V>[] {
@@ -150,6 +162,27 @@ function simulateFire(rng: Rng, spec: FireSpec): FireResult {
   return { fire, sitreps, finalReport };
 }
 
+// Draw the mapped extent from the eventual fire size, clipped to the district.
+// Sub-hectare fires get a null footprint (the generator returns null below its
+// minimum area). The null decision keys off the *terminal* status, not the
+// status at report time: a fire that ends safeOverrun is reached via the
+// resolved path with an initial status of `going`, yet its area is later reset
+// to zero — so it must draw no perimeter, matching notFound/false-alarm
+// non-events. We still consume the same PRNG draws the active/resolved path
+// always did (passing the real area when the report-time status carries one),
+// then discard the geometry for a no-fire terminal, keeping the stream — and
+// thus the whole fixture — bit-for-bit deterministic regardless of the outcome.
+function perimeterFor(
+  ctx: Ctx,
+  plan: Plan,
+  point: LatLng,
+  initialStatus: FireStatus,
+): FirePerimeter | null {
+  const areaHa = NO_PERIMETER_STATUSES.has(initialStatus) ? null : plan.sizeHa;
+  const perimeter = buildFirePerimeter(point, areaHa, ctx.spec.district.polygon, ctx.rng);
+  return NO_PERIMETER_STATUSES.has(plan.terminal) ? null : perimeter;
+}
+
 function buildInitialFire(
   ctx: Ctx,
   plan: Plan,
@@ -164,6 +197,7 @@ function buildInitialFire(
   );
   const timeline = buildTimeline(rng, spec.reportedAt);
   const initialStatus = plan.outcome === 'nonEvent' ? plan.terminal : Status.going;
+  const firePerimeterGeo = perimeterFor(ctx, plan, point, initialStatus);
 
   return {
     id: rng.uuid(),
@@ -192,6 +226,7 @@ function buildInitialFire(
     reportedAt: spec.reportedAt,
     ...timeline,
     ...buildClassification(rng, archetype, plan),
+    firePerimeterGeo,
     fireAreaHectares: initialStatus === Status.safeOverrun ? 0 : plan.sizeHa,
     burntAreaHectares: rng.bool(T.burntArea.present)
       ? round1(plan.sizeHa * rng.float(T.burntArea.minFrac, T.burntArea.maxFrac))
