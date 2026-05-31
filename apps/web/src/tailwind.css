@@ -4,6 +4,11 @@
    framework-free shared lib (re-exported to the web app) from being purged in production builds. */
 @source '../../../libs/shared/domain/src';
 
+/* The lifecycle timeline's neutral "event" dot uses `bg-status-event` (see incident-timeline.ts and the
+   --color-status-event token below). The literal is force-generated here so the utility always emits even
+   if the only source reference is later refactored away (MAP-2). */
+@source inline('bg-status-event');
+
 /* ── Design tokens ──────────────────────────────────────────────────────────────────────────────
    The token layer for the "Calm Command Console" look. Colour tokens bridge to Material's M3 system
    tokens (`--mat-sys-*`) so a single theme drives both Material components and our Tailwind-styled
