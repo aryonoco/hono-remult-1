@@ -34,7 +34,7 @@ The web app imports only from `@workspace/shared-domain`. These symbols exist in
 
 ### A.4 Rosé Pine token table — AA-verified, HSL, `light-dark(Dawn, Moon)`
 
-All contrast ratios computed and verified (WCAG: ≥4.5:1 text, ≥3:1 UI/graphics) in `tools/check-contrast.mjs` (added in Phase 0, kept as a guard). **System tokens** go in `styles.scss` via `mat.theme-overrides(( … ))` inside the existing `html {}` in `@layer material`. Keys are the `--mat-sys-*` names without prefix:
+All contrast ratios computed and verified (WCAG: ≥4.5:1 text, ≥3:1 UI/graphics) by `apps/web/src/app/shared/ui/rose-pine-contrast.spec.ts` (added in Phase 0 Task 0.6; runs in `just ci`). **System tokens** go in `styles.scss` via `mat.theme-overrides(( … ))` inside the existing `html {}` in `@layer material`. Keys are the `--mat-sys-*` names without prefix:
 
 ```scss
 @include mat.theme-overrides((
@@ -93,7 +93,7 @@ All contrast ratios computed and verified (WCAG: ≥4.5:1 text, ≥3:1 UI/graphi
 --color-status-contained-bg: light-dark(hsl(35 70% 91%),  hsl(338 8% 26%));
 --color-status-controlled:   light-dark(hsl(189 30% 36%), hsl(189 43% 73%));
 --color-status-controlled-bg:light-dark(hsl(90 8% 90%),   hsl(224 19% 27%));
---color-status-safe:         light-dark(hsl(197 53% 34%), hsl(197 48% 56%));
+--color-status-safe:         light-dark(hsl(197 53% 34%), hsl(197 48% 57%)); /* Moon L=57 clears AA (4.57:1) on the rounded-HSL bg */
 --color-status-safe-bg:      light-dark(hsl(100 5% 88%),  hsl(218 31% 23%));
 --color-status-neutral:      light-dark(hsl(248 12% 44%), hsl(248 15% 67%));
 --color-status-neutral-bg:   light-dark(hsl(20 18% 90%),  hsl(248 18% 25%));
@@ -125,7 +125,7 @@ All contrast ratios computed and verified (WCAG: ≥4.5:1 text, ≥3:1 UI/graphi
 | `apps/web/src/tailwind.css`                                                                       | Modify    | Replace `--color-status-*` with Rosé Pine HSL; add A.5 bridges                                                                                                           |
 | `apps/web/src/index.html`                                                                         | Modify    | Font weight axes (A.2)                                                                                                                                                   |
 | `apps/web/src/main.ts`                                                                            | unchanged | —                                                                                                                                                                        |
-| `tools/check-contrast.mjs`                                                                        | Create    | Committed AA-contrast guard over the A.4 token pairs                                                                                                                     |
+| `apps/web/src/app/shared/ui/rose-pine-contrast.spec.ts`                                           | Create    | AA-contrast guard spec over the §A.4 token pairs                                                                                                                         |
 | `libs/shared/domain/src/index.ts`                                                                 | Modify    | Re-export `INITIAL_REPORT_MS` (A.3)                                                                                                                                      |
 | `apps/web/src/app/shared/auth/permissions.ts`                                                     | Modify    | Add `canViewDistrictRollup(user)` = elevated                                                                                                                             |
 | `apps/web/src/app/shared/components/kpi-tile/kpi-tile.ts`                                         | Create    | KPI instrument tile                                                                                                                                                      |
@@ -273,7 +273,7 @@ The DB is seeded deterministically: **~13,453 FireIncidents** across **16 DEECA 
 
 **Files:** Modify `apps/web/src/styles.scss`.
 
-- [ ] **Step 1 — Import Leaflet CSS** as the **first line** of `styles.scss` (before `@use '@angular/material'`): `@import 'leaflet/dist/leaflet.css';`
+- [ ] **Step 1 — Import Leaflet CSS** immediately **after** the `@use '@angular/material' as mat;` line (Dart Sass requires `@use` to precede other rules; the emitted CSS `@import` is hoisted to the top of the compiled output, so the runtime effect is identical): `@import 'leaflet/dist/leaflet.css';`
 - [ ] **Step 2 — Add `mat.theme-overrides()`** inside the existing `html { … }` block in `@layer material`, immediately after the existing `@include mat.theme(( … ))` call, pasting the **A.4 system-token block verbatim**.
 - [ ] **Step 3 — Add strong focus indicators.** Below the overrides, still in `@layer material` `html {}`: `@include mat.strong-focus-indicators();`
 - [ ] **Step 4 — Add global marker classes** in `@layer utilities` of `styles.scss`:
@@ -303,15 +303,15 @@ The DB is seeded deterministically: **~13,453 FireIncidents** across **16 DEECA 
 - [ ] **Step 3 — Build check.** Run: `bun run check:ci`. Expected: pass.
 - [ ] **Step 4 — Commit.** `git add apps/web/src/tailwind.css && git commit -m "web: map fire-status tones to Rosé Pine (AA, HSL)"`
 
-### Task 0.6: AA contrast guard (committed)
+### Task 0.6: AA contrast guard (Vitest spec)
 
-**Files:** Create `tools/check-contrast.mjs`; Modify `package.json` (script); Modify `justfile` (optional CI hook).
+**Files:** Create `apps/web/src/app/shared/ui/rose-pine-contrast.spec.ts`.
 
-- [ ] **Step 1 — Create `tools/check-contrast.mjs`** encoding every A.4 text/UI pair (Dawn + Moon) and asserting WCAG (text ≥4.5, UI/graphics ≥3.0). The file MUST `process.exit(1)` on any failure and print a table. (Use the verified pairs: on-surface↔surface/surface-container-high; on-surface-variant↔surface; outline↔surface@3.0; on-primary↔primary; on-secondary↔secondary; on-tertiary↔tertiary; on-error↔error; each `status-X` fg↔`status-X-bg`@4.5 and fg↔surface@3.0.)
-- [ ] **Step 2 — Add script** to `package.json`: `"check:contrast": "node tools/check-contrast.mjs"`.
-- [ ] **Step 3 — Run it.** Run: `bun run check:contrast`. Expected: every row `PASS`, exit 0.
-- [ ] **Step 4 — Wire into `just ci`.** In `justfile`, add `bun run check:contrast` to the `ci` recipe before tests.
-- [ ] **Step 5 — Commit.** `git add tools/check-contrast.mjs package.json justfile && git commit -m "web: add AA contrast guard for Rosé Pine tokens"`
+> **Compliance:** implement the guard as a Vitest spec — NOT a Node CLI. A `*.spec.ts` gets the sanctioned lint relaxations and runs in `bun run test` / `just ci`; never add a `biome.json` rule override to make a Node script pass (only a `noSecrets` false positive may be locally suppressed).
+
+- [ ] **Step 1 — Write the spec.** Encode every §A.4 pair as `light-dark(dawn, moon)` literals that MIRROR `styles.scss` + `tailwind.css`: text pairs (≥4.5:1) — `on-surface`↔`surface`, `on-surface-variant`↔`surface`, `on-primary`↔`primary`, `on-secondary`↔`secondary`, `on-tertiary`↔`tertiary`, `on-error`↔`error`, and each `status-X` fg↔`status-X-bg`; non-text pairs (≥3:1) — `outline`↔`surface` and each `status-X` fg↔`surface`. Use fixed-length tuple types (`type Triple = [number, number, number]`) for the hsl→rgb→luminance helpers (so `noUncheckedIndexedAccess` does not widen destructured elements to `number | undefined`), and assert each pair with `expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(threshold)` per theme.
+- [ ] **Step 2 — Run.** `bunx nx test web` → the `Rosé Pine token contrast` suite passes (every pair clears its threshold).
+- [ ] **Step 3 — Commit.** `git add apps/web/src/app/shared/ui/rose-pine-contrast.spec.ts && git commit -m "web: add AA contrast guard spec for Rosé Pine tokens"`
 
 ### Task 0.7: cspell words
 
@@ -1472,7 +1472,7 @@ export class IncidentTimelineComponent {
 
 ### Task 7.3: Contrast guard, spelling, formatting, full gate
 
-- [ ] **Step 1 — Run** `bun run check:contrast` → all PASS.
+- [ ] **Step 1 — Run** `bunx nx test web` → the `Rosé Pine token contrast` guard spec passes (all pairs clear AA).
 - [ ] **Step 2 — Run** `bun run format:html` (Angular templates) and `bun run check` (Biome autofix).
 - [ ] **Step 3 — Run** the full gate: `just ci` (check + HTML-format + cspell + markdownlint + test + build) → **green**.
 - [ ] **Step 4 — Commit** any formatting/lint fixes. `git commit -m "chore: full CI gate green for tactical redesign"`

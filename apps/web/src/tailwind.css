@@ -50,7 +50,7 @@
   --color-status-contained-bg: light-dark(hsl(35 70% 91%), hsl(338 8% 26%));
   --color-status-controlled: light-dark(hsl(189 30% 36%), hsl(189 43% 73%));
   --color-status-controlled-bg: light-dark(hsl(90 8% 90%), hsl(224 19% 27%));
-  --color-status-safe: light-dark(hsl(197 53% 34%), hsl(197 48% 56%));
+  --color-status-safe: light-dark(hsl(197 53% 34%), hsl(197 48% 57%));
   --color-status-safe-bg: light-dark(hsl(100 5% 88%), hsl(218 31% 23%));
   --color-status-neutral: light-dark(hsl(248 12% 44%), hsl(248 15% 67%));
   --color-status-neutral-bg: light-dark(hsl(20 18% 90%), hsl(248 18% 25%));
