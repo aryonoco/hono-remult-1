@@ -5,6 +5,7 @@ import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatButtonToggleGroupHarness } from '@angular/material/button-toggle/testing';
 import { MatPaginatorHarness } from '@angular/material/paginator/testing';
 import { MatSortHarness } from '@angular/material/sort/testing';
+import { MatTableHarness } from '@angular/material/table/testing';
 import { provideRouter } from '@angular/router';
 import {
   type CurrentUser,
@@ -110,7 +111,10 @@ interface FireSeed {
   status: FireStatus;
   financialYear: number;
   districtId?: number;
-  fireNumber?: number;
+  incidentLevel?: IncidentLevel;
+  isMajor?: boolean;
+  fireAreaHectares?: number;
+  nextReportDue?: Date | null;
 }
 
 async function seedDistrict(): Promise<void> {
@@ -123,20 +127,31 @@ async function seedDistrict(): Promise<void> {
   });
 }
 
-// Insert via the repo (the lifecycle hook sets server-managed defaults), then patch `financialYear`
-// (server-managed, overwritten by the hook to the current FY) to the exact test value.
+// Insert via the repo (the lifecycle hook sets server-managed defaults), then patch the server-managed
+// fields (`financialYear` and `nextReportDue`) the list reads to the exact test values.
 async function seedFire(seed: FireSeed): Promise<void> {
   const repo = remult.repo(FireIncident);
-  const created = await repo.insert({
+  const insert: Partial<FireIncident> = {
     id: seed.id,
     name: seed.name,
     status: seed.status,
     districtId: seed.districtId ?? 12,
-    incidentLevel: IncidentLevel.levelOne,
+    incidentLevel: seed.incidentLevel ?? IncidentLevel.levelOne,
     reportedAt: new Date('2026-01-10T00:00:00Z'),
-    isMajor: false,
+    isMajor: seed.isMajor ?? false,
+  };
+  if (seed.fireAreaHectares !== undefined) {
+    insert.fireAreaHectares = seed.fireAreaHectares;
+  }
+  if (seed.isMajor) {
+    insert.declaredBySource = 'Regional Controller';
+    insert.declaredByTimestamp = new Date('2026-01-10T01:00:00Z');
+  }
+  const created = await repo.insert(insert);
+  await repo.update(created.id, {
+    financialYear: seed.financialYear,
+    nextReportDue: seed.nextReportDue === undefined ? null : seed.nextReportDue,
   });
-  await repo.update(created.id, { financialYear: seed.financialYear });
 }
 
 // Build the 30-fire seed descriptors (20 going + 5 safe in the current FY; 5 going in the prior FY) so
@@ -445,5 +460,85 @@ describe('IncidentListComponent (filter bar, sort & paginator)', () => {
     await settle(fixture);
 
     expect(await findAxeViolations(host(fixture))).toEqual([]);
+  });
+});
+
+describe('IncidentListComponent (severity-forward cells)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  async function seedSeverityRows(): Promise<void> {
+    await seedDistrict();
+    // A going, level-3, major fire with an overdue cadence.
+    await seedFire({
+      id: 'going-l3',
+      name: 'Otway Ridge',
+      status: FireStatus.going,
+      incidentLevel: IncidentLevel.levelThree,
+      isMajor: true,
+      fireAreaHectares: 1240,
+      nextReportDue: new Date('2026-01-15T00:00:00Z'),
+      financialYear: CURRENT_FY,
+    });
+    // A terminal (safe) fire keeps a stale past nextReportDue; the cadence must read `—`, not a countdown.
+    await seedFire({
+      id: 'safe-stale',
+      name: 'Old Burn',
+      status: FireStatus.safe,
+      fireAreaHectares: 12,
+      nextReportDue: new Date('2026-01-01T00:00:00Z'),
+      financialYear: CURRENT_FY,
+    });
+  }
+
+  it('renders the severity tile, status spine, badge and a terminal-aware cadence', async () => {
+    remult.user = { ...ADMIN };
+    await seedSeverityRows();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    const root = host(fixture);
+    // Severity-forward primitives render in the rows.
+    expect(root.querySelector('app-severity-tile')).not.toBeNull();
+    expect(root.querySelector('app-status-badge')).not.toBeNull();
+    expect(root.querySelector('app-cadence-countdown')).not.toBeNull();
+    // The going row carries the going status spine (whole literal class, never interpolated).
+    expect(root.querySelector('.status-spine.bg-status-going')).not.toBeNull();
+    // The major fire shows a Major chip.
+    expect(root.textContent).toContain('Major');
+
+    // The terminal fire's cadence cell shows the em-dash (its due date was forced to null). Read the
+    // name + next-due cells per row via column-scoped cell harnesses (avoids the index-signature record).
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const table = await loader.getHarness(MatTableHarness);
+    const rows = await table.getRows();
+    const rowReadings = await Promise.all(
+      rows.map(async (row) => {
+        const [nameCell] = await row.getCells({ columnName: 'name' });
+        const [dueCell] = await row.getCells({ columnName: 'nextReportDue' });
+        return { name: await nameCell!.getText(), due: await dueCell!.getText() };
+      }),
+    );
+    const terminalRow = rowReadings.find((reading) => reading.name.includes('Old Burn'));
+    expect(terminalRow?.due).toBe('—');
+
+    expect(await findAxeViolations(root)).toEqual([]);
+  });
+
+  it('keeps the named table and drives sort from the Name header', async () => {
+    remult.user = { ...ADMIN };
+    await seedSeverityRows();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    expect(host(fixture).querySelector('table[aria-label="Fire incidents"]')).not.toBeNull();
+
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const sort = await loader.getHarness(MatSortHarness);
+    const nameHeader = (await sort.getSortHeaders({ label: 'Name' }))[0]!;
+    await nameHeader.click();
+    await settle(fixture);
+    expect(instance(fixture).sortState().active).toBe('name');
   });
 });

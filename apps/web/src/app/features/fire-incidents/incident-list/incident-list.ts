@@ -28,6 +28,8 @@ import {
   FireStatus,
   INCIDENT_LEVEL_LABELS,
   type IncidentLevel,
+  type StatusTone,
+  statusTone,
   TERMINAL_STATUSES,
 } from '@workspace/shared-domain';
 import { ResultAsync } from 'neverthrow';
@@ -37,7 +39,9 @@ import { map } from 'rxjs';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { canCreateIncident, canViewDistrictRollup } from '../../../shared/auth/permissions';
 import { CadenceCountdownComponent } from '../../../shared/components/cadence-countdown/cadence-countdown';
+import { SeverityTileComponent } from '../../../shared/components/severity-tile/severity-tile';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge';
+import { SPINE_TONE } from '../../../shared/ui/tone-classes';
 import { isTerminalStatus } from '../../../shared/util/fire-status';
 
 type StatusGroup = 'all' | 'active' | 'going' | 'resolved';
@@ -68,6 +72,7 @@ const PAGE_SIZE_OPTIONS = [DEFAULT_PAGE_SIZE, LARGE_PAGE_SIZE, LARGEST_PAGE_SIZE
 const FIRST_SEASON_FY = 2018;
 const DISTRICT_FETCH_LIMIT = 50;
 const TICK_INTERVAL_MS = 60_000;
+const PERCENT = 100;
 
 const toErr = (cause: unknown): Error =>
   cause instanceof Error ? cause : new Error(String(cause));
@@ -97,6 +102,7 @@ const SORT_LABEL: Readonly<Record<string, string>> = {
     MatTableModule,
     StatusBadgeComponent,
     CadenceCountdownComponent,
+    SeverityTileComponent,
   ],
   templateUrl: './incident-list.html',
   styleUrl: './incident-list.css',
@@ -107,8 +113,10 @@ export class IncidentListComponent {
   private readonly breakpoints = inject(BreakpointObserver);
   private readonly announcer = inject(LiveAnnouncer);
 
-  // Template-facing reference to the terminal-status guard (gates the cadence countdown on closed fires).
+  // Template-facing references: the terminal-status guard (gates the cadence countdown on closed fires)
+  // and the shared status-spine tone map (whole literal classes — never interpolated).
   protected readonly isTerminalStatus = isTerminalStatus;
+  protected readonly spineTone = SPINE_TONE;
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
 
   protected readonly displayedColumns = [
@@ -161,6 +169,10 @@ export class IncidentListComponent {
     }
     return this.total() === 0 ? 'empty' : 'content';
   });
+  // Area-bar scale: the widest fire on the visible page maps to a full bar (relative, per-page).
+  protected readonly maxArea = computed(() =>
+    Math.max(1, ...this.rows().map((row) => row.fireAreaHectares ?? 0)),
+  );
 
   private readonly whereKey = computed(() => JSON.stringify(this.filters()));
   private unsubscribe: (() => void) | null = null;
@@ -293,6 +305,14 @@ export class IncidentListComponent {
 
   protected levelLabel(level: IncidentLevel): string {
     return INCIDENT_LEVEL_LABELS[level];
+  }
+
+  protected tone(status: FireStatus): StatusTone {
+    return statusTone(status);
+  }
+
+  protected areaPct(incident: FireIncident): number {
+    return Math.min(PERCENT, ((incident.fireAreaHectares ?? 0) / this.maxArea()) * PERCENT);
   }
 
   private buildWhere(): EntityFilter<FireIncident> {
