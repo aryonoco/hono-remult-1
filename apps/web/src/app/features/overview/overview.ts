@@ -9,8 +9,10 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
 import {
   computeFinancialYear,
@@ -64,6 +66,8 @@ interface RegionRow {
     RouterLink,
     MatIconModule,
     MatProgressBarModule,
+    MatFormFieldModule,
+    MatSelectModule,
     KpiTileComponent,
     StatusMixBarComponent,
     SeverityTileComponent,
@@ -243,6 +247,34 @@ interface RegionRow {
       border-radius: var(--app-radius-card);
       border: 1px dashed var(--mat-sys-outline-variant);
       color: var(--mat-sys-on-surface-variant);
+    }
+
+    .overview__fy {
+      width: 9rem;
+    }
+
+    .overview__rollup {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      margin: 0;
+    }
+
+    .overview__rollup-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.25rem 0;
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+    }
+
+    .overview__rollup-row:last-child {
+      border-bottom: none;
+    }
+
+    .overview__rollup dt {
+      font-weight: 500;
     }
   `,
 })

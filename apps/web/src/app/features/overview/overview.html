@@ -128,7 +128,49 @@
     </section>
 
     <section aria-labelledby="season-h" class="overview__section">
-      <h2 id="season-h" class="overview__heading">Season</h2>
+      <div class="overview__section-head">
+        <h2 id="season-h" class="overview__heading">Season FY{{ selectedFy() }}</h2>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="overview__fy">
+          <mat-label>Financial year</mat-label>
+          <mat-select
+            aria-label="Financial year"
+            [value]="selectedFy()"
+            (selectionChange)="setFy($event.value)"
+          >
+            @for (fy of fyOptions(); track fy) {
+              <mat-option [value]="fy">{{ fy }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="overview__kpis">
+        <app-kpi-tile label="Fires this season" [value]="seasonCount()" tone="accent" />
+        <app-kpi-tile label="Area burnt" [value]="seasonAreaHa()" unit="ha" tone="accent" />
+      </div>
+
+      <section aria-labelledby="season-mix-h" class="overview__panel">
+        <h3 id="season-mix-h" class="overview__panel-heading">Season status mix</h3>
+        <app-status-mix-bar [counts]="seasonStatus()" />
+      </section>
+
+      @if (showRollup()) {
+        <section aria-labelledby="region-h" class="overview__panel">
+          <h3 id="region-h" class="overview__panel-heading">By region</h3>
+          @if (regionRollup().length === 0) {
+            <p class="overview__note">No incidents recorded for this season.</p>
+          } @else {
+            <dl class="overview__rollup">
+              @for (r of regionRollup(); track r.regionId) {
+                <div class="overview__rollup-row">
+                  <dt>{{ r.regionName }}</dt>
+                  <dd class="font-mono tabular-nums">{{ r.count }}</dd>
+                </div>
+              }
+            </dl>
+          }
+        </section>
+      }
     </section>
   }
 }

@@ -1,3 +1,4 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import {
   type ComponentFixture,
@@ -5,6 +6,7 @@ import {
   DeferBlockState,
   TestBed,
 } from '@angular/core/testing';
+import { MatSelectHarness } from '@angular/material/select/testing';
 import { provideRouter } from '@angular/router';
 import {
   type CurrentUser,
@@ -21,6 +23,7 @@ import { DevAuthService } from '../../core/dev-auth.service';
 import { OverviewComponent } from './overview';
 
 const ADMIN = DEV_USERS[0]!; // admin, districtId null
+const VIEWER = DEV_USERS[5]!; // viewer, dev-viewer-otway
 // A fixed clock anchor so cadence countdowns and overdue ordering are deterministic.
 const NOW = new Date('2026-01-15T12:00:00Z');
 const SIX_MIN_MS = 6 * 60 * 1000;
@@ -40,15 +43,21 @@ function stubBrowserApis(): void {
       dispatchEvent: vi.fn(),
     }),
   );
-  vi.stubGlobal(
-    'IntersectionObserver',
-    vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-      takeRecords: vi.fn().mockReturnValue([]),
-    })),
-  );
+  class IntersectionObserverStub {
+    observe(): void {
+      /* no-op */
+    }
+    unobserve(): void {
+      /* no-op */
+    }
+    disconnect(): void {
+      /* no-op */
+    }
+    takeRecords(): [] {
+      return [];
+    }
+  }
+  vi.stubGlobal('IntersectionObserver', IntersectionObserverStub);
 }
 
 function instance(fixture: ComponentFixture<OverviewComponent>): any {
@@ -341,8 +350,9 @@ describe('OverviewComponent — operational surface (Task 3.2)', () => {
     TestBed.tick();
 
     const root = html(fixture);
-    // Five KPI tiles in the strip.
-    expect(root.querySelectorAll('app-kpi-tile')).toHaveLength(5);
+    // Five KPI tiles in the operational strip (scope to the ops section; the season panel adds its own).
+    const opsSection = root.querySelector('[aria-labelledby="ops-h"]');
+    expect(opsSection?.querySelectorAll('app-kpi-tile')).toHaveLength(5);
     // Active count excludes the terminal fire.
     expect(instance(fixture).activeCount()).toBe(2);
     expect(instance(fixture).overdueCount()).toBe(1);
@@ -365,6 +375,103 @@ describe('OverviewComponent — operational surface (Task 3.2)', () => {
 
     // The deferred map mounted.
     expect(root.querySelector('app-incident-map')).not.toBeNull();
+
+    expect(await findAxeViolations(root)).toEqual([]);
+  });
+});
+
+async function seedSeason(): Promise<void> {
+  await seedDistricts();
+  // FY2026: three fires (one terminal) across two districts in different regions.
+  await seedFire({
+    id: 's26-a',
+    name: 'Apollo Bay',
+    status: FireStatus.going,
+    districtId: 12,
+    fireAreaHectares: 200,
+    financialYear: 2026,
+  });
+  await seedFire({
+    id: 's26-b',
+    name: 'Moe Spur',
+    status: FireStatus.contained,
+    districtId: 18,
+    fireAreaHectares: 80,
+    financialYear: 2026,
+  });
+  await seedFire({
+    id: 's26-c',
+    name: 'Lorne Closed',
+    status: FireStatus.safe,
+    districtId: 12,
+    fireAreaHectares: 5,
+    financialYear: 2026,
+  });
+  // FY2025: two fires.
+  await seedFire({
+    id: 's25-a',
+    name: 'Past One',
+    status: FireStatus.safe,
+    districtId: 12,
+    fireAreaHectares: 30,
+    financialYear: 2025,
+  });
+  await seedFire({
+    id: 's25-b',
+    name: 'Past Two',
+    status: FireStatus.safe,
+    districtId: 18,
+    fireAreaHectares: 40,
+    financialYear: 2025,
+  });
+}
+
+describe('OverviewComponent — season panel + region rollup (Task 3.3)', () => {
+  it('renders the season figures, status-mix, region rollup and switches FY', async () => {
+    remult.user = { ...ADMIN };
+    await seedSeason();
+    const fixture = await setup({ ...ADMIN });
+    await settle(fixture);
+
+    const root = html(fixture);
+    const season = root.querySelector('[aria-labelledby="season-h"]');
+    expect(season).not.toBeNull();
+    // Default FY is the current financial year (2026); season total counts all three FY2026 fires.
+    expect(instance(fixture).selectedFy()).toBe(2026);
+    expect(instance(fixture).seasonCount()).toBe(3);
+    // Season status-mix is its own bar (distinct from the operational one).
+    expect(season?.querySelector('app-status-mix-bar')).not.toBeNull();
+
+    // Region rollup lists the two regions (elevated user).
+    const rollup = root.querySelector('[aria-labelledby="region-h"]');
+    expect(rollup).not.toBeNull();
+    expect(rollup?.textContent).toContain('Barwon South West');
+    expect(rollup?.textContent).toContain('Gippsland');
+
+    // Switch the FY selector to 2025 via the Material harness; the season total updates to two.
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const select = await loader.getHarness(MatSelectHarness);
+    await select.open();
+    await select.clickOptions({ text: '2025' });
+    await settle(fixture);
+    expect(instance(fixture).selectedFy()).toBe(2025);
+    expect(instance(fixture).seasonCount()).toBe(2);
+
+    expect(await findAxeViolations(root)).toEqual([]);
+  });
+
+  it('hides the region rollup for a viewer', async () => {
+    // Seed as admin (the insert hook restricts non-elevated users to their own district), then view as a
+    // viewer to assert the elevated-only rollup is hidden.
+    remult.user = { ...ADMIN };
+    await seedSeason();
+    remult.user = { ...VIEWER };
+    const fixture = await setup({ ...VIEWER });
+    await settle(fixture);
+
+    const root = html(fixture);
+    expect(root.querySelector('[aria-labelledby="season-h"]')).not.toBeNull();
+    expect(root.querySelector('[aria-labelledby="region-h"]')).toBeNull();
 
     expect(await findAxeViolations(root)).toEqual([]);
   });
