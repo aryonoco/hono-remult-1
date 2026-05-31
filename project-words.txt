@@ -363,7 +363,9 @@ FFMVic
 mockups
 
 # Phase 0 — Leaflet maps + Rosé Pine theme vocabulary
+basemap
 basemaps
+carto
 cartocdn
 divIcon
 invalidateSize
