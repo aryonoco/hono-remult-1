@@ -1,0 +1,22 @@
+<h1 tabindex="-1" class="overview__title">Operations overview</h1>
+
+@switch (viewState()) {
+  @case ('anonymous') {
+    <p class="overview__note">Select a dev user to begin.</p>
+  }
+  @case ('loading') {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading dashboard" />
+  }
+  @case ('content') {
+    <section aria-labelledby="ops-h" class="overview__section">
+      <h2 id="ops-h" class="overview__heading">Active operations</h2>
+      @if (activeCount() === 0) {
+        <p class="overview__note">No active incidents right now.</p>
+      }
+    </section>
+
+    <section aria-labelledby="season-h" class="overview__section">
+      <h2 id="season-h" class="overview__heading">Season</h2>
+    </section>
+  }
+}
