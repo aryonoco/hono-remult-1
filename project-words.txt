@@ -378,3 +378,6 @@ tileerror
 # Phase 3 — operations dashboard test vocabulary
 macrotask
 unstub
+
+# liveQuery SSE keep-alive — X-Accel-Buffering proxy header
+Accel

@@ -32,3 +32,8 @@ export const schemaExtras: readonly string[] = [
 // (`app` schema + `search_path = app, public`); passed to Remult's
 // createPostgresDataProvider so generated SQL is schema-qualified.
 export const SCHEMA = 'app';
+
+// Path of Remult's liveQuery SSE stream, mounted at `<rootPath>/stream`
+// with the default rootPath of `/api`. main.ts attaches a middleware here
+// to keep the long-lived stream alive past Bun's idle timeout.
+export const STREAM_PATH = '/api/stream';
