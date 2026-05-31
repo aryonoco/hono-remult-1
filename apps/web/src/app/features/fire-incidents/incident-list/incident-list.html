@@ -34,7 +34,7 @@
     </div>
 
     @if (!isHandset()) {
-      <div class="table-panel">
+      <div class="table-panel" [attr.data-density]="density()">
         <div class="table-scroll">
           <table
             mat-table
@@ -223,4 +223,16 @@
       </mat-select>
     </mat-form-field>
   }
+
+  <span class="spacer"></span>
+
+  <mat-button-toggle-group
+    aria-label="Row density"
+    [value]="density()"
+    (change)="setDensity($event.value)"
+    hideSingleSelectionIndicator
+  >
+    <mat-button-toggle value="comfortable">Comfortable</mat-button-toggle>
+    <mat-button-toggle value="compact">Compact</mat-button-toggle>
+  </mat-button-toggle-group>
 </ng-template>

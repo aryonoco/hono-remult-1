@@ -60,10 +60,15 @@ interface PageState {
   pageSize: number;
 }
 type ViewState = 'anonymous' | 'loading' | 'error' | 'empty' | 'content';
+type Density = 'comfortable' | 'compact';
 interface DistrictOption {
   id: number;
   name: string;
 }
+
+const DENSITY_KEY = 'fire-list-density';
+const readDensity = (): Density =>
+  localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'comfortable';
 
 const DEFAULT_PAGE_SIZE = 25;
 const LARGE_PAGE_SIZE = 50;
@@ -118,6 +123,8 @@ export class IncidentListComponent {
   protected readonly isTerminalStatus = isTerminalStatus;
   protected readonly spineTone = SPINE_TONE;
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
+  // Row density persists across sessions so a controller's preferred information density is remembered.
+  protected readonly density = signal<Density>(readDensity());
 
   protected readonly displayedColumns = [
     'name',
@@ -301,6 +308,11 @@ export class IncidentListComponent {
   protected setDistrict(districtId: number | 'all'): void {
     this.filters.update((filters) => ({ ...filters, districtId }));
     this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+  }
+
+  protected setDensity(density: Density): void {
+    this.density.set(density);
+    localStorage.setItem(DENSITY_KEY, density);
   }
 
   protected levelLabel(level: IncidentLevel): string {

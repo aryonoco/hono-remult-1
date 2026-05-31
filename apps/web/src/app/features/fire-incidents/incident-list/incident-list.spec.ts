@@ -2,7 +2,10 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatButtonToggleGroupHarness } from '@angular/material/button-toggle/testing';
+import {
+  MatButtonToggleGroupHarness,
+  MatButtonToggleHarness,
+} from '@angular/material/button-toggle/testing';
 import { MatPaginatorHarness } from '@angular/material/paginator/testing';
 import { MatSortHarness } from '@angular/material/sort/testing';
 import { MatTableHarness } from '@angular/material/table/testing';
@@ -540,5 +543,48 @@ describe('IncidentListComponent (severity-forward cells)', () => {
     await nameHeader.click();
     await settle(fixture);
     expect(instance(fixture).sortState().active).toBe('name');
+  });
+});
+
+describe('IncidentListComponent (persisted density toggle)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('defaults to comfortable, switches to compact and persists the choice', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    // Default density.
+    expect(instance(fixture).density()).toBe('comfortable');
+    const wrapper = host(fixture).querySelector('.table-panel');
+    expect(wrapper?.getAttribute('data-density')).toBe('comfortable');
+
+    // Selecting Compact via the toggle harness updates the wrapper and persists to localStorage.
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const compact = await loader.getHarness(MatButtonToggleHarness.with({ text: 'Compact' }));
+    await compact.toggle();
+    await settle(fixture);
+
+    expect(instance(fixture).density()).toBe('compact');
+    expect(host(fixture).querySelector('.table-panel')?.getAttribute('data-density')).toBe(
+      'compact',
+    );
+    expect(localStorage.getItem('fire-list-density')).toBe('compact');
+  });
+
+  it('reads the persisted density back on a fresh component', async () => {
+    localStorage.setItem('fire-list-density', 'compact');
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    expect(instance(fixture).density()).toBe('compact');
+    expect(host(fixture).querySelector('.table-panel')?.getAttribute('data-density')).toBe(
+      'compact',
+    );
   });
 });
