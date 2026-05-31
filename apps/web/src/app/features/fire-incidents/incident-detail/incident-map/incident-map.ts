@@ -18,10 +18,11 @@ import {
   circle as createCircle,
   map as createMap,
   divIcon,
-  featureGroup,
   type LatLngTuple,
   type Layer,
   type Map as LeafletMap,
+  latLng,
+  latLngBounds,
   marker,
   type TileLayer,
   type TileLayerOptions,
@@ -297,8 +298,10 @@ export class IncidentMapComponent {
     this.layer = this.addTileLayer(leafletMap, this.isDark());
     // Metric-only scale bar so distances on the map are legible (MAP-1).
     control.scale({ imperial: false }).addTo(leafletMap);
-    const drawn = pts.flatMap((p) => this.drawPoint(leafletMap, p));
-    this.frame(leafletMap, pts, first, drawn);
+    for (const p of pts) {
+      this.drawPoint(leafletMap, p);
+    }
+    this.frame(leafletMap, pts, first);
     leafletMap.invalidateSize();
   }
 
@@ -345,14 +348,22 @@ export class IncidentMapComponent {
   // Frame the drawn geometry. A lone pin with no area uses the suburb-scale zoom; anything with an extent
   // (or multiple points) fits the union of all bounds, so a 50,000 ha fire fills the view. Reduced-motion
   // users skip the framing animation (MAP-6).
-  private frame(map: LeafletMap, pts: readonly MapPoint[], first: MapPoint, drawn: Layer[]): void {
+  private frame(map: LeafletMap, pts: readonly MapPoint[], first: MapPoint): void {
     const animate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const onlyPin = pts.length === 1 && !(first.areaHa && first.areaHa > 0);
     if (onlyPin) {
       map.setView([first.lat, first.lng], this.singleZoom(), { animate });
       return;
     }
-    const bounds = featureGroup(drawn).getBounds();
+    // Derive the fit bounds from the DATA, not layer.getBounds() — an L.circle only has a projected
+    // extent once the map has a view, so getBounds() throws during init. Each point contributes its
+    // centre; area fires expand to their extent circle's bounds via latLng().toBounds(diameterMetres).
+    const bounds = latLngBounds(pts.map((p) => [p.lat, p.lng] as LatLngTuple));
+    for (const p of pts) {
+      if (p.areaHa && p.areaHa > 0) {
+        bounds.extend(latLng(p.lat, p.lng).toBounds(2 * areaRadiusMetres(p.areaHa)));
+      }
+    }
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING, animate });
     }
