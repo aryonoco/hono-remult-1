@@ -9,10 +9,122 @@
   }
   @case ('content') {
     <section aria-labelledby="ops-h" class="overview__section">
-      <h2 id="ops-h" class="overview__heading">Active operations</h2>
-      @if (activeCount() === 0) {
-        <p class="overview__note">No active incidents right now.</p>
-      }
+      <div class="overview__section-head">
+        <h2 id="ops-h" class="overview__heading">Active operations</h2>
+        <span class="overview__live" data-testid="overview-live">
+          <span class="overview__live-dot" aria-hidden="true"></span>
+          <span>Live</span>
+        </span>
+      </div>
+
+      <div class="overview__kpis">
+        <app-kpi-tile label="Active" [value]="activeCount()" tone="accent" link="/incidents" />
+        <app-kpi-tile
+          label="Going"
+          [value]="goingCount()"
+          [tone]="goingCount() ? 'going' : 'neutral'"
+        />
+        <app-kpi-tile
+          label="Major"
+          [value]="majorCount()"
+          [tone]="majorCount() ? 'going' : 'neutral'"
+        />
+        <div data-testid="kpi-overdue">
+          <app-kpi-tile
+            label="Overdue"
+            [value]="overdueCount()"
+            [tone]="overdueCount() ? 'going' : 'neutral'"
+            [live]="true"
+          />
+        </div>
+        <app-kpi-tile
+          label="Area burning"
+          [value]="totalActiveAreaHa()"
+          unit="ha"
+          tone="accent"
+        />
+      </div>
+
+      <div class="overview__panels">
+        <section aria-labelledby="mix-h" class="overview__panel">
+          <h3 id="mix-h" class="overview__panel-heading">Status mix</h3>
+          <app-status-mix-bar [counts]="statusCounts()" />
+        </section>
+
+        <section aria-labelledby="attention-h" class="overview__panel">
+          <h3 id="attention-h" class="overview__panel-heading">Needs attention</h3>
+          @if (activeCount() === 0) {
+            <p class="overview__note">No active incidents right now.</p>
+          } @else {
+            <ul data-testid="attention-list" class="overview__list" role="list">
+              @for (i of needsAttention(); track i.id) {
+                <li>
+                  <a [routerLink]="['/incidents', i.id]" class="overview__row">
+                    <app-severity-tile
+                      [level]="i.incidentLevel"
+                      [tone]="tone(i.status)"
+                      [major]="i.isMajor"
+                    />
+                    <span class="overview__row-main">
+                      <span class="overview__row-name">{{ i.name }}</span>
+                      @if (i.district?.name; as districtName) {
+                        <span class="overview__row-sub">{{ districtName }}</span>
+                      }
+                    </span>
+                    <app-status-badge [status]="i.status" />
+                    <app-cadence-countdown
+                      [due]="isTerminalStatus(i.status) ? null : (i.nextReportDue ?? null)"
+                      [now]="now()"
+                    />
+                  </a>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
+
+      <section aria-labelledby="activity-h" class="overview__panel">
+        <h3 id="activity-h" class="overview__panel-heading">Recent activity</h3>
+        @if (recentSitreps().length === 0) {
+          <p class="overview__note">No recent situation reports.</p>
+        } @else {
+          <ol data-testid="activity-feed" class="overview__list" role="list">
+            @for (s of recentSitreps(); track s.id) {
+              <li>
+                <a [routerLink]="['/incidents', s.fireIncidentId]" class="overview__row">
+                  <span class="overview__row-main">
+                    <span class="overview__row-name">{{ s.fireName }}</span>
+                    <span class="overview__row-sub">
+                      report {{ s.reportNumber }} · by {{ authorName(s.submittedBy) }}
+                    </span>
+                  </span>
+                  <app-status-badge [status]="s.status" />
+                  <time
+                    class="overview__row-time font-mono tabular-nums"
+                    [attr.datetime]="s.submittedAt?.toISOString()"
+                    >{{ s.submittedAt | date: 'dd/MM/yy, HH:mm' }}</time
+                  >
+                </a>
+              </li>
+            }
+          </ol>
+        }
+      </section>
+
+      <section aria-labelledby="map-h" class="overview__panel">
+        <h3 id="map-h" class="overview__panel-heading">Active incident map</h3>
+        @defer (on viewport; prefetch on idle) {
+          <app-incident-map [points]="mapPoints()" />
+        } @placeholder {
+          <div data-testid="overview-map-placeholder" class="overview__map-placeholder">
+            Map — scroll to load.
+          </div>
+        }
+        @if (mapOverflow()) {
+          <p class="overview__note">+{{ mapOverflow() }} more active not plotted</p>
+        }
+      </section>
     </section>
 
     <section aria-labelledby="season-h" class="overview__section">

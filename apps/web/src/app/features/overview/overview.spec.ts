@@ -1,16 +1,33 @@
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import {
+  type ComponentFixture,
+  DeferBlockBehavior,
+  DeferBlockState,
+  TestBed,
+} from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { type CurrentUser, DEV_USERS, District, FireIncident } from '@workspace/shared-domain';
+import {
+  type CurrentUser,
+  DEV_USERS,
+  District,
+  FireIncident,
+  FireStatus,
+  IncidentLevel,
+  SituationReport,
+} from '@workspace/shared-domain';
 import { InMemoryDataProvider, remult } from 'remult';
 import { findAxeViolations } from '../../../testing/axe-helper';
 import { DevAuthService } from '../../core/dev-auth.service';
 import { OverviewComponent } from './overview';
 
 const ADMIN = DEV_USERS[0]!; // admin, districtId null
+// A fixed clock anchor so cadence countdowns and overdue ordering are deterministic.
+const NOW = new Date('2026-01-15T12:00:00Z');
+const SIX_MIN_MS = 6 * 60 * 1000;
 
-// matchMedia is absent in jsdom; the IncidentMapComponent's ThemeService consults it. Stub it (test-only).
-function stubMatchMedia(): void {
+// jsdom lacks `matchMedia` (the IncidentMapComponent's ThemeService consults it) and `IntersectionObserver`
+// (Angular's `@defer (prefetch on idle)` registers one). Stub both (test-only).
+function stubBrowserApis(): void {
   vi.stubGlobal(
     'matchMedia',
     vi.fn().mockReturnValue({
@@ -22,6 +39,15 @@ function stubMatchMedia(): void {
       removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
     }),
+  );
+  vi.stubGlobal(
+    'IntersectionObserver',
+    vi.fn().mockImplementation(() => ({
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+      takeRecords: vi.fn().mockReturnValue([]),
+    })),
   );
 }
 
@@ -36,6 +62,84 @@ async function seedDistricts(): Promise<void> {
   ]);
 }
 
+interface FireSeed {
+  id: string;
+  name: string;
+  status: FireStatus;
+  districtId?: number;
+  incidentLevel?: IncidentLevel;
+  isMajor?: boolean;
+  fireAreaHectares?: number;
+  latitude?: number;
+  longitude?: number;
+  nextReportDue?: Date | null;
+  financialYear?: number;
+}
+
+// Insert via the repo (lifecycle hook sets server-managed defaults), then patch the few server-managed
+// fields the dashboard reads (`nextReportDue`/`financialYear`/coordinates/`isMajor`) to exact test values.
+// `allowApiUpdate:false` is an API-layer gate, not enforced on a direct admin repo.update in a unit test.
+async function seedFire(seed: FireSeed): Promise<void> {
+  const repo = remult.repo(FireIncident);
+  const insert: Partial<FireIncident> = {
+    id: seed.id,
+    name: seed.name,
+    status: seed.status,
+    districtId: seed.districtId ?? 12,
+    incidentLevel: seed.incidentLevel ?? IncidentLevel.levelOne,
+    reportedAt: new Date('2026-01-10T00:00:00Z'),
+    isMajor: seed.isMajor ?? false,
+  };
+  if (seed.fireAreaHectares !== undefined) {
+    insert.fireAreaHectares = seed.fireAreaHectares;
+  }
+  if (seed.latitude !== undefined) {
+    insert.latitude = seed.latitude;
+  }
+  if (seed.longitude !== undefined) {
+    insert.longitude = seed.longitude;
+  }
+  if (seed.isMajor) {
+    insert.declaredBySource = 'Regional Controller';
+    insert.declaredByTimestamp = new Date('2026-01-10T01:00:00Z');
+  }
+  const created = await repo.insert(insert);
+  await repo.update(created.id, {
+    nextReportDue: seed.nextReportDue === undefined ? null : seed.nextReportDue,
+    financialYear: seed.financialYear ?? 2026,
+  });
+}
+
+interface SitrepSeed {
+  id: string;
+  fireIncidentId: string;
+  fireName: string;
+  reportNumber: number;
+  submittedAt: Date;
+}
+
+function seedSitrep(seed: SitrepSeed): void {
+  const provider = remult.dataProvider as InMemoryDataProvider;
+  // Sitrep insert recomputes the parent fire's cadence and author; for the activity-feed assertions we only
+  // need rows that read back, so write the row directly into the in-memory store (bypassing the hook).
+  const store = provider.rows as { situationReports?: Record<string, unknown>[] };
+  store.situationReports ??= [];
+  store.situationReports.push({
+    id: seed.id,
+    fireIncidentId: seed.fireIncidentId,
+    fireName: seed.fireName,
+    reportNumber: seed.reportNumber,
+    status: FireStatus.going,
+    submittedBy: 'op-12-1',
+    submittedAt: seed.submittedAt.toISOString(),
+    districtId: 12,
+    isParentDeleted: false,
+    personnel: 0,
+    vehicles: 0,
+    aircraft: 0,
+  });
+}
+
 async function setup(user: CurrentUser | undefined): Promise<ComponentFixture<OverviewComponent>> {
   const devAuthStub = {
     currentUser: () => user,
@@ -44,6 +148,9 @@ async function setup(user: CurrentUser | undefined): Promise<ComponentFixture<Ov
   };
   TestBed.configureTestingModule({
     imports: [OverviewComponent],
+    // The overview map is wrapped in `@defer (on viewport)`; jsdom has no IntersectionObserver, so defer
+    // blocks are driven manually and rendered to Complete in `settle` when the content state is reached.
+    deferBlockBehavior: DeferBlockBehavior.Manual,
     providers: [
       provideRouter([]),
       { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
@@ -55,6 +162,11 @@ async function setup(user: CurrentUser | undefined): Promise<ComponentFixture<Ov
   await fixture.whenStable();
   TestBed.tick();
   return fixture;
+}
+
+// Pin the component's ticking clock so cadence countdowns and overdue ordering are deterministic.
+function setNow(fixture: ComponentFixture<OverviewComponent>, when: Date): void {
+  instance(fixture).now.set(when);
 }
 
 function html(fixture: ComponentFixture<OverviewComponent>): HTMLElement {
@@ -76,21 +188,65 @@ async function settle(fixture: ComponentFixture<OverviewComponent>): Promise<voi
   await macrotask();
   await fixture.whenStable();
   TestBed.tick();
+  await macrotask();
+  await fixture.whenStable();
+  TestBed.tick();
+  await macrotask();
+  await fixture.whenStable();
+  TestBed.tick();
 }
 
-// `liveQuery` (needs-attention + recent sitreps) opens an SSE channel for change push. jsdom has no
-// `EventSource`, so the subscription connection is neutralised to a no-op; the initial items still flow
-// from the in-memory provider's load. (Mirrors `incident-list.spec.ts`.)
+// Render any `@defer` blocks (the overview map) to their Complete state so the deferred component mounts.
+async function renderDeferBlocks(fixture: ComponentFixture<OverviewComponent>): Promise<void> {
+  const blocks = await fixture.getDeferBlocks();
+  await Promise.all(blocks.map((block) => block.render(DeferBlockState.Complete)));
+  TestBed.tick();
+}
+
+// `liveQuery` (needs-attention + recent sitreps) is served over the REST transport, not the local data
+// provider — its initial load is a POST to `…?__action=liveQuery-…` and change push uses an SSE channel.
+// jsdom has neither, so the SSE connection is a no-op and the initial-load POST is fulfilled by running the
+// equivalent query against the seeded in-memory provider, returning JSON rows (what `setAllItems` expects).
 const openConnectionSpy = vi.fn(() =>
   Promise.resolve({ subscribe: () => Promise.resolve(() => undefined), close: () => undefined }),
 );
 
+const LIVE_QUERY_ACTION = '__action=liveQuery-';
+
+async function liveQueryRows(url: string): Promise<unknown[]> {
+  if (url.includes('situationReports')) {
+    const repo = remult.repo(SituationReport);
+    const items = await repo.find({ orderBy: { submittedAt: 'desc' }, limit: 8 });
+    return items.map((item) => repo.toJson(item));
+  }
+  const repo = remult.repo(FireIncident);
+  const items = await repo.find({
+    where: { status: { $nin: [FireStatus.safe] } },
+    orderBy: { nextReportDue: 'asc' },
+    limit: 10,
+    include: { district: true },
+  });
+  return items.map((item) => repo.toJson(item));
+}
+
+// The liveQuery initial load is a GET (the filter encodes into the URL); change-push/teardown use POST. Both
+// carry `__action=liveQuery-…`, so serve either from the in-memory provider.
+const liveHttpClient = {
+  get: async (url: string): Promise<any> =>
+    url.includes(LIVE_QUERY_ACTION) ? liveQueryRows(url) : [],
+  put: async (_url: string, _data: any): Promise<any> => undefined,
+  delete: async (_url: string): Promise<void> => undefined,
+  post: async (url: string, _data: any): Promise<any> =>
+    url.includes(LIVE_QUERY_ACTION) ? liveQueryRows(url) : [],
+};
+
 beforeEach(() => {
   localStorage.clear();
-  stubMatchMedia();
+  stubBrowserApis();
   openConnectionSpy.mockClear();
   remult.dataProvider = new InMemoryDataProvider();
   remult.apiClient.subscriptionClient = { openConnection: openConnectionSpy };
+  remult.apiClient.httpClient = liveHttpClient;
   remult.user = undefined;
 });
 
@@ -127,5 +283,89 @@ describe('OverviewComponent — states (Task 3.1)', () => {
     expect(html(fixture).querySelector('[aria-labelledby="season-h"]')).not.toBeNull();
 
     expect(await findAxeViolations(html(fixture))).toEqual([]);
+  });
+});
+
+async function seedOperational(): Promise<void> {
+  await seedDistricts();
+  // A — going, level 3, major, overdue by 6 min, with coordinates (most urgent).
+  await seedFire({
+    id: 'fire-a',
+    name: 'Otway Ridge',
+    status: FireStatus.going,
+    incidentLevel: IncidentLevel.levelThree,
+    isMajor: true,
+    fireAreaHectares: 1240,
+    latitude: -38.5,
+    longitude: 143.5,
+    nextReportDue: new Date(NOW.getTime() - SIX_MIN_MS),
+  });
+  // B — contained, level 2, with coordinates, not overdue.
+  await seedFire({
+    id: 'fire-b',
+    name: 'Latrobe Gully',
+    status: FireStatus.contained,
+    incidentLevel: IncidentLevel.levelTwo,
+    districtId: 18,
+    fireAreaHectares: 380,
+    latitude: -38.2,
+    longitude: 146.4,
+    nextReportDue: new Date(NOW.getTime() + 4 * 60 * 60 * 1000),
+  });
+  // C — safe (terminal): excluded from the active set.
+  await seedFire({
+    id: 'fire-c',
+    name: 'Old Burn',
+    status: FireStatus.safe,
+    fireAreaHectares: 12,
+    nextReportDue: null,
+  });
+  seedSitrep({
+    id: 'sr-1',
+    fireIncidentId: 'fire-a',
+    fireName: 'Otway Ridge',
+    reportNumber: 3,
+    submittedAt: new Date('2026-01-15T11:30:00Z'),
+  });
+}
+
+describe('OverviewComponent — operational surface (Task 3.2)', () => {
+  it('renders KPIs, status-mix, ordered needs-attention, activity and the map', async () => {
+    remult.user = { ...ADMIN };
+    await seedOperational();
+    const fixture = await setup({ ...ADMIN });
+    setNow(fixture, NOW);
+    await settle(fixture);
+    await renderDeferBlocks(fixture);
+    setNow(fixture, NOW);
+    TestBed.tick();
+
+    const root = html(fixture);
+    // Five KPI tiles in the strip.
+    expect(root.querySelectorAll('app-kpi-tile')).toHaveLength(5);
+    // Active count excludes the terminal fire.
+    expect(instance(fixture).activeCount()).toBe(2);
+    expect(instance(fixture).overdueCount()).toBe(1);
+    // Overdue tile exposes a polite live region.
+    const overdueTile = root.querySelector('[data-testid="kpi-overdue"]');
+    expect(overdueTile?.querySelector('[role=status]')).not.toBeNull();
+
+    // Status-mix bar present.
+    expect(root.querySelector('app-status-mix-bar')).not.toBeNull();
+
+    // Needs-attention: most-overdue fire (A) is first.
+    const firstRow = root.querySelector('[data-testid="attention-list"] a');
+    expect(firstRow?.getAttribute('href')).toBe('/incidents/fire-a');
+    expect(firstRow?.textContent).toContain('Otway Ridge');
+
+    // Recent-activity feed renders the sitrep author by name (never the raw id).
+    const activity = root.querySelector('[data-testid="activity-feed"]');
+    expect(activity).not.toBeNull();
+    expect(activity?.textContent).not.toContain('op-12-1');
+
+    // The deferred map mounted.
+    expect(root.querySelector('app-incident-map')).not.toBeNull();
+
+    expect(await findAxeViolations(root)).toEqual([]);
   });
 });

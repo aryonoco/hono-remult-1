@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,6 +11,7 @@ import {
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { RouterLink } from '@angular/router';
 import {
   computeFinancialYear,
   District,
@@ -30,7 +32,14 @@ import { ResultAsync } from 'neverthrow';
 import { type EntityFilter, remult } from 'remult';
 import { DevAuthService } from '../../core/dev-auth.service';
 import { canCreateIncident, canViewDistrictRollup } from '../../shared/auth/permissions';
+import { CadenceCountdownComponent } from '../../shared/components/cadence-countdown/cadence-countdown';
+import { KpiTileComponent } from '../../shared/components/kpi-tile/kpi-tile';
+import { SeverityTileComponent } from '../../shared/components/severity-tile/severity-tile';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge';
+import { StatusMixBarComponent } from '../../shared/components/status-mix-bar/status-mix-bar';
 import type { MapPoint } from '../../shared/ui/tone-classes';
+import { isTerminalStatus } from '../../shared/util/fire-status';
+import { IncidentMapComponent } from '../fire-incidents/incident-detail/incident-map/incident-map';
 
 const TICK_MS = 60_000; // re-run server aggregates each minute (active set is server-derived)
 const MAP_CAP = 500; // bounded map fetch (peak season can be hundreds active)
@@ -50,8 +59,192 @@ interface RegionRow {
 @Component({
   selector: 'app-overview',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, MatProgressBarModule /* + tiles/badges/map added in 3.2/3.3 */],
+  imports: [
+    DatePipe,
+    RouterLink,
+    MatIconModule,
+    MatProgressBarModule,
+    KpiTileComponent,
+    StatusMixBarComponent,
+    SeverityTileComponent,
+    CadenceCountdownComponent,
+    StatusBadgeComponent,
+    IncidentMapComponent,
+  ],
   templateUrl: './overview.html',
+  styles: `
+    :host {
+      display: block;
+    }
+
+    .overview__title {
+      margin: 0 0 1.25rem;
+      font-family: var(--font-display);
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      scroll-margin-top: 5rem;
+    }
+
+    .overview__section {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      container-type: inline-size;
+    }
+
+    .overview__section + .overview__section {
+      margin-top: 1.5rem;
+    }
+
+    .overview__section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .overview__heading {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.125rem;
+      font-weight: 700;
+    }
+
+    .overview__live {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .overview__live-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 9999px;
+      background: var(--color-status-going);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .overview__live-dot {
+        animation: overview-pulse 2s ease-in-out infinite;
+      }
+    }
+
+    @keyframes overview-pulse {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.35;
+      }
+    }
+
+    .overview__kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+      gap: 0.75rem;
+    }
+
+    .overview__panels {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    @container (min-width: 48rem) {
+      .overview__panels {
+        grid-template-columns: minmax(0, 18rem) 1fr;
+      }
+    }
+
+    .overview__panel {
+      padding: 1rem 1.25rem;
+      border: var(--app-grid-border);
+      border-radius: var(--app-radius-card);
+      background: var(--mat-sys-surface-container-low);
+      color: var(--mat-sys-on-surface);
+    }
+
+    .overview__panel-heading {
+      margin: 0 0 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .overview__list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .overview__row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.625rem;
+      border-radius: var(--app-radius-card);
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .overview__row:hover {
+      background: var(--mat-sys-surface-container-high);
+    }
+
+    .overview__row:focus-visible {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: 2px;
+    }
+
+    .overview__row-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      margin-right: auto;
+    }
+
+    .overview__row-name {
+      font-weight: 600;
+    }
+
+    .overview__row-sub {
+      font-size: 0.75rem;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .overview__row-time {
+      font-size: 0.75rem;
+      color: var(--mat-sys-on-surface-variant);
+      white-space: nowrap;
+    }
+
+    .overview__note {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .overview__map-placeholder {
+      display: grid;
+      place-items: center;
+      height: 14rem;
+      border-radius: var(--app-radius-card);
+      border: 1px dashed var(--mat-sys-outline-variant);
+      color: var(--mat-sys-on-surface-variant);
+    }
+  `,
 })
 export class OverviewComponent {
   private readonly devAuth = inject(DevAuthService);
@@ -183,9 +376,7 @@ export class OverviewComponent {
   protected levelLabel(l: IncidentLevel): string {
     return INCIDENT_LEVEL_LABELS[l];
   }
-  protected isTerminal(s: FireStatus): boolean {
-    return (TERMINAL_STATUSES as readonly FireStatus[]).includes(s);
-  }
+  protected readonly isTerminalStatus = isTerminalStatus;
   private zeroCounts(): Record<FireStatus, number> {
     return Object.fromEntries(FIRE_STATUS_VALUES.map((s) => [s, 0])) as Record<FireStatus, number>;
   }
