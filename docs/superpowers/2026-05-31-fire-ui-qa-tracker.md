@@ -31,24 +31,81 @@
   contract (§A.8 of the plan).
 - Severity colour never the sole signal; per-state classes are whole static literals.
 
-## Confirmed issues (seed — real-browser verified)
+## Issues — fix all (38: 5 blocker, 16 major, 14 minor, 3 polish)
 
-- [ ] **LIST-1 (blocker): Comfortable/Compact density toggle has NO effect.** Compact renders identically to
-      Comfortable — the component's `[data-density=compact] td { padding-block }` is overridden by Material's
-      unlayered `mat-cell` padding. Fix with the Material density mechanism (`mat.table-overrides`
-      row/header heights, or a scoped density theme), not CSS padding. (`incident-list.{ts,html,css}`)
-- [ ] **MAP-1 (major): maps lack symbology and are meaningless.** No legend explaining pin colour→severity/status,
-      no incident-name label/popup, plain dots. Add a legend + level-bearing toned markers + name popup/tooltip +
-      a sensible default view. (`incident-map.ts`)
-- [ ] **DATA-1 (major): LiveQuery "Event Source Error" in the browser console.** Live-update channel (SSE) errors;
-      root-cause (api mount / `proxy.conf.json` SSE forwarding / client) and fix so the dashboard "LIVE" indicator
-      is honest. (`apps/api/src/main.ts`, `apps/web/proxy.conf.json`, `remult.provider.ts`)
-- [ ] **LIST-2 (minor): area bar barely visible / unclear meaning** in the Area column. (`incident-list`)
+Raw audit detail (root cause + verbose fix per issue) is at `.superpowers/qa-audit-raw.json` (gitignored).
 
-## Audited issues (from QA audit workflow wf_eee2b159 — appended on completion)
+### Incident List
 
-_Pending: the parallel audit (list · dashboard · detail · maps · forms/dialogs · theming/responsive/a11y · livequery)
-will enumerate the remaining issues here, each with severity + root cause + fix + files._
+- [ ] **LIST-1 (blocker): Comfortable/Compact density toggle has NO effect** — Compact renders identically; `[data-density=compact] td { padding-block }` loses to Material's unlayered `.mat-mdc-cell` padding (header `th` not covered either). Fix: drive density through `mat.table-overrides()` row/header heights or a scoped density theme keyed off the signal — not `td`/`::ng-deep`/`!important` CSS. (`incident-list.{ts,html,css}`, `styles.scss`)
+- [ ] **LIST-3 (major): Column widths/alignment unbalanced** — Name eats ~30-40%, numeric columns cramped, area-bar competes with the right-aligned number, no separators; breaks at 820px. Fix: `table-layout: fixed` with per-column widths via `<colgroup>`/header widths + a subtle cell divider. (`incident-list.{html,css}`)
+- [ ] **LIST-4 (major): Sort affordance unclear; sortable vs non-sortable headers indistinguishable** — No cursor/icon cue until first click. Fix: persistent sort indicator on `mat-sort-header` columns, mark non-sortable headers distinct, verify `aria-sort`. (`incident-list.{html,css}`)
+- [ ] **LIST-5 (major): Filter bar reflows poorly at tablet/handset** — selects + toggle groups + spacer wrap unpredictably, labels truncate. Fix: `≤768px`/`≤30rem` rule → stacked/2-col grid, drop the spacer narrow, shrink field min-width, ensure toggle aria-labels. (`incident-list.{html,css}`)
+- [ ] **LIST-6 (major): LiveQuery subscription has no error handler; SSE failures fail silently** — list can stay loading/stale on SSE drop. Fix: pass the error callback to set an error signal + retry (pairs with DATA-1). (`incident-list.ts`)
+- [ ] **LIST-2 (minor): Area bar barely visible / meaning unclear** — 4px low-contrast `bg-primary` bar, no legend/aria. Fix: taller/contrast status-tone bar + per-bar `aria-label="N hectares"` + one-line scale caption, or remove. (`incident-list.{html,css}`)
+- [ ] **LIST-7 (minor): Severity-tile oversized vs row height** — hardcoded `h-10 w-10` doesn't centre in ~48px row. Fix: `h-8 w-8` + centre cell content. (`severity-tile.ts`, `incident-list.html`)
+- [ ] **LIST-8 (minor): Empty/loading/error states lack polish, semantics, live announcement** — bare progress bar + plain panels. Fix: icon + copy + retry on error/empty, `role="status"`/`aria-live` on empty, skeleton/loading affordance. (`incident-list.{html,ts,css}`)
+- [ ] **LIST-9 (minor): Handset card view ignores the density signal** — cards identical when toggling. Fix: thread `[attr.data-density]` onto `.cards` with compact rules (or scope toggle label to "Table density"). (`incident-list.{html,css}`)
+
+### Dashboard
+
+- [ ] **DASH-1 (major): "Status mix" panel renders tall/empty beside Needs-attention** — fixed `minmax(0,18rem)` column holds only a 12px bar + short legend while the right list runs ~10 rows → large void. Fix: `align-items:start` on the grid (or co-locate status-mix with the KPI band) so columns balance. (`overview.ts` inline styles, `overview.html`)
+- [ ] **DASH-2 (major): Overdue KPI tile shows hardcoded "LIVE" even when SSE is down** — `[live]="true"` static, decoupled from connectivity. Fix: a `liveConnected` signal set from liveQuery next/error callbacks, bind `[live]="liveConnected()"`. (`overview.ts`, `overview.html`)
+- [ ] **DASH-3 (major): Every active incident reads as overdue ("−Nd")** — needs-attention sorts overdue-desc and seeded `nextReportDue` is in the past → all rows large-negative, diluting urgency. Fix: verify seed cadence/`statusAsAt` so active fires have realistic future due times; overdue should be the exception. (`overview.ts`; seed data)
+- [ ] **DASH-4 (minor): KPI tiles render as links with no hover/affordance** — plain `no-underline` `<a>`. Fix: `hover:bg-surface-container-high transition-colors` + visible focus ring on the tile anchor. (`kpi-tile.ts`)
+- [ ] **DASH-5 (polish): Map overflow note "+N more not plotted" lacks priority** — muted text. Fix: promote to an inline warning chip (contained-tone bg + icon). (`overview.html`, `overview.ts`)
+- [ ] **DASH-6 (polish): Live-dot pulse relies solely on the reduced-motion guard** — verify the dot is static under `prefers-reduced-motion` on first paint (browser check; likely no code change). (`overview.ts`)
+
+### Incident Detail
+
+- [ ] **DETAIL-1 (blocker): Hero cadence countdown is visually weak/invisible** — plain inline mono text in the meta grid, primary urgency signal lost. Fix: a styled `.detail-hero__cadence` chip with status-tone-aware highlight when overdue/soon. (`incident-detail.{html,ts}`)
+- [ ] **DETAIL-2 (major): Zero-value stat tiles read as data gaps** — `Personnel 0`, `Vehicles 0/0` look broken. Fix: `stat--zero` muted treatment + "(none assigned)" sub-label. (`incident-detail.{html,ts}`)
+- [ ] **DETAIL-3 (major): Timeline duplicates sitreps (timeline AND accordion); crowded** — contradicts the spec. Fix: drop sitrep events from the timeline (keep lifecycle + final-report) since the accordion lists them, or visually demote. (`incident-timeline.ts`, `incident-detail.html`)
+- [ ] **DETAIL-4 (major): Empty states passive (no icon/action)** — "No situation reports yet." / "No coordinates recorded." Fix: icon + `role="status"` + CTA, styled `panel--empty`. (`incident-detail.{html,ts}`, `incident-map.ts`)
+- [ ] **DETAIL-5 (major): Final-report sign-off badge border uses non-token `border-current/25`** — won't track dark mode. Fix: tokenised border via `color-mix(... var(--color-status-safe) ...)` or bound `[style.border-color]`. (`final-report-panel.ts`)
+- [ ] **DETAIL-6 (minor): Hero wraps with a large blank indent under flex-wrap** — airy gap at tablet. Fix: `__lead` `flex-shrink:0`, `__meta` `flex:1 1 auto` tighter `minmax`, single-column mobile stack. (`incident-detail.ts`)
+- [ ] **DETAIL-7 (minor): Stat grid oversizes at handset** — `minmax(8rem,1fr)` → 1 shouting column at 390px. Fix: tighten `minmax`, force 2 cols, reduce `dd` font under `≤480/768px`. (`incident-detail.ts`)
+- [ ] **DETAIL-8 (minor): Detail lacks responsive tightening + surface/elevation hierarchy** — desktop-first, flat uniform panels. Fix: `≤640px` rules (stack hero/grid, tighten gaps) + subtle Material elevation/surface-container scale on key panels. (`incident-detail.ts`)
+- [ ] **DETAIL-9 (minor): Programmatic-focus h1 has no visible focus indicator** — route-change focus lands on `<h1 tabindex=-1 outline:none>`. Fix: `.detail-title:focus-visible` ring. (`incident-detail.ts`)
+
+### Maps
+
+- [ ] **MAP-1 (major): Maps lack symbology/legend and meaning** — toned pins with no legend, scale, or name affordance (detail + overview). Fix: in-component legend (toned swatch + tone label) + `L.control.scale({imperial:false})` + sensible default view. (`incident-map.ts`, `overview.html`)
+- [ ] **MAP-2 (major): Timeline event dots reference undefined `bg-status-event` utility** — lifecycle dots render unstyled IF the token wasn't generated. Fix: confirm `--color-status-event` exists in `tailwind.css` (Phase 0 added it) → if the utility still isn't generated, add `@source inline('bg-status-event')` or remap to an existing token. (`incident-timeline.ts`, `tailwind.css`)
+- [ ] **MAP-3 (major): Markers/SVG dots have no semantic text equivalent (colour-only)** — marker title is name-only; `aria-hidden` SVG fallback exposes nothing. Fix: marker `title`/`alt` = `"{name} — {status}"`; SVG fallback gets a per-point accessible list/coords. (`incident-map.ts`)
+- [ ] **MAP-4 (major): Map canvas focus ring low-contrast/clipped in dark mode** — primary lilac ring ~3:1 on dark, may clip. Fix: higher-contrast token (`secondary`/`inverse-primary`) for `.incident-map__canvas:focus-visible`, dedupe the outline rule, ensure not clipped. (`incident-map.ts`, `styles.scss`)
+- [ ] **MAP-5 (minor): Wrong radius token `--radius-card`** — project convention is `--app-radius-card`. Fix: replace both occurrences. (`incident-map.ts`)
+- [ ] **MAP-6 (minor): Leaflet pan/zoom ignores prefers-reduced-motion** — Fix: read `matchMedia('(prefers-reduced-motion: reduce)')`, pass `animate:false`. (`incident-map.ts`)
+- [ ] **MAP-7 (minor): Map attribution links not keyboard-accessible / low-contrast** — Fix: style `.leaflet-control-attribution a` with `--mat-sys` colours + visible focus (global, unscoped). (`incident-map.ts`, `styles.scss`)
+- [ ] **MAP-8 (minor): Map container border too faint in dark mode** — `outline-variant` blends in. Fix: use `--mat-sys-outline` for the canvas/SVG border. (`incident-map.ts`)
+
+### Forms & Dialogs
+
+- [ ] **FORM-1 (major): Material form fields don't bind `aria-invalid`** — errors render but field not marked invalid for SR. Fix: `[attr.aria-invalid]` (true-or-absent) per invalid field in `dynamic-form`. (`dynamic-form.ts`)
+- [ ] **FORM-2 (major): Dialog initial focus not managed** — opens focusing Cancel, not the primary action. Fix: `{ autoFocus: 'first-tabbable', restoreFocus: true }` (or order primary first). (`escalate-dialog.ts`, `confirm-dialog.ts`, `confirm-reason-dialog.ts`)
+- [ ] **FORM-3 (major): Dialog action buttons lack a clear focus ring (esp. dark)** — Fix: 2px primary `:focus-visible` ring via `mat.*-overrides()`/strong-focus, verified both themes. (`styles.scss`, `escalate-dialog.ts`)
+- [ ] **FORM-4 (minor): mat-select text/options not consistently themed to on-surface** — Fix: `mat.select-overrides()` for text colour (filters + dev-user-switcher). (`styles.scss`, `dev-user-switcher.ts`)
+- [ ] **FORM-5 (minor): Form "ready" precedes async option resolution** — brief incomplete form. Fix: gate ready on `!districtsResource.isLoading()` (and parent resource for sitrep). (`incident-form.ts`, `situation-report-form.ts`)
+
+### Theming / Responsive / A11y / Transport
+
+- [ ] **DATA-1 (blocker): LiveQuery "Event Source Error" — SSE never connects through the dev proxy** — initial REST liveQuery works but the SSE change channel errors → "LIVE" is dishonest, updates stale. Fix: configure `proxy.conf.json` `/api` for streaming (buffering off / chunked) + verify Hono SSE headers + the api SSE route. (`apps/web/proxy.conf.json`, `apps/api/src/main.ts`, `remult.provider.ts`)
+- [ ] **THEME-1 (major): Moon "going" status bg hue reads magenta, not danger-red** — `--color-status-going-bg` Moon `hsl(300 20% 23%)` is in the purple zone. Fix: shift to a love-aligned hue (~`hsl(343 30% 25%)`), re-verify AA (update the contrast spec). (`tailwind.css`, `rose-pine-contrast.spec.ts`)
+- [ ] **THEME-2 (major): Status-tone-as-background contrast (hero/badges) unverified for both themes** — only the inverse pairing is AA-checked. Fix: extend `rose-pine-contrast.spec.ts` with the surface-text-on-status-bg pairs and adjust failures. (`rose-pine-contrast.spec.ts`, `incident-detail.ts`)
+- [ ] **THEME-3 (minor): Material focus rings double up / clip on small screens** — global `:focus-visible` + `strong-focus-indicators` can stack/overflow. Fix: reconcile to a single ring, reduce `outline-offset` under ~512px. (`styles.scss`)
+- [ ] **THEME-4 (minor): Handset app bar truncates dev-user-switcher + theme toggle** — `max-width:50vw` switcher overflows at 390px. Fix: `≤640px`/`≤512px` rules shrinking switcher width + app-bar gap. (`dev-user-switcher.ts`, `app.css`)
+- [ ] **THEME-5 (minor): Status-mix-bar legend weak for CVD; order ≠ bar order** — 8px swatches, mismatched order. Fix: enlarge swatches, render legend in `segments()` order, label carries meaning. (`status-mix-bar.ts`)
+- [ ] **THEME-6 (polish): Cadence overdue uses Unicode minus `−`** — inconsistent w/ "in Xm", poor copy-paste. Fix: explicit overdue format (`"{x} overdue"`) or document the glyph. (`cadence-countdown.ts`)
+
+## Workstream: fire-as-area (NEW — design + incorporate)
+
+A bushfire is an **area, not a dot**. The original EMI app (`/home/vscode/projects/tarnook-monorepo/apps/emergency-incidents`)
+appears to model fire **boundary polygons / geometry**. Investigate how EMI represents fire location + area, then
+design how to incorporate proper area depiction into this showcase — entity geometry, seed polygons, and map rendering
+(draw the fire **boundary/extent**, not just a pin). A design-investigation agent (dispatched) produces the proposal;
+append it here as `FIRE-AREA-*` tasks. Likely cross-cutting (shared-domain field + Atlas migration + seed generator +
+Leaflet polygon layer) — coordinate with the fixtures owner; keep AA + the quality bar. **This supersedes MAP-1's
+"dot + legend" minimalism where polygons are available** (still legend + symbology, but over real extents).
 
 ## Verified-fixed log
 
