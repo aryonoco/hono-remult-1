@@ -25,7 +25,7 @@ import { SPINE_TONE } from '../../ui/tone-classes';
       </div>
     }
     <ng-template #content>
-      <span class="absolute inset-y-0 left-0 w-[3px]" [class]="spineClass()" aria-hidden="true"></span>
+      <span class="absolute inset-y-0 left-0 w-0.75" [class]="spineClass()" aria-hidden="true"></span>
       <span class="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">{{
         label()
       }}</span>
