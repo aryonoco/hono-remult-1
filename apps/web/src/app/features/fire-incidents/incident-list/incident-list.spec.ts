@@ -588,3 +588,53 @@ describe('IncidentListComponent (persisted density toggle)', () => {
     );
   });
 });
+
+describe('IncidentListComponent (handset severity cards)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('renders stacked severity cards instead of the table on a handset', async () => {
+    remult.user = { ...ADMIN };
+    await seedDistrict();
+    await seedFire({
+      id: 'going-l3',
+      name: 'Otway Ridge',
+      status: FireStatus.going,
+      incidentLevel: IncidentLevel.levelThree,
+      isMajor: true,
+      fireAreaHectares: 1240,
+      nextReportDue: new Date('2026-01-15T00:00:00Z'),
+      financialYear: CURRENT_FY,
+    });
+    await seedFire({
+      id: 'safe-stale',
+      name: 'Old Burn',
+      status: FireStatus.safe,
+      fireAreaHectares: 12,
+      nextReportDue: new Date('2026-01-01T00:00:00Z'),
+      financialYear: CURRENT_FY,
+    });
+    // Force the handset breakpoint.
+    const fixture = await createComponent({ ...ADMIN }, true);
+    await settle(fixture);
+
+    const root = host(fixture);
+    // The table is replaced by cards; each card is a routerLink to the incident.
+    expect(root.querySelector('table')).toBeNull();
+    const cards = root.querySelectorAll('a.card');
+    expect(cards.length).toBe(2);
+    expect((cards[0] as HTMLAnchorElement).getAttribute('href')).toContain('/incidents/');
+    // Each card carries the severity primitives.
+    expect(root.querySelector('a.card app-severity-tile')).not.toBeNull();
+    expect(root.querySelector('a.card app-status-badge')).not.toBeNull();
+    expect(root.querySelector('a.card app-cadence-countdown')).not.toBeNull();
+    expect(root.textContent).toContain('Otway Ridge');
+
+    // The filter bar and paginator remain above/below the cards.
+    expect(root.querySelector('[aria-label="Financial year"]')).not.toBeNull();
+    expect(root.querySelector('mat-paginator')).not.toBeNull();
+
+    expect(await findAxeViolations(root)).toEqual([]);
+  });
+});

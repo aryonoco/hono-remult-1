@@ -178,6 +178,49 @@
           (page)="onPage($event)"
         />
       </div>
+    } @else {
+      <div class="cards">
+        @for (incident of rows(); track incident.id) {
+          <a class="card" [routerLink]="['/incidents', incident.id]">
+            <app-severity-tile
+              [level]="incident.incidentLevel"
+              [tone]="tone(incident.status)"
+              [major]="incident.isMajor"
+            />
+            <div class="card__body">
+              <div class="card__top">
+                <span class="card__name">{{ incident.name }}</span>
+                <app-status-badge [status]="incident.status" />
+              </div>
+              <div class="card__meta">
+                <span class="font-mono tabular-nums">{{ incident.globalIncidentId }}</span>
+                · {{ incident.district?.name ?? '—' }} · Reported
+                <span class="font-mono">{{ incident.reportedAt | date: 'dd/MM/yy' }}</span>
+              </div>
+              <div class="card__meta card__meta--row">
+                <app-cadence-countdown
+                  [due]="
+                    isTerminalStatus(incident.status) ? null : (incident.nextReportDue ?? null)
+                  "
+                  [now]="now()"
+                />
+                <span class="area-bar" aria-hidden="true">
+                  <i [style.width.%]="areaPct(incident)"></i>
+                </span>
+              </div>
+            </div>
+          </a>
+        }
+      </div>
+
+      <mat-paginator
+        class="cards-paginator"
+        [length]="total()"
+        [pageSize]="pageState().pageSize"
+        [pageIndex]="pageState().pageIndex"
+        [pageSizeOptions]="pageSizeOptions"
+        (page)="onPage($event)"
+      />
     }
   }
 }

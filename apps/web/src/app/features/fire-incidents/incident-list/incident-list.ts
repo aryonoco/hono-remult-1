@@ -26,8 +26,6 @@ import {
   District,
   FireIncident,
   FireStatus,
-  INCIDENT_LEVEL_LABELS,
-  type IncidentLevel,
   type StatusTone,
   statusTone,
   TERMINAL_STATUSES,
@@ -313,10 +311,6 @@ export class IncidentListComponent {
   protected setDensity(density: Density): void {
     this.density.set(density);
     localStorage.setItem(DENSITY_KEY, density);
-  }
-
-  protected levelLabel(level: IncidentLevel): string {
-    return INCIDENT_LEVEL_LABELS[level];
   }
 
   protected tone(status: FireStatus): StatusTone {
