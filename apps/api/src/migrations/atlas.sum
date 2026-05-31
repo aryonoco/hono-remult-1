@@ -1,4 +1,4 @@
-h1:m4ukQQ7OwUHNQfM4JMvkrFxyNH55JstI+TQsvdszL08=
+h1:nv5A5wKhfZWFkzvGUz10pJYgOv62ErrXczjRL/8WVy8=
 20260528054300_initial.sql h1:pguS8q+sDIwdhNwC3wYLxHiwHrdyHlsFLQauCa4hFFo=
 20260528125801_add_fire_entities.sql h1:nFRk5RTgsjwzi2a3TmgbF52cSPVQ9A1mAckKtotDFmE=
 20260528125802_seed_districts.sql h1:U+YvWvbVeMLwOzA8d5a3Py4dRIUlPTYlxlhN4clmGIM=
@@ -6,3 +6,5 @@ h1:m4ukQQ7OwUHNQfM4JMvkrFxyNH55JstI+TQsvdszL08=
 20260528145650_make_optional_fields_nullable.sql h1:G3VGegv+ko7DcDt1KIg7qtRfsr0q8/l5+WFuRv4uLmw=
 20260529022315_add_signoff_removed_reason.sql h1:earSwPMZflDOfbjRUohdH4h3P3AwMF/10GPPa1y4ZbI=
 20260529112903_drop_tasks.sql h1:ZYbXq2yV7IPayLg0mVOgg8xQgUpsKHwGznzjVYbFqL4=
+20260531124342_enrich_districts.sql h1:++uiMp5cVjmOd8bPU150tawqvXrkBY8MDNo5Y9sMHYc=
+20260531124343_seed_remaining_districts.sql h1:ET3GDh2s1ZzP5R5i1BcSQxFAKUOk6cHzwG5fbgFuVnA=

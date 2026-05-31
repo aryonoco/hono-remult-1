@@ -1,0 +1,253 @@
+{
+  "meta": {
+    "description": "Fire-season model FY2018-FY2026. statewide = target FireIncident count for the year (realistic DEECA/FFMVic/CFA totals), apportioned by districtShareWeights; severity in [0,1] fattens the size tail and drives escalation; clusters are the real megafires placed in their true districts and date windows. anchor is the fixed 'now' (end of the 2025-26 season). Dates are UTC."
+  },
+  "anchor": "2026-05-31",
+  "monthWeights": [
+    { "month": 7, "weight": 1 },
+    { "month": 8, "weight": 1 },
+    { "month": 9, "weight": 2 },
+    { "month": 10, "weight": 4 },
+    { "month": 11, "weight": 8 },
+    { "month": 12, "weight": 16 },
+    { "month": 1, "weight": 24 },
+    { "month": 2, "weight": 22 },
+    { "month": 3, "weight": 14 },
+    { "month": 4, "weight": 6 },
+    { "month": 5, "weight": 2 },
+    { "month": 6, "weight": 1 }
+  ],
+  "districtShareWeights": {
+    "41": 10,
+    "45": 8,
+    "44": 7,
+    "47": 6,
+    "36": 7,
+    "34": 7,
+    "38": 6,
+    "37": 5,
+    "12": 6,
+    "14": 5,
+    "53": 6,
+    "52": 3,
+    "15": 5,
+    "13": 4,
+    "22": 5,
+    "21": 4
+  },
+  "seasons": [
+    {
+      "fy": 2018,
+      "statewide": 1600,
+      "severity": 0.45,
+      "note": "Above normal; St Patrick's Day fires in the south-west (weak La Nina).",
+      "clusters": [
+        {
+          "label": "St Patrick's Day - Far South West",
+          "districtCode": 14,
+          "count": 26,
+          "windowStart": "2018-03-16",
+          "windowEnd": "2018-03-19",
+          "severity": 0.8,
+          "majorShare": 0.5
+        },
+        {
+          "label": "St Patrick's Day - Otway fringe",
+          "districtCode": 12,
+          "count": 14,
+          "windowStart": "2018-03-16",
+          "windowEnd": "2018-03-19",
+          "severity": 0.7,
+          "majorShare": 0.35
+        }
+      ]
+    },
+    {
+      "fy": 2019,
+      "statewide": 2080,
+      "severity": 0.4,
+      "note": "Active, dry (neutral/El Nino-leaning); Gippsland & Bunyip fires March 2019.",
+      "clusters": [
+        {
+          "label": "Yinnar South / Budgeree - Latrobe",
+          "districtCode": 47,
+          "count": 22,
+          "windowStart": "2019-03-01",
+          "windowEnd": "2019-03-12",
+          "severity": 0.75,
+          "majorShare": 0.4
+        },
+        {
+          "label": "Licola - Macalister",
+          "districtCode": 44,
+          "count": 18,
+          "windowStart": "2019-02-25",
+          "windowEnd": "2019-03-15",
+          "severity": 0.8,
+          "majorShare": 0.45
+        },
+        {
+          "label": "Bunyip fringe - Yarra",
+          "districtCode": 53,
+          "count": 12,
+          "windowStart": "2019-03-01",
+          "windowEnd": "2019-03-10",
+          "severity": 0.7,
+          "majorShare": 0.35
+        }
+      ]
+    },
+    {
+      "fy": 2020,
+      "statewide": 3200,
+      "severity": 0.9,
+      "note": "Black Summer - catastrophic East Gippsland (neutral ENSO, strong +IOD).",
+      "clusters": [
+        {
+          "label": "East Gippsland - Snowy",
+          "districtCode": 45,
+          "count": 120,
+          "windowStart": "2019-11-21",
+          "windowEnd": "2020-01-20",
+          "severity": 1,
+          "majorShare": 0.6
+        },
+        {
+          "label": "East Gippsland - Tambo",
+          "districtCode": 41,
+          "count": 95,
+          "windowStart": "2019-11-21",
+          "windowEnd": "2020-01-20",
+          "severity": 1,
+          "majorShare": 0.55
+        },
+        {
+          "label": "Corryong / Walwa - Upper Murray",
+          "districtCode": 36,
+          "count": 70,
+          "windowStart": "2019-12-28",
+          "windowEnd": "2020-01-15",
+          "severity": 0.95,
+          "majorShare": 0.5
+        }
+      ]
+    },
+    {
+      "fy": 2021,
+      "statewide": 620,
+      "severity": 0.12,
+      "note": "Well below normal - first La Nina, very wet (~6,800 ha statewide).",
+      "clusters": []
+    },
+    {
+      "fy": 2022,
+      "statewide": 1070,
+      "severity": 0.18,
+      "note": "Below normal - second La Nina (~12,600 ha).",
+      "clusters": []
+    },
+    {
+      "fy": 2023,
+      "statewide": 650,
+      "severity": 0.12,
+      "note": "Well below normal - third La Nina; major floods, little fire.",
+      "clusters": []
+    },
+    {
+      "fy": 2024,
+      "statewide": 1180,
+      "severity": 0.45,
+      "note": "Above normal - El Nino; Pomonal / Grampians fires February 2024.",
+      "clusters": [
+        {
+          "label": "Pomonal / Bellfield - Midlands",
+          "districtCode": 15,
+          "count": 18,
+          "windowStart": "2024-02-12",
+          "windowEnd": "2024-02-28",
+          "severity": 0.8,
+          "majorShare": 0.45
+        },
+        {
+          "label": "Mt Stapylton / Dadswells - Wimmera",
+          "districtCode": 13,
+          "count": 12,
+          "windowStart": "2024-02-12",
+          "windowEnd": "2024-02-28",
+          "severity": 0.75,
+          "majorShare": 0.4
+        }
+      ]
+    },
+    {
+      "fy": 2025,
+      "statewide": 1370,
+      "severity": 0.8,
+      "note": "Well above normal - Grampians & Little Desert (~251,700 ha).",
+      "clusters": [
+        {
+          "label": "Grampians (Gariwerd) - Midlands",
+          "districtCode": 15,
+          "count": 40,
+          "windowStart": "2024-12-17",
+          "windowEnd": "2025-02-08",
+          "severity": 0.95,
+          "majorShare": 0.55
+        },
+        {
+          "label": "Grampians west - Wimmera",
+          "districtCode": 13,
+          "count": 30,
+          "windowStart": "2024-12-17",
+          "windowEnd": "2025-02-08",
+          "severity": 0.9,
+          "majorShare": 0.5
+        },
+        {
+          "label": "Little Desert - Mallee",
+          "districtCode": 22,
+          "count": 22,
+          "windowStart": "2025-01-27",
+          "windowEnd": "2025-02-12",
+          "severity": 0.85,
+          "majorShare": 0.45
+        }
+      ]
+    },
+    {
+      "fy": 2026,
+      "statewide": 1150,
+      "severity": 0.45,
+      "note": "In progress to 31 May 2026 - elevated risk west/central, Otways, Yarra Ranges, SW Gippsland.",
+      "clusters": [
+        {
+          "label": "Northern Otways - Otway",
+          "districtCode": 12,
+          "count": 16,
+          "windowStart": "2026-01-10",
+          "windowEnd": "2026-02-20",
+          "severity": 0.7,
+          "majorShare": 0.35
+        },
+        {
+          "label": "Yarra Ranges - Yarra",
+          "districtCode": 53,
+          "count": 12,
+          "windowStart": "2026-01-15",
+          "windowEnd": "2026-03-01",
+          "severity": 0.65,
+          "majorShare": 0.3
+        },
+        {
+          "label": "South-west Gippsland - Latrobe",
+          "districtCode": 47,
+          "count": 10,
+          "windowStart": "2026-02-01",
+          "windowEnd": "2026-03-10",
+          "severity": 0.6,
+          "majorShare": 0.3
+        }
+      ]
+    }
+  ]
+}

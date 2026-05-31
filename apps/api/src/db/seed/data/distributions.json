@@ -1,0 +1,181 @@
+{
+  "meta": {
+    "description": "Per-archetype weighted distributions for fuel, cause and detection, the control-agency mix, and the heavy-tailed fire-size buckets. Weights are relative (need not sum to 100). Grounded in DEECA/CFA/AFAC patterns and the long-run statewide cause split."
+  },
+  "archetypeByDistrict": {
+    "12": "remoteForest",
+    "53": "remoteForest",
+    "38": "remoteForest",
+    "36": "remoteForest",
+    "34": "remoteForest",
+    "45": "remoteForest",
+    "41": "remoteForest",
+    "47": "mixedFoothills",
+    "15": "mixedFoothills",
+    "44": "mixedFoothills",
+    "37": "mixedFoothills",
+    "52": "mixedFoothills",
+    "21": "mixedFoothills",
+    "14": "grasslandAg",
+    "22": "semiAridMallee",
+    "13": "semiAridMallee"
+  },
+  "fuel": {
+    "remoteForest": [
+      { "value": "forest", "weight": 70 },
+      { "value": "woodland", "weight": 12 },
+      { "value": "shrubland", "weight": 8 },
+      { "value": "grassland", "weight": 6 },
+      { "value": "pine", "weight": 4 }
+    ],
+    "mixedFoothills": [
+      { "value": "forest", "weight": 48 },
+      { "value": "grassland", "weight": 26 },
+      { "value": "woodland", "weight": 14 },
+      { "value": "pine", "weight": 8 },
+      { "value": "shrubland", "weight": 4 }
+    ],
+    "grasslandAg": [
+      { "value": "grassland", "weight": 50 },
+      { "value": "pine", "weight": 24 },
+      { "value": "woodland", "weight": 12 },
+      { "value": "forest", "weight": 10 },
+      { "value": "shrubland", "weight": 4 }
+    ],
+    "semiAridMallee": [
+      { "value": "malleeHeath", "weight": 44 },
+      { "value": "grassland", "weight": 40 },
+      { "value": "shrubland", "weight": 10 },
+      { "value": "woodland", "weight": 6 }
+    ]
+  },
+  "cause": {
+    "remoteForest": [
+      { "value": "lightning", "weight": 45 },
+      { "value": "deliberateLightingMalicious", "weight": 12 },
+      { "value": "campfireBarbeque", "weight": 10 },
+      { "value": "exhaustChainsaw", "weight": 5 },
+      { "value": "exhaustOther", "weight": 4 },
+      { "value": "burningOffDepartmentalPrescribed", "weight": 4 },
+      { "value": "powerTransmission", "weight": 4 },
+      { "value": "relightWildfire", "weight": 3 },
+      { "value": "relightPrescribedFire", "weight": 2 },
+      { "value": "pipeCigaretteMatch", "weight": 3 },
+      { "value": "sniggingHauling", "weight": 2 },
+      { "value": "unattendedCampfireContainedWithinBoundary", "weight": 2 },
+      { "value": "unknown", "weight": 4 }
+    ],
+    "mixedFoothills": [
+      { "value": "lightning", "weight": 26 },
+      { "value": "deliberateLightingMalicious", "weight": 13 },
+      { "value": "burningOffStubbleGrassScrub", "weight": 9 },
+      { "value": "campfireBarbeque", "weight": 8 },
+      { "value": "powerTransmission", "weight": 9 },
+      { "value": "exhaustOther", "weight": 7 },
+      { "value": "burningVehicleMachine", "weight": 5 },
+      { "value": "pipeCigaretteMatch", "weight": 5 },
+      { "value": "relightBurningOff", "weight": 4 },
+      { "value": "burningOffWindrowHeap", "weight": 3 },
+      { "value": "fireworks", "weight": 1 },
+      { "value": "wasteDisposalDomestic", "weight": 3 },
+      { "value": "nonDeliberateLightingMischievous", "weight": 2 },
+      { "value": "unknown", "weight": 5 }
+    ],
+    "grasslandAg": [
+      { "value": "exhaustOther", "weight": 16 },
+      { "value": "burningOffStubbleGrassScrub", "weight": 14 },
+      { "value": "powerTransmission", "weight": 14 },
+      { "value": "deliberateLightingMalicious", "weight": 11 },
+      { "value": "lightning", "weight": 9 },
+      { "value": "burningVehicleMachine", "weight": 6 },
+      { "value": "campfireBarbeque", "weight": 5 },
+      { "value": "pipeCigaretteMatch", "weight": 5 },
+      { "value": "relightBurningOff", "weight": 5 },
+      { "value": "burningOffWindrowHeap", "weight": 4 },
+      { "value": "wasteDisposalIndustrialSawmillTip", "weight": 3 },
+      { "value": "train", "weight": 3 },
+      { "value": "unknown", "weight": 5 }
+    ],
+    "semiAridMallee": [
+      { "value": "powerTransmission", "weight": 18 },
+      { "value": "exhaustOther", "weight": 14 },
+      { "value": "lightning", "weight": 15 },
+      { "value": "burningOffStubbleGrassScrub", "weight": 12 },
+      { "value": "deliberateLightingMalicious", "weight": 8 },
+      { "value": "burningVehicleMachineMalicious", "weight": 3 },
+      { "value": "relightBurningOff", "weight": 5 },
+      { "value": "pipeCigaretteMatch", "weight": 4 },
+      { "value": "campfireBarbeque", "weight": 4 },
+      { "value": "wasteDisposalDomestic", "weight": 4 },
+      { "value": "train", "weight": 3 },
+      { "value": "unknown", "weight": 10 }
+    ]
+  },
+  "detection": {
+    "remoteForest": [
+      { "value": "fireTower", "weight": 30 },
+      { "value": "fireLookout", "weight": 6 },
+      { "value": "aircraftPatrol", "weight": 14 },
+      { "value": "departmentPatrolAircraft", "weight": 6 },
+      { "value": "landownerResident", "weight": 11 },
+      { "value": "traveller", "weight": 10 },
+      { "value": "ground", "weight": 5 },
+      { "value": "departmentGroundPersonnel", "weight": 5 },
+      { "value": "forestIndustryEmployee", "weight": 6 },
+      { "value": "aircraftNonPatrol", "weight": 3 },
+      { "value": "unknown", "weight": 4 }
+    ],
+    "mixedFoothills": [
+      { "value": "landownerResident", "weight": 24 },
+      { "value": "traveller", "weight": 16 },
+      { "value": "fireTower", "weight": 14 },
+      { "value": "ground", "weight": 9 },
+      { "value": "aircraftPatrol", "weight": 8 },
+      { "value": "otherIndustryEmployee", "weight": 6 },
+      { "value": "departmentGroundPersonnel", "weight": 5 },
+      { "value": "forestIndustryEmployee", "weight": 4 },
+      { "value": "aircraftNonPatrol", "weight": 4 },
+      { "value": "unknown", "weight": 5 },
+      { "value": "other", "weight": 5 }
+    ],
+    "grasslandAg": [
+      { "value": "landownerResident", "weight": 30 },
+      { "value": "traveller", "weight": 18 },
+      { "value": "ground", "weight": 12 },
+      { "value": "otherIndustryEmployee", "weight": 9 },
+      { "value": "fireTower", "weight": 8 },
+      { "value": "aircraftPatrol", "weight": 5 },
+      { "value": "forestIndustryEmployee", "weight": 4 },
+      { "value": "aircraftNonPatrol", "weight": 4 },
+      { "value": "unknown", "weight": 6 },
+      { "value": "other", "weight": 4 }
+    ],
+    "semiAridMallee": [
+      { "value": "landownerResident", "weight": 28 },
+      { "value": "traveller", "weight": 16 },
+      { "value": "fireTower", "weight": 12 },
+      { "value": "aircraftPatrol", "weight": 10 },
+      { "value": "ground", "weight": 8 },
+      { "value": "otherIndustryEmployee", "weight": 7 },
+      { "value": "aircraftNonPatrol", "weight": 5 },
+      { "value": "departmentPatrolAircraft", "weight": 3 },
+      { "value": "unknown", "weight": 7 },
+      { "value": "other", "weight": 4 }
+    ]
+  },
+  "controlAgency": [
+    { "value": "deeca", "weight": 82 },
+    { "value": "cfa", "weight": 14 },
+    { "value": "interstate", "weight": 2 },
+    { "value": "frv", "weight": 2 }
+  ],
+  "sizeBuckets": [
+    { "maxHa": 0.1, "mildWeight": 30, "severeWeight": 20 },
+    { "maxHa": 1, "mildWeight": 38, "severeWeight": 28 },
+    { "maxHa": 10, "mildWeight": 22, "severeWeight": 24 },
+    { "maxHa": 100, "mildWeight": 7, "severeWeight": 14 },
+    { "maxHa": 1000, "mildWeight": 2, "severeWeight": 7 },
+    { "maxHa": 10000, "mildWeight": 0.8, "severeWeight": 3 },
+    { "maxHa": 60000, "mildWeight": 0.2, "severeWeight": 1 }
+  ]
+}

@@ -1,5 +1,12 @@
 export type { CurrentUser } from './auth/current-user';
 export { DEV_DISTRICT_NAMES, DEV_USERS } from './auth/dev-users';
+export {
+  DISTRICT_OPERATORS,
+  OPERATORS,
+  type Operator,
+  operatorName,
+  STATE_OPERATORS,
+} from './auth/operators';
 export { Roles } from './auth/roles';
 export { District, districtSchemaExtras } from './fire/district';
 export {

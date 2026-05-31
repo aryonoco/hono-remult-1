@@ -1,0 +1,185 @@
+{
+  "meta": {
+    "description": "Behavioural tuning for the fire lifecycle simulation: probabilities, value ranges and thresholds that shape how realistic each generated record is. Externalised so the model is inspectable and adjustable in one place. Minutes/hours/days are units; *Prob are probabilities in [0,1]; *Frac are fractions."
+  },
+  "activeWindowDays": 25,
+  "activeProbability": 0.7,
+  "fuelJitterDeg": 0.05,
+  "initialNextDueMinutes": 30,
+  "activeNextDueHours": 2,
+  "sameAuthorProb": 0.7,
+  "elevatedCreateProb": 0.08,
+  "nonEvent": {
+    "sizeMaxHa": 5,
+    "probability": 0.14,
+    "terminal": [
+      { "value": "safeFalseAlarm", "weight": 4 },
+      { "value": "notFound", "weight": 3 },
+      { "value": "safeNotFound", "weight": 3 }
+    ]
+  },
+  "overrunProbability": 0.12,
+  "major": { "l3Prob": 0.7, "l2Prob": 0.25 },
+  "level": {
+    "l3SizeHa": 1000,
+    "l3Severity": 0.85,
+    "l3HighSevProb": 0.5,
+    "l3WhenBigProb": 0.6,
+    "l2SizeHa": 50,
+    "l2Severity": 0.5,
+    "l2Prob": 0.3
+  },
+  "sitrepCount": {
+    "l3ActiveMin": 3,
+    "l3ResolvedMin": 6,
+    "l3Max": 22,
+    "l2ActiveMin": 1,
+    "l2ResolvedMin": 2,
+    "l2Max": 6,
+    "l1Max": 2
+  },
+  "timelineMinutes": {
+    "detectedProb": 0.8,
+    "detectedMin": 5,
+    "detectedMax": 120,
+    "startedProb": 0.5,
+    "startedMin": 10,
+    "startedMax": 240,
+    "crewSentProb": 0.85,
+    "crewSentMin": 2,
+    "crewSentMax": 40,
+    "crewArrivedProb": 0.85,
+    "crewArrivedMin": 10,
+    "crewArrivedMax": 90
+  },
+  "createdDelayMinutes": { "min": 2, "max": 25 },
+  "declaredMinutes": { "min": 20, "max": 240 },
+  "sitrep": {
+    "firstMinMinutes": 25,
+    "firstMaxMinutes": 70,
+    "initialAreaMinFrac": 0.2,
+    "initialAreaMaxFrac": 0.5,
+    "areaGrowthMin": 1.1,
+    "areaGrowthMax": 1.8,
+    "areaGrowthAddMax": 2,
+    "potentialPresentProb": 0.7,
+    "activeReachMax": 3,
+    "intervalHours": {
+      "goingMin": 1,
+      "goingMax": 4,
+      "containedMin": 4,
+      "containedMax": 14,
+      "otherMin": 12,
+      "otherMax": 48
+    }
+  },
+  "resources": {
+    "l3": {
+      "windMin": 40,
+      "windMax": 200,
+      "peakMin": 150,
+      "peakMax": 900,
+      "vehMin": 20,
+      "vehMax": 90,
+      "airMin": 4,
+      "airMax": 18
+    },
+    "l2": {
+      "windMin": 12,
+      "windMax": 60,
+      "peakMin": 30,
+      "peakMax": 120,
+      "vehMin": 6,
+      "vehMax": 22,
+      "airMin": 1,
+      "airMax": 6
+    },
+    "l1": {
+      "persMin": 3,
+      "persMax": 16,
+      "vehMin": 1,
+      "vehMax": 5,
+      "airProb": 0.3,
+      "airMin": 1,
+      "airMax": 2
+    }
+  },
+  "final": {
+    "fileL1Prob": 0.45,
+    "fileOtherProb": 0.9,
+    "closeMinDays": 1,
+    "closeMaxDays": 21,
+    "closeNoSitrepMaxDays": 14,
+    "unsignedSoftDeleteProb": 0.05,
+    "signOffRemovedProb": 0.06,
+    "resolvedSoftDeleteProb": 0.05,
+    "bigFireHa": 100,
+    "signedProbability": 0.8,
+    "signDelayMaxDays": 5,
+    "stockProb": 0.5,
+    "stockMax": 400,
+    "homesProb": 0.3,
+    "homesMax": 12,
+    "shedsProb": 0.4,
+    "shedsMax": 20,
+    "fencingProb": 0.5,
+    "fencingMax": 60,
+    "cropProb": 0.3,
+    "cropMax": 200,
+    "investigationPresentProb": 0.7,
+    "investigationByProb": 0.5,
+    "offenceDeliberateProb": 0.8,
+    "offenceDefaultProb": 0.05,
+    "legalNoActionProb": 0.3,
+    "investigationTypes": [
+      { "value": "firstAttackReport", "weight": 5 },
+      { "value": "accreditedInvestigatorReportAttended", "weight": 3 },
+      { "value": "accreditedInvestigatorReportNotAttended", "weight": 2 },
+      { "value": "notInvestigated", "weight": 4 }
+    ],
+    "legalStatuses": [
+      { "value": "referredToPolice", "weight": 3 },
+      { "value": "deptPoliceInvestigationContinuing", "weight": 3 },
+      { "value": "referredToDeptProsecutions", "weight": 1 },
+      { "value": "infringementNoticeIssued", "weight": 1 },
+      { "value": "educationAwarenessWarningLetter", "weight": 1 }
+    ]
+  },
+  "burntLand": {
+    "forestSfMin": 0.3,
+    "forestSfMax": 0.6,
+    "nonForestSfMin": 0.05,
+    "nonForestSfMax": 0.25,
+    "npMin": 0.05,
+    "npMax": 0.3,
+    "pinePlantMin": 0.1,
+    "pinePlantMax": 0.4,
+    "nonPinePlantMin": 0,
+    "nonPinePlantMax": 0.1,
+    "privMin": 0.05,
+    "privMax": 0.25,
+    "sfPresent": 0.8,
+    "npPresent": 0.5,
+    "privPresent": 0.5,
+    "plantPresent": 0.35,
+    "otherPresent": 0.4
+  },
+  "removeSignOffDays": { "min": 2, "max": 40 },
+  "cost": { "veryBigHa": 5000, "bigHa": 1000, "medHa": 100, "smallHa": 10 },
+  "location": { "presentFactor": 0.9, "minKm": 1, "maxKm": 18 },
+  "nullableZeroProb": 0.4,
+  "causeConfirm": { "resolvedProb": 0.6, "otherProb": 0.25 },
+  "notify": { "landPresent": 0.85, "landYes": 0.8, "controlPresent": 0.85, "controlYes": 0.85 },
+  "fireMap": { "l1Prob": 0.2, "otherProb": 0.6 },
+  "controlAgencyPresent": 0.9,
+  "burntArea": { "present": 0.6, "minFrac": 0.9, "maxFrac": 1.05 },
+  "severityJitter": 0.1,
+  "clusterSeverityJitter": 0.05,
+  "coverage": {
+    "spinifexDistricts": [22, 13],
+    "buttongrassDistricts": [45, 36],
+    "fuelCount": 2,
+    "causeCount": 2,
+    "otherCauseCount": 3
+  }
+}

@@ -24,7 +24,9 @@
     "migrate:status": "atlas migrate status --env local",
     "migrate:validate": "atlas migrate validate --env local",
     "migrate:hash": "atlas migrate hash --env local",
-    "schema:inspect": "atlas schema inspect --env local --format '{{ sql . }}'"
+    "schema:inspect": "atlas schema inspect --env local --format '{{ sql . }}'",
+    "db:seed": "bun apps/api/src/db/seed/seed.ts",
+    "db:seed:dry": "bun apps/api/src/db/seed/seed.ts --dry-run"
   },
   "dependencies": {
     "@angular/animations": "21.2.15",

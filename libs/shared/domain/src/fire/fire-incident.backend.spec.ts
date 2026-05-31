@@ -46,7 +46,7 @@ describe('FireIncident.getNextFireNumber', () => {
     expect(await FireIncident.getNextFireNumber(DISTRICT_ID)).toBe(3);
   });
 
-  it('counts soft-deleted fires (EMI parity)', async () => {
+  it('counts soft-deleted fires when assigning the next fire number', async () => {
     const fire = await seedFire();
     await withServerInternal(() => remult.repo(FireIncident).update(fire.id, { isDeleted: true }));
     expect(await FireIncident.getNextFireNumber(DISTRICT_ID)).toBe(2);

@@ -31,7 +31,7 @@ bun install --frozen-lockfile
 echo "Installing pre-commit hooks..."
 pre-commit install --install-hooks
 
-if [ ! -f "${WORKSPACE_DIR}/.env" ]; then
+if [[ ! -f "${WORKSPACE_DIR}/.env" ]]; then
   cp "${WORKSPACE_DIR}/.env.example" "${WORKSPACE_DIR}/.env"
 fi
 
@@ -44,6 +44,16 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
+# Bring the schema up to date and load the deterministic fixtures so a freshly
+# built container comes up fully populated. Both steps are idempotent: Atlas
+# skips already-applied migrations, and the seed truncates the fire tables
+# before re-inserting, so a rebuild reproduces the exact same data.
+echo "Applying database migrations..."
+bun run migrate:apply
+
+echo "Seeding fixtures..."
+bun run db:seed
+
 cat <<'BANNER'
 
 Setup complete.
@@ -53,5 +63,7 @@ Setup complete.
   just check         # Biome + ESLint (matches package.json check:ci)
   just test          # Vitest via Nx
   just db            # psql into hono_remult_dev
+  just db-seed       # re-load the deterministic fixtures
+  just db-reset      # drop, migrate and re-seed from scratch
 
 BANNER

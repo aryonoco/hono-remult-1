@@ -11,6 +11,13 @@
     },
     "serve": {
       "command": "bun --watch apps/api/src/main.ts"
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run",
+        "cwd": "apps/api"
+      }
     }
   }
 }
