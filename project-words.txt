@@ -360,3 +360,14 @@ enterable
 AFAC
 FFMVic
 mockups
+
+# Phase 0 — Leaflet maps + Rosé Pine theme vocabulary
+basemaps
+cartocdn
+divIcon
+invalidateSize
+leaflet
+maptiler
+positron
+rosepine
+tileerror
