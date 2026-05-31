@@ -23,18 +23,18 @@ export interface EscalateDialogData {
   imports: [MatDialogModule, MatButtonModule, MatRadioModule, ReactiveFormsModule],
   template: `
     <h2 mat-dialog-title>Escalate incident</h2>
-    <mat-dialog-content>
+    <mat-dialog-content class="min-w-72">
       @if (levels.length === 0) {
-        <p>Already at the highest level.</p>
+        <p class="text-on-surface-variant">Already at the highest level.</p>
       } @else {
-        <mat-radio-group [formControl]="selected" class="flex flex-col gap-2">
+        <mat-radio-group [formControl]="selected" class="flex flex-col gap-1">
           @for (level of levels; track level) {
             <mat-radio-button [value]="level">{{ labels[level] }}</mat-radio-button>
           }
         </mat-radio-group>
       }
     </mat-dialog-content>
-    <mat-dialog-actions align="end">
+    <mat-dialog-actions align="end" class="gap-2">
       <button matButton mat-dialog-close type="button">Cancel</button>
       <button
         matButton="filled"

@@ -148,6 +148,15 @@
         outlined-outline-color: var(--mat-sys-outline-variant),
       )
     );
+
+    // Dialogs sit on a raised container surface with the same squared card radius as the rest of the
+    // console, rather than Material's default extra-large rounding.
+    @include mat.dialog-overrides(
+      (
+        container-color: var(--mat-sys-surface-container-high),
+        container-shape: var(--radius-card),
+      )
+    );
   }
 
   html[data-theme='light'] {

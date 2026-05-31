@@ -15,10 +15,10 @@ export interface ConfirmDialogData {
   imports: [MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>{{ data.title }}</h2>
-    <mat-dialog-content>
-      <p>{{ data.message }}</p>
+    <mat-dialog-content class="min-w-72">
+      <p class="m-0 text-on-surface-variant">{{ data.message }}</p>
     </mat-dialog-content>
-    <mat-dialog-actions align="end">
+    <mat-dialog-actions align="end" class="gap-2">
       <button matButton mat-dialog-close type="button">Cancel</button>
       <button matButton="filled" type="button" (click)="dialogRef.close(true)">
         {{ data.confirmLabel }}
