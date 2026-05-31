@@ -1,4 +1,4 @@
-import { DEV_USERS, FireStatus, IncidentLevel } from '@workspace/shared-domain';
+import { DEV_USERS, FireStatus, IncidentLevel, Roles } from '@workspace/shared-domain';
 import {
   canCreateFinalReport,
   canCreateIncident,
@@ -8,6 +8,7 @@ import {
   canRemoveSignOff,
   canSignOff,
   canSoftDelete,
+  canViewDistrictRollup,
   canViewFinalReport,
 } from './permissions';
 
@@ -178,5 +179,19 @@ describe('canRemoveSignOff', () => {
     expect(canRemoveSignOff(unsignedReport, ADMIN)).toBe(false);
     expect(canRemoveSignOff(signedReport, VIEWER)).toBe(false);
     expect(canRemoveSignOff(signedReport, undefined)).toBe(false);
+  });
+});
+
+describe('canViewDistrictRollup', () => {
+  it('is true for admin and stateOfficer, false otherwise', () => {
+    expect(canViewDistrictRollup({ id: 'a', roles: [Roles.admin], districtId: null })).toBe(true);
+    expect(canViewDistrictRollup({ id: 's', roles: [Roles.stateOfficer], districtId: null })).toBe(
+      true,
+    );
+    expect(canViewDistrictRollup({ id: 'e', roles: [Roles.incidentEditor], districtId: 12 })).toBe(
+      false,
+    );
+    expect(canViewDistrictRollup({ id: 'v', roles: [Roles.viewer], districtId: 12 })).toBe(false);
+    expect(canViewDistrictRollup(undefined)).toBe(false);
   });
 });

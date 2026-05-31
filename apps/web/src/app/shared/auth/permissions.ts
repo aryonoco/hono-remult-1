@@ -32,6 +32,12 @@ export function canCreateIncident(user: CurrentUser | undefined): boolean {
   return isEditorPlus(user);
 }
 
+// The cross-district / by-region rollup on the operations dashboard is a state-wide view, so it is
+// restricted to elevated users (admin + state officer) — the same gate as other elevated-only actions.
+export function canViewDistrictRollup(user: CurrentUser | undefined): boolean {
+  return isElevated(user);
+}
+
 // Mirrors `FinalReport.allowApiRead: [incidentEditor, stateOfficer, admin]`. A viewer is excluded, so the
 // detail load must not eager-include `finalReport` for them (it would 403 the whole GET) and the
 // final-report subpanel stays hidden.
