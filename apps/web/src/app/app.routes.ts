@@ -1,7 +1,12 @@
 import type { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'incidents' },
+  { path: '', pathMatch: 'full', redirectTo: 'overview' },
+  {
+    path: 'overview',
+    loadComponent: () => import('./features/overview/overview').then((m) => m.OverviewComponent),
+    data: { width: 'wide' },
+  },
   {
     path: 'incidents',
     loadChildren: () =>
