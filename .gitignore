@@ -466,3 +466,9 @@ cache/
 
 .nx/polygraph
 .nx/self-healing
+
+# Superpowers brainstorming visual-companion mockups (local only)
+.superpowers/
+
+# Local UI redesign mockups served via the dev server
+apps/web/public/_mockups/
