@@ -18,12 +18,18 @@
   --color-muted: var(--mat-sys-on-surface-variant);
   --color-surface: var(--mat-sys-surface);
   --color-surface-container: var(--mat-sys-surface-container);
+  --color-surface-container-low: var(--mat-sys-surface-container-low);
   --color-surface-container-high: var(--mat-sys-surface-container-high);
+  --color-surface-container-highest: var(--mat-sys-surface-container-highest);
   --color-on-surface: var(--mat-sys-on-surface);
+  --color-on-surface-variant: var(--mat-sys-on-surface-variant);
   --color-outline: var(--mat-sys-outline);
   --color-outline-variant: var(--mat-sys-outline-variant);
   --color-primary: var(--mat-sys-primary);
   --color-on-primary: var(--mat-sys-on-primary);
+  --color-secondary: var(--mat-sys-secondary);
+  --color-tertiary: var(--mat-sys-tertiary);
+  --color-on-tertiary: var(--mat-sys-on-tertiary);
   --color-error: var(--mat-sys-error);
   --color-on-error: var(--mat-sys-on-error);
 }
@@ -34,21 +40,25 @@
   --font-display: 'Libre Franklin', 'Public Sans', ui-sans-serif, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
 
-  /* Fire-status tones — six semantic tones, each a light/dark pair. Foreground (text + border) and a
-     tinted surface. Values follow well-established AA-compliant tint/shade pairings (≈100/800 in
-     light, ≈950/300 in dark). FireStatus → tone mapping lives in status-badge.ts. */
-  --color-status-going: light-dark(#991b1b, #fca5a5);
-  --color-status-going-bg: light-dark(#fee2e2, #450a0a);
-  --color-status-contained: light-dark(#92400e, #fcd34d);
-  --color-status-contained-bg: light-dark(#fef3c7, #451a03);
-  --color-status-controlled: light-dark(#854d0e, #fde047);
-  --color-status-controlled-bg: light-dark(#fef9c3, #422006);
-  --color-status-safe: light-dark(#166534, #86efac);
-  --color-status-safe-bg: light-dark(#dcfce7, #052e16);
-  --color-status-neutral: light-dark(#334155, #cbd5e1);
-  --color-status-neutral-bg: light-dark(#f1f5f9, #1e293b);
-  --color-status-missing: light-dark(#9a3412, #fdba74);
-  --color-status-missing-bg: light-dark(#ffedd5, #431407);
+  /* Fire-status tones — six semantic tones, each a light/dark (Rosé Pine Dawn/Moon) pair: a foreground
+     (text + spine/pin/icon fill) and a tinted surface. AA-verified HSL (see tools/check-contrast.mjs).
+     Semantic mapping: going=love, contained=gold, controlled=foam, safe=pine, neutral=subtle,
+     missing=iris. FireStatus → tone mapping lives in fire/ui.ts (statusTone). */
+  --color-status-going: light-dark(hsl(343 35% 46%), hsl(343 76% 71%));
+  --color-status-going-bg: light-dark(hsl(13 42% 91%), hsl(300 20% 23%));
+  --color-status-contained: light-dark(hsl(35 81% 32%), hsl(35 88% 72%));
+  --color-status-contained-bg: light-dark(hsl(35 70% 91%), hsl(338 8% 26%));
+  --color-status-controlled: light-dark(hsl(189 30% 36%), hsl(189 43% 73%));
+  --color-status-controlled-bg: light-dark(hsl(90 8% 90%), hsl(224 19% 27%));
+  --color-status-safe: light-dark(hsl(197 53% 34%), hsl(197 48% 56%));
+  --color-status-safe-bg: light-dark(hsl(100 5% 88%), hsl(218 31% 23%));
+  --color-status-neutral: light-dark(hsl(248 12% 44%), hsl(248 15% 67%));
+  --color-status-neutral-bg: light-dark(hsl(20 18% 90%), hsl(248 18% 25%));
+  --color-status-missing: light-dark(hsl(268 21% 46%), hsl(267 57% 78%));
+  --color-status-missing-bg: light-dark(hsl(0 18% 91%), hsl(254 20% 28%));
+
+  /* Timeline "event" tone — neutral subtle, used by the lifecycle timeline (added ahead of Phase 5). */
+  --color-status-event: light-dark(hsl(248 12% 48%), hsl(248 15% 61%));
 
   /* Reading-measure container widths, switched per route intent by the content-shell wrapper.
      Generates max-w-form / max-w-detail / max-w-wide. */
