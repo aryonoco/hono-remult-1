@@ -59,6 +59,10 @@ const SVG_AREA_RING_MAX: number = SVG_SPAN / SVG_AREA_RING_SPAN_DIVISOR;
 const COORD_DP = 3;
 // Default Leaflet zoom for a single-incident view (suburb/town scale).
 const DEFAULT_SINGLE_ZOOM = 11;
+// Cap how far fitBounds may zoom in (MAP-9). Without it a small fire frames to its own ~100 m extent box
+// at building level, which is geographically meaningless; capping keeps town/region context in view while
+// the extent stays a clear, distinct shape. Large fires fit below this zoom, so the cap never affects them.
+const FIT_MAX_ZOOM = 13;
 // The standard public CARTO/OpenStreetMap basemap attribution required by the tile licence.
 const ATTRIBUTION =
   // biome-ignore lint/security/noSecrets: public attribution links, not a secret
@@ -365,7 +369,7 @@ export class IncidentMapComponent {
       }
     }
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING, animate });
+      map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING, animate, maxZoom: FIT_MAX_ZOOM });
     }
   }
 }
