@@ -597,8 +597,9 @@ export class IncidentDetailComponent {
   });
 
   // One map point for the detail view (the map component fits a single-incident view); empty when the fire
-  // has no recorded coordinates, which the map renders as its empty state. `areaHa`/`status` drive the
-  // area-sized extent circle and the colour-independent marker text (FIRE-AREA-4 / MAP-3).
+  // has no recorded coordinates, which the map renders as its empty state. `perimeter` (the true mapped
+  // extent) takes precedence over the `areaHa` estimate circle; `status` feeds the colour-independent
+  // marker text (FIRE-AREA-5 / FIRE-AREA-4 / MAP-3).
   protected readonly detailMapPoints = computed<MapPoint[]>(() => {
     const fire = this.fire();
     return fire?.latitude != null && fire?.longitude != null
@@ -609,6 +610,7 @@ export class IncidentDetailComponent {
             tone: statusTone(fire.status),
             name: fire.name,
             areaHa: fire.fireAreaHectares ?? 0,
+            perimeter: fire.firePerimeterGeo ?? undefined,
             status: FIRE_STATUS_LABELS[fire.status],
           },
         ]

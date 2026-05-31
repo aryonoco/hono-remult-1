@@ -60,8 +60,12 @@ interface RegionRow {
 }
 
 // Projection of the bounded map fetch (the `find` select) onto the shared MapPoint shape. Rows without
-// coordinates are dropped; `areaHa`/`status` feed the extent circle and colour-independent label.
-type MapRow = Pick<FireIncident, 'name' | 'latitude' | 'longitude' | 'status' | 'fireAreaHectares'>;
+// coordinates are dropped; `perimeter` (the true mapped extent) takes precedence over the `areaHa`
+// estimate circle, and `status` feeds the colour-independent label (FIRE-AREA-5 / FIRE-AREA-4 / MAP-3).
+type MapRow = Pick<
+  FireIncident,
+  'name' | 'latitude' | 'longitude' | 'status' | 'fireAreaHectares' | 'firePerimeterGeo'
+>;
 function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
   return rows
     .filter(
@@ -74,6 +78,7 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       tone: statusTone(r.status),
       name: r.name,
       areaHa: r.fireAreaHectares ?? 0,
+      perimeter: r.firePerimeterGeo ?? undefined,
       status: FIRE_STATUS_LABELS[r.status],
     }));
 }
@@ -514,6 +519,7 @@ export class OverviewComponent {
             longitude: true,
             status: true,
             fireAreaHectares: true,
+            firePerimeterGeo: true,
           },
         }),
       ]),

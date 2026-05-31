@@ -1,4 +1,4 @@
-import type { StatusTone } from '@workspace/shared-domain';
+import type { FirePerimeter, StatusTone } from '@workspace/shared-domain';
 
 // Status-spine fill classes (the thin accent rail on tiles/rows). Each value is a whole static literal so
 // Tailwind keeps the utility in the build — never interpolate `bg-status-${tone}`.
@@ -31,15 +31,32 @@ export const MARKER_TONE_CLASS: Readonly<Record<StatusTone, string>> = {
   missing: 'fire-marker--missing',
 };
 
+// Map fire-extent polygon classes (the `.fire-polygon--*` globals in styles.scss). Leaflet applies the
+// className to the rendered GeoJSON `<path>`; the component styles fill/stroke with the status tokens.
+// Whole static literals, mirroring `MARKER_TONE_CLASS` — never composed at runtime.
+export const POLYGON_TONE_CLASS: Readonly<Record<StatusTone, string>> = {
+  going: 'fire-polygon--going',
+  contained: 'fire-polygon--contained',
+  controlled: 'fire-polygon--controlled',
+  safe: 'fire-polygon--safe',
+  neutral: 'fire-polygon--neutral',
+  missing: 'fire-polygon--missing',
+};
+
 // Shared map-point shape consumed by OverviewComponent and IncidentMapComponent.
 export interface MapPoint {
   lat: number;
   lng: number;
   tone: StatusTone;
   name: string;
-  // Fire extent in hectares. When > 0 the map draws an area-sized circle (approximate extent) around
-  // the centroid pin; absent/0 falls back to a plain toned pin. The true boundary polygon is FIRE-AREA-5.
+  // Fire extent in hectares. When > 0 (and no `perimeter`) the map draws an area-sized circle (an area
+  // estimate) around the centroid pin; absent/0 falls back to a plain toned pin (FIRE-AREA-4/5).
   areaHa?: number;
+  // The true mapped fire extent as a GeoJSON Polygon (WGS84 [lng, lat]). When present the map renders
+  // the polygon itself — the highest-fidelity extent — taking precedence over the area-circle estimate
+  // and the bare pin in the render fallback chain (FIRE-AREA-5). Explicitly `| undefined` so callers can
+  // project `firePerimeterGeo ?? undefined` under `exactOptionalPropertyTypes`.
+  perimeter?: FirePerimeter | undefined;
   // The fire's status label, surfaced in the marker title/alt and the SVG-fallback list so colour is
   // never the sole signal (MAP-3).
   status?: string;

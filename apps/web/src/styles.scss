@@ -279,6 +279,36 @@
     stroke: var(--color-status-missing);
   }
 
+  // Leaflet `L.geoJSON` fire-extent polygons (FIRE-AREA-5). Like the circle overlay, the polygon is an
+  // SVG `<path>` in Leaflet's own overlay pane — outside any component's encapsulated DOM — so the
+  // per-tone fill/stroke live here (global), mirroring `.fire-circle--*`. The path carries the tone class
+  // set via the layer's `style.className`; fill-opacity/weight come from the style options. Colour stays
+  // token-driven (the fire-status tokens from tailwind.css), so the extent reads AA in both themes.
+  .fire-polygon--going {
+    fill: var(--color-status-going);
+    stroke: var(--color-status-going);
+  }
+  .fire-polygon--contained {
+    fill: var(--color-status-contained);
+    stroke: var(--color-status-contained);
+  }
+  .fire-polygon--controlled {
+    fill: var(--color-status-controlled);
+    stroke: var(--color-status-controlled);
+  }
+  .fire-polygon--safe {
+    fill: var(--color-status-safe);
+    stroke: var(--color-status-safe);
+  }
+  .fire-polygon--neutral {
+    fill: var(--color-status-neutral);
+    stroke: var(--color-status-neutral);
+  }
+  .fire-polygon--missing {
+    fill: var(--color-status-missing);
+    stroke: var(--color-status-missing);
+  }
+
   // Leaflet attribution: opt the required CARTO/OSM links out of Leaflet's raw grey-on-white into the
   // theme tokens, with a visible keyboard-focus ring so the credit links are accessible in both themes
   // (MAP-7). The container background/text follow the surface so the credit reads in dark mode too.

@@ -1,8 +1,29 @@
 import { ANIMATION_MODULE_TYPE, type WritableSignal } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import type { FirePerimeter } from '@workspace/shared-domain';
 import { findAxeViolations } from '../../../../../testing/axe-helper';
 import type { MapPoint } from '../../../../shared/ui/tone-classes';
 import { IncidentMapComponent } from './incident-map';
+
+// Splits an SVG polygon `points` attribute into its vertex tokens (whitespace-separated "x,y" pairs).
+const POINTS_SEPARATOR = /\s+/;
+
+// A small closed GeoJSON Polygon (WGS84 [lng, lat]) centred near the given point, for the polygon path.
+function square(lng: number, lat: number): FirePerimeter {
+  const d = 0.05;
+  return {
+    type: 'Polygon',
+    coordinates: [
+      [
+        [lng - d, lat - d],
+        [lng + d, lat - d],
+        [lng + d, lat + d],
+        [lng - d, lat + d],
+        [lng - d, lat - d],
+      ],
+    ],
+  };
+}
 
 // The map's tile-failure and point-presence state are protected (template-only) members; the spec reaches
 // them through a typed view so it can force the SVG fallback without bracket-notation key access.
@@ -30,6 +51,20 @@ async function render(
   return fixture;
 }
 
+// Render directly into the tiles-failed SVG fallback: force the flag BEFORE the first stable pass so
+// `initMap` finds no canvas and never mounts a real Leaflet map (jsdom cannot project an L.geoJSON
+// polygon — `_clipPoints` reads undefined pixel bounds — so a mounted polygon throws). The fallback DOM
+// (legend, SVG, fallback list) renders identically in both tile states, so assertions on it are valid.
+async function renderFallback(
+  points: readonly MapPoint[],
+): Promise<ComponentFixture<IncidentMapComponent>> {
+  const fixture = TestBed.createComponent(IncidentMapComponent);
+  fixture.componentRef.setInput('points', points);
+  internals(fixture).tilesFailed.set(true);
+  await fixture.whenStable();
+  return fixture;
+}
+
 describe('IncidentMapComponent', () => {
   beforeEach(() => {
     // jsdom has no matchMedia; ThemeService 'system' detection and the reduced-motion check read it. Stub
@@ -44,9 +79,13 @@ describe('IncidentMapComponent', () => {
     });
   });
 
-  it('renders the empty state when there are no points', async () => {
+  it('renders the empty state as a status panel when there are no points', async () => {
     const el = host(await render([], 'Near the ridge'));
-    expect(el.querySelector('[data-testid=map-empty]')).not.toBeNull();
+    const empty = el.querySelector('[data-testid=map-empty]');
+    expect(empty).not.toBeNull();
+    // DETAIL-4: the empty state is a polished, announced status panel with copy.
+    expect(empty?.getAttribute('role')).toBe('status');
+    expect(empty?.textContent).toContain('No coordinates recorded');
     expect(el.querySelector('[role=region]')).toBeNull();
     expect(el.textContent).toContain('Near the ridge');
   });
@@ -75,9 +114,22 @@ describe('IncidentMapComponent', () => {
     ].map((n) => n.textContent?.trim());
     // 'going' sorts ahead of 'safe'; 'controlled' is absent so it is not keyed.
     expect(labels).toEqual(['Going', 'Safe']);
-    // The shape key explains filled-area vs pin (FIRE-AREA-4 / MAP-1).
-    expect(legend?.textContent).toContain('Filled area = fire extent');
-    expect(legend?.textContent).toContain('Pin = point only');
+    // Both fires here are bare points, so the 3-way key shows only the pin row (FIRE-AREA-6).
+    const shapes = legend?.querySelector('[data-testid=map-legend-shapes]')?.textContent ?? '';
+    expect(shapes).toBe('Pin = point only');
+  });
+
+  it('keys all three extent shapes when polygon, circle and pin fires are present', async () => {
+    const el = host(
+      await renderFallback([
+        { lat: 1, lng: 2, tone: 'going', name: 'Mapped', status: 'Going', perimeter: square(2, 1) },
+        { lat: 3, lng: 4, tone: 'safe', name: 'Estimate', status: 'Safe', areaHa: 100 },
+        { lat: 5, lng: 6, tone: 'neutral', name: 'Point', status: 'Resolved', areaHa: 0 },
+      ]),
+    );
+    const shapes = el.querySelector('[data-testid=map-legend-shapes]')?.textContent?.trim() ?? '';
+    // Fidelity order: polygon → circle → pin.
+    expect(shapes).toBe('Filled shape = mapped extent · Circle = area estimate · Pin = point only');
   });
 
   it('exposes a colour-independent label (name, status, area) in the region aria-label', async () => {
@@ -152,6 +204,84 @@ describe('IncidentMapComponent', () => {
     ).resolves.toBeDefined();
   });
 
+  it('constructs without throwing for a fire with a mapped perimeter polygon', async () => {
+    // The real Leaflet map cannot project an L.geoJSON polygon under jsdom (no layout), so the construction
+    // is exercised via the SVG fallback; the live-map polygon path is covered by the browser verification.
+    await expect(
+      renderFallback([
+        {
+          lat: -37.5,
+          lng: 148.0,
+          tone: 'going',
+          name: 'Ensay Spur',
+          status: 'Going',
+          areaHa: 4200,
+          perimeter: square(148.0, -37.5),
+        },
+      ]),
+    ).resolves.toBeDefined();
+  });
+
+  it('draws the true extent polygon (not the area circle) in the SVG fallback when a perimeter exists', async () => {
+    const fixture = await renderFallback([
+      {
+        lat: -37.5,
+        lng: 148.0,
+        tone: 'going',
+        name: 'Ensay Spur',
+        status: 'Going',
+        areaHa: 4200,
+        perimeter: square(148.0, -37.5),
+      },
+    ]);
+    const svg = host(fixture).querySelector('[data-testid=map-svg-fallback]');
+    // The polygon takes precedence over the area-estimate circle (FIRE-AREA-5).
+    expect(svg?.querySelector('.map-extent')).not.toBeNull();
+    expect(svg?.querySelector('.map-area')).toBeNull();
+    expect(svg?.querySelector('.map-dot')).not.toBeNull();
+    // The projected outline carries every vertex of the outer ring.
+    const points = svg?.querySelector('.map-extent')?.getAttribute('points') ?? '';
+    expect(points.trim().split(POINTS_SEPARATOR).length).toBe(5);
+  });
+
+  it('labels each extent kind in the region aria-label so geometry is conveyed in text', async () => {
+    const region = host(
+      await renderFallback([
+        {
+          lat: -37.5,
+          lng: 148.0,
+          tone: 'going',
+          name: 'Ensay Spur',
+          status: 'Going',
+          areaHa: 4200,
+          perimeter: square(148.0, -37.5),
+        },
+      ]),
+    ).querySelector('[role=region]');
+    expect(region?.getAttribute('aria-label')).toContain('mapped extent');
+  });
+
+  it('distinguishes polygon, circle and pin fires in the SVG fallback list text', async () => {
+    const fixture = await renderFallback([
+      {
+        lat: -37.5,
+        lng: 148.0,
+        tone: 'going',
+        name: 'Mapped',
+        status: 'Going',
+        perimeter: square(148.0, -37.5),
+      },
+      { lat: -37.4, lng: 147.9, tone: 'safe', name: 'Estimate', status: 'Safe', areaHa: 100 },
+      { lat: -37.3, lng: 147.8, tone: 'neutral', name: 'Point', status: 'Resolved', areaHa: 0 },
+    ]);
+    const items = [
+      ...(host(fixture).querySelectorAll('[data-testid=map-fallback-list] li') ?? []),
+    ].map((n) => n.textContent ?? '');
+    expect(items[0]).toContain('mapped extent');
+    expect(items[1]).toContain('area estimate');
+    expect(items[2]).toContain('point only');
+  });
+
   it('has no structural accessibility violations (empty state)', async () => {
     expect(await findAxeViolations(host(await render([])))).toEqual([]);
   });
@@ -162,6 +292,21 @@ describe('IncidentMapComponent', () => {
     ]);
     internals(fixture).tilesFailed.set(true);
     await fixture.whenStable();
+    expect(await findAxeViolations(host(fixture))).toEqual([]);
+  });
+
+  it('has no structural accessibility violations (polygon fallback)', async () => {
+    const fixture = await renderFallback([
+      {
+        lat: -37.5,
+        lng: 148.0,
+        tone: 'going',
+        name: 'Ensay Spur',
+        status: 'Going',
+        areaHa: 4200,
+        perimeter: square(148.0, -37.5),
+      },
+    ]);
     expect(await findAxeViolations(host(fixture))).toEqual([]);
   });
 });

@@ -12,12 +12,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import type { StatusTone } from '@workspace/shared-domain';
+import type { FirePerimeter, StatusTone } from '@workspace/shared-domain';
 import {
   control,
   circle as createCircle,
   map as createMap,
   divIcon,
+  geoJSON,
+  type LatLngBounds,
   type LatLngTuple,
   type Layer,
   type Map as LeafletMap,
@@ -29,7 +31,12 @@ import {
   tileLayer,
 } from 'leaflet';
 import { ThemeService } from '../../../../core/theme.service';
-import { MARKER_TONE_CLASS, type MapPoint, SPINE_TONE } from '../../../../shared/ui/tone-classes';
+import {
+  MARKER_TONE_CLASS,
+  type MapPoint,
+  POLYGON_TONE_CLASS,
+  SPINE_TONE,
+} from '../../../../shared/ui/tone-classes';
 
 const LIGHT_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const DARK_TILES = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
@@ -44,11 +51,18 @@ const FIT_BOUNDS_PADDING: [number, number] = [FIT_BOUNDS_PAD_PX, FIT_BOUNDS_PAD_
 // `.fire-circle--<tone>` class so it stays token-driven; opacity/weight are geometry, not colour).
 const CIRCLE_FILL_OPACITY = 0.3;
 const CIRCLE_STROKE_WEIGHT = 2;
+// Extent-polygon styling mirrors the circle (translucent toned fill + toned outline from
+// `.fire-polygon--<tone>`); opacity/weight are geometry, not colour, so they stay inline.
+const POLYGON_FILL_OPACITY = 0.3;
+const POLYGON_STROKE_WEIGHT = 2;
 // Square metres per hectare — converts `fireAreaHectares` to the circle radius in metres.
 const SQM_PER_HECTARE = 10_000;
 // SVG-fallback projection: an 8-unit inset inside a 100-unit viewBox leaves an 84-unit plotting span.
 const SVG_PAD = 8;
 const SVG_SPAN = 84;
+// Decimal places for a projected viewBox coordinate — two is sub-pixel at this 100-unit scale and keeps
+// the emitted `points` string compact.
+const SVG_COORD_DP = 2;
 // SVG-fallback extent ring: a coarse log-scaled radius (base unit + log10(ha) gain), capped to a fraction
 // of the span so a large fire still reads bigger than a small one without a metres-to-viewBox projection.
 const SVG_AREA_RING_BASE = 1.5;
@@ -127,11 +141,75 @@ function fallbackRingRadius(areaHa: number | undefined): number {
   );
 }
 
-// Colour-independent label for a marker/legend/fallback: "{name} — {status} — {area} ha".
+// How a fire's extent is depicted on the map, in fidelity order: a true mapped polygon, an
+// area-sized estimate circle, or a bare point. Drives the render fallback chain (FIRE-AREA-5) and the
+// colour-independent text equivalent so the geometry kind is never the sole signal (FIRE-AREA-6).
+type ExtentKind = 'polygon' | 'circle' | 'pin';
+const EXTENT_KIND_LABEL: Readonly<Record<ExtentKind, string>> = {
+  polygon: 'mapped extent',
+  circle: 'area estimate',
+  pin: 'point only',
+};
+// The 3-way symbology key, in fidelity order — each entry pairs an extent kind with its legend phrase
+// (FIRE-AREA-6). `shapeKey()` joins the entries whose kind is actually drawn so the key stays accurate.
+const SHAPE_KEY_ORDER: readonly (readonly [ExtentKind, string])[] = [
+  ['polygon', 'Filled shape = mapped extent'],
+  ['circle', 'Circle = area estimate'],
+  ['pin', 'Pin = point only'],
+];
+
+function hasArea(areaHa: number | undefined): areaHa is number {
+  return areaHa !== undefined && areaHa > 0;
+}
+
+function extentKind(p: MapPoint): ExtentKind {
+  if (p.perimeter) {
+    return 'polygon';
+  }
+  return hasArea(p.areaHa) ? 'circle' : 'pin';
+}
+
+// Colour-independent label for a marker/legend/fallback:
+// "{name} — {status} — {area} ha — {extent kind}". The trailing extent kind distinguishes a true
+// mapped polygon from an area estimate or a bare point, so the geometry is conveyed in text (MAP-3 /
+// FIRE-AREA-6).
 function pointLabel(p: MapPoint): string {
   const status = p.status ? ` — ${p.status}` : '';
-  const area = p.areaHa && p.areaHa > 0 ? ` — ${p.areaHa.toLocaleString()} ha` : '';
-  return `${p.name}${status}${area}`;
+  const area = hasArea(p.areaHa) ? ` — ${p.areaHa.toLocaleString()} ha` : '';
+  const extent = ` — ${EXTENT_KIND_LABEL[extentKind(p)]}`;
+  return `${p.name}${status}${area}${extent}`;
+}
+
+// One SVG-fallback row: the projected centroid (x/y), the projected outer-ring `points` string for a
+// mapped extent (empty otherwise), the area-ring radius for an estimate fire (0 for a polygon/pin), and
+// the tone selector hook. The SVG is `aria-hidden`; the text equivalent lives in the fallback list.
+interface ProjectedPoint {
+  x: number;
+  y: number;
+  polygon: string;
+  r: number;
+  spine: string;
+}
+
+// The outer-ring latitudes/longitudes of a perimeter, used to widen the SVG-fallback projection bounds
+// so a polygon never overflows the viewBox. GeoJSON positions are [lng, lat].
+function perimeterLatitudes(perimeter: FirePerimeter | undefined): number[] {
+  return (perimeter?.coordinates[0] ?? []).map(([, lat]) => lat);
+}
+function perimeterLongitudes(perimeter: FirePerimeter | undefined): number[] {
+  return (perimeter?.coordinates[0] ?? []).map(([lng]) => lng);
+}
+
+// Project a perimeter's outer ring into the SVG viewBox as an `<polygon points="…">` string. GeoJSON
+// positions are [lng, lat]; the closing repeat is harmless for an SVG polygon, so the whole ring maps.
+function projectRing(
+  perimeter: FirePerimeter,
+  toX: (lng: number) => number,
+  toY: (lat: number) => number,
+): string {
+  return (perimeter.coordinates[0] ?? [])
+    .map(([lng, lat]) => `${toX(lng).toFixed(SVG_COORD_DP)},${toY(lat).toFixed(SVG_COORD_DP)}`)
+    .join(' ');
 }
 
 @Component({
@@ -144,14 +222,18 @@ function pointLabel(p: MapPoint): string {
         @if (tilesFailed()) {
           <svg class="incident-map__svg" data-testid="map-svg-fallback" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             @for (p of projected(); track $index) {
-              @if (p.r > 0) { <circle [attr.cx]="p.x" [attr.cy]="p.y" [attr.r]="p.r" [attr.class]="'map-area ' + p.spine"></circle> }
+              @if (p.polygon) {
+                <polygon [attr.points]="p.polygon" [attr.class]="'map-extent ' + p.spine"></polygon>
+              } @else if (p.r > 0) {
+                <circle [attr.cx]="p.x" [attr.cy]="p.y" [attr.r]="p.r" [attr.class]="'map-area ' + p.spine"></circle>
+              }
               <circle [attr.cx]="p.x" [attr.cy]="p.y" r="2.5" [attr.class]="'map-dot ' + p.spine"></circle>
             }
           </svg>
           <p class="incident-map__note">Map tiles unavailable — showing plotted coordinates.</p>
           <ul class="incident-map__fallback-list" data-testid="map-fallback-list">
             @for (p of points(); track $index) {
-              <li>{{ p.name }}@if (p.status) { — {{ p.status }} }@if (p.areaHa) { — {{ p.areaHa.toLocaleString() }} ha } <span class="font-mono tabular-nums">({{ p.lat.toFixed(coordDp) }}, {{ p.lng.toFixed(coordDp) }})</span></li>
+              <li>{{ p.name }}@if (p.status) { — {{ p.status }} }@if (p.areaHa) { — {{ p.areaHa.toLocaleString() }} ha } — {{ extentLabel(p) }} <span class="font-mono tabular-nums">({{ p.lat.toFixed(coordDp) }}, {{ p.lng.toFixed(coordDp) }})</span></li>
             }
           </ul>
         } @else {
@@ -166,7 +248,7 @@ function pointLabel(p: MapPoint): string {
               </li>
             }
           </ul>
-          <p class="incident-map__legend-shapes">Filled area = fire extent (area-sized) · Pin = point only</p>
+          <p class="incident-map__legend-shapes" data-testid="map-legend-shapes">{{ shapeKey() }}</p>
         </div>
         @if (single(); as s) {
           <dl class="incident-map__coords">
@@ -177,10 +259,12 @@ function pointLabel(p: MapPoint): string {
         }
       </div>
     } @else {
-      <div class="incident-map__empty" data-testid="map-empty">
-        <mat-icon aria-hidden="true">map</mat-icon>
-        <p>No coordinates recorded.</p>
-        @if (locationDescription()) { <p class="text-on-surface-variant">{{ locationDescription() }}</p> }
+      <div class="incident-map__empty" data-testid="map-empty" role="status">
+        <mat-icon class="incident-map__empty-icon" aria-hidden="true">location_off</mat-icon>
+        <p class="incident-map__empty-text">No coordinates recorded.</p>
+        @if (locationDescription(); as description) {
+          <p class="incident-map__empty-sub">{{ description }}</p>
+        }
       </div>
     }
   `,
@@ -194,10 +278,10 @@ function pointLabel(p: MapPoint): string {
     .map-dot.bg-status-going { fill: var(--color-status-going); } .map-dot.bg-status-contained { fill: var(--color-status-contained); }
     .map-dot.bg-status-controlled { fill: var(--color-status-controlled); } .map-dot.bg-status-safe { fill: var(--color-status-safe); }
     .map-dot.bg-status-neutral { fill: var(--color-status-neutral); } .map-dot.bg-status-missing { fill: var(--color-status-missing); }
-    .map-area { fill-opacity: 0.3; stroke-width: 1; }
-    .map-area.bg-status-going { fill: var(--color-status-going); stroke: var(--color-status-going); } .map-area.bg-status-contained { fill: var(--color-status-contained); stroke: var(--color-status-contained); }
-    .map-area.bg-status-controlled { fill: var(--color-status-controlled); stroke: var(--color-status-controlled); } .map-area.bg-status-safe { fill: var(--color-status-safe); stroke: var(--color-status-safe); }
-    .map-area.bg-status-neutral { fill: var(--color-status-neutral); stroke: var(--color-status-neutral); } .map-area.bg-status-missing { fill: var(--color-status-missing); stroke: var(--color-status-missing); }
+    .map-area, .map-extent { fill-opacity: 0.3; stroke-width: 1; }
+    .map-area.bg-status-going, .map-extent.bg-status-going { fill: var(--color-status-going); stroke: var(--color-status-going); } .map-area.bg-status-contained, .map-extent.bg-status-contained { fill: var(--color-status-contained); stroke: var(--color-status-contained); }
+    .map-area.bg-status-controlled, .map-extent.bg-status-controlled { fill: var(--color-status-controlled); stroke: var(--color-status-controlled); } .map-area.bg-status-safe, .map-extent.bg-status-safe { fill: var(--color-status-safe); stroke: var(--color-status-safe); }
+    .map-area.bg-status-neutral, .map-extent.bg-status-neutral { fill: var(--color-status-neutral); stroke: var(--color-status-neutral); } .map-area.bg-status-missing, .map-extent.bg-status-missing { fill: var(--color-status-missing); stroke: var(--color-status-missing); }
     .incident-map__note { margin: .5rem 0 0; font-size: .8125rem; color: var(--mat-sys-on-surface-variant); }
     .incident-map__fallback-list { margin: .375rem 0 0; padding-left: 1.1rem; font-size: .8125rem; color: var(--mat-sys-on-surface-variant); }
     .incident-map__fallback-list li { padding: .0625rem 0; }
@@ -208,7 +292,12 @@ function pointLabel(p: MapPoint): string {
     .incident-map__legend-shapes { flex-basis: 100%; margin: 0; font-size: .75rem; color: var(--mat-sys-on-surface-variant); }
     .incident-map__coords { display: grid; grid-template-columns: auto 1fr; gap: .125rem 1rem; margin: .75rem 0 0; font-size: .8125rem; }
     .incident-map__coords dt { color: var(--mat-sys-on-surface-variant); }
-    .incident-map__empty { display: grid; place-items: center; gap: .25rem; height: 14rem; border-radius: var(--app-radius-card); border: 1px dashed var(--mat-sys-outline); color: var(--mat-sys-on-surface-variant); }
+    /* Map empty state (DETAIL-4): a polished status panel mirroring the detail page's .panel--empty —
+       a centred dashed-hairline placeholder with a muted glyph and copy, announced as role="status". */
+    .incident-map__empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; height: 14rem; padding: 1.5rem; text-align: center; border-radius: var(--app-radius-card); border: 1px dashed var(--mat-sys-outline); background: var(--mat-sys-surface-container-low); color: var(--mat-sys-on-surface-variant); }
+    .incident-map__empty-icon { width: 2rem; height: 2rem; font-size: 2rem; opacity: .7; }
+    .incident-map__empty-text { margin: 0; font-weight: 500; color: var(--mat-sys-on-surface); }
+    .incident-map__empty-sub { margin: 0; font-size: .8125rem; }
   `,
   ],
 })
@@ -234,6 +323,14 @@ export class IncidentMapComponent {
       swatch: SPINE_TONE[tone],
     }));
   });
+  // 3-way shape key (FIRE-AREA-6): explains the extent symbology so colour is never the sole signal.
+  // Only the geometries actually drawn are listed, in fidelity order (polygon → circle → pin).
+  protected readonly shapeKey = computed<string>(() => {
+    const present = new Set(this.points().map((p) => extentKind(p)));
+    return SHAPE_KEY_ORDER.filter(([kind]) => present.has(kind))
+      .map(([, text]) => text)
+      .join(' · ');
+  });
   protected readonly ariaLabel = computed(() => {
     const pts = this.points();
     const first = pts[0];
@@ -243,20 +340,26 @@ export class IncidentMapComponent {
     const summary = pts.map((p) => pointLabel(p)).join('; ');
     return `Map of ${pts.length} active incidents: ${summary}`;
   });
-  protected readonly projected = computed(() => {
+  protected readonly projected = computed<ProjectedPoint[]>(() => {
     const pts = this.points();
-    const latitudes = pts.map((p) => p.lat);
-    const longitudes = pts.map((p) => p.lng);
+    // Span the plot over every centroid AND every polygon vertex, so a projected extent ring never
+    // overflows the viewBox. `||` guards a zero span (a lone point) so the projection never divides by 0.
+    const latitudes = pts.flatMap((p) => [p.lat, ...perimeterLatitudes(p.perimeter)]);
+    const longitudes = pts.flatMap((p) => [p.lng, ...perimeterLongitudes(p.perimeter)]);
     const minLat = Math.min(...latitudes);
     const maxLat = Math.max(...latitudes);
     const minLng = Math.min(...longitudes);
     const maxLng = Math.max(...longitudes);
     const sx = maxLng - minLng || 1;
     const sy = maxLat - minLat || 1;
+    const toX = (lng: number): number => SVG_PAD + ((lng - minLng) / sx) * SVG_SPAN;
+    const toY = (lat: number): number => SVG_PAD + ((maxLat - lat) / sy) * SVG_SPAN;
     return pts.map((p) => ({
-      x: SVG_PAD + ((p.lng - minLng) / sx) * SVG_SPAN,
-      y: SVG_PAD + ((maxLat - p.lat) / sy) * SVG_SPAN,
-      r: fallbackRingRadius(p.areaHa),
+      x: toX(p.lng),
+      y: toY(p.lat),
+      // A mapped extent draws its true outline; otherwise an area fire draws a log-scaled ring hint.
+      polygon: p.perimeter ? projectRing(p.perimeter, toX, toY) : '',
+      r: p.perimeter ? 0 : fallbackRingRadius(p.areaHa),
       // SPINE_TONE yields the `bg-status-<tone>` selector hook the component's SVG-fill rules match.
       spine: SPINE_TONE[p.tone],
     }));
@@ -269,6 +372,11 @@ export class IncidentMapComponent {
       m === 'dark' || (m === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     );
   });
+
+  // The fire's extent-kind phrase for the colour-independent SVG-fallback list (FIRE-AREA-6).
+  protected extentLabel(p: MapPoint): string {
+    return EXTENT_KIND_LABEL[extentKind(p)];
+  }
 
   constructor() {
     afterNextRender({ write: () => this.initMap() });
@@ -316,12 +424,27 @@ export class IncidentMapComponent {
     return layer;
   }
 
-  // An area-sized extent circle for fires with area (FIRE-AREA-4), plus the centroid pin; a plain pin when
-  // area is absent/0. Marker title/alt carry name+status+area so colour is never the sole signal (MAP-3).
+  // Per-fire extent geometry in fidelity order — polygon → area-circle → none (FIRE-AREA-5) — plus the
+  // always-present centroid pin. A `perimeter` draws the true mapped extent; otherwise an `areaHa>0` fire
+  // draws an area-estimate circle; otherwise the pin alone marks the point. Both fills are token-driven via
+  // their `.fire-polygon--`/`.fire-circle--` class; opacity/weight are geometry. Marker title/alt carry
+  // name+status+area+extent kind so colour is never the sole signal (MAP-3 / FIRE-AREA-6).
   private drawPoint(map: LeafletMap, p: MapPoint): Layer[] {
     const center: LatLngTuple = [p.lat, p.lng];
     const layers: Layer[] = [];
-    if (p.areaHa && p.areaHa > 0) {
+    if (p.perimeter) {
+      const polygon = geoJSON(p.perimeter, {
+        // `className`/fill go in `style` (a PathOptions); Leaflet applies them to the rendered SVG path.
+        style: {
+          className: POLYGON_TONE_CLASS[p.tone],
+          fillOpacity: POLYGON_FILL_OPACITY,
+          weight: POLYGON_STROKE_WEIGHT,
+        },
+        interactive: false,
+      });
+      polygon.addTo(map);
+      layers.push(polygon);
+    } else if (hasArea(p.areaHa)) {
       const extent = createCircle(center, {
         radius: areaRadiusMetres(p.areaHa),
         className: CIRCLE_TONE_CLASS[p.tone],
@@ -349,27 +472,41 @@ export class IncidentMapComponent {
     return layers;
   }
 
-  // Frame the drawn geometry. A lone pin with no area uses the suburb-scale zoom; anything with an extent
-  // (or multiple points) fits the union of all bounds, so a 50,000 ha fire fills the view. Reduced-motion
-  // users skip the framing animation (MAP-6).
+  // Frame the drawn geometry. A lone bare pin (no polygon, no area) uses the suburb-scale zoom; anything
+  // with an extent (polygon or circle) or multiple points fits the union of all bounds, so a mapped
+  // fire fills the view. Reduced-motion users skip the framing animation (MAP-6).
   private frame(map: LeafletMap, pts: readonly MapPoint[], first: MapPoint): void {
     const animate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const onlyPin = pts.length === 1 && !(first.areaHa && first.areaHa > 0);
+    const onlyPin = pts.length === 1 && !first.perimeter && !hasArea(first.areaHa);
     if (onlyPin) {
       map.setView([first.lat, first.lng], this.singleZoom(), { animate });
       return;
     }
-    // Derive the fit bounds from the DATA, not layer.getBounds() — an L.circle only has a projected
-    // extent once the map has a view, so getBounds() throws during init. Each point contributes its
-    // centre; area fires expand to their extent circle's bounds via latLng().toBounds(diameterMetres).
+    // Derive the fit bounds from the DATA, never layer.getBounds() — an L.circle / L.geoJSON only has a
+    // projected extent once the map has a view, so getBounds() throws during init (the d3ac017 / MAP-9
+    // crash). Each point contributes its centre; a polygon extends the bounds by each [lat, lng] vertex
+    // (GeoJSON is [lng, lat]); an area fire expands to its circle's bounds via toBounds(diameterMetres).
     const bounds = latLngBounds(pts.map((p) => [p.lat, p.lng] as LatLngTuple));
     for (const p of pts) {
-      if (p.areaHa && p.areaHa > 0) {
+      if (p.perimeter) {
+        this.extendWithPerimeter(bounds, p.perimeter);
+      } else if (hasArea(p.areaHa)) {
         bounds.extend(latLng(p.lat, p.lng).toBounds(2 * areaRadiusMetres(p.areaHa)));
       }
     }
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING, animate, maxZoom: FIT_MAX_ZOOM });
+    }
+  }
+
+  // Crash-safe polygon framing: extend `bounds` by each vertex of every ring directly from the GeoJSON
+  // coordinates ([lng, lat]) — never via the geoJSON layer's getBounds(), which has no projected pixel
+  // extent and throws before the map has a view (the prior map-crash fix).
+  private extendWithPerimeter(bounds: LatLngBounds, perimeter: FirePerimeter): void {
+    for (const ring of perimeter.coordinates) {
+      for (const [lng, lat] of ring) {
+        bounds.extend([lat, lng] as LatLngTuple);
+      }
     }
   }
 }
