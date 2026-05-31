@@ -70,21 +70,25 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
 
     .title {
       margin: 0 0 1.25rem;
+      font-family: var(--font-display);
       font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.01em;
+      color: var(--mat-sys-on-surface);
     }
 
     .notice {
       margin: 0;
       padding: 1.25rem 1.5rem;
-      border: var(--app-grid-border);
+      border: 1px solid var(--mat-sys-outline-variant);
       border-radius: var(--app-radius-card);
       background: var(--mat-sys-surface-container-low);
       color: var(--mat-sys-on-surface);
     }
 
-    /* Sticks to the bottom of the scrolling content column so the primary action is always reachable. */
+    /* Sticks to the bottom of the scrolling column so the primary action is always reachable; the
+       level-2 elevation lifts it off the panels above and scroll-margin keeps focused controls clear
+       of the band when scrolled into view. */
     .actions {
       position: sticky;
       bottom: 0;
@@ -94,8 +98,10 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
       gap: 0.75rem;
       margin-top: 1.25rem;
       padding: 0.75rem 0;
-      background: var(--mat-sys-surface);
-      border-top: var(--app-grid-border);
+      scroll-margin-bottom: 5rem;
+      background: var(--mat-sys-surface-container-low);
+      border-top: 1px solid var(--mat-sys-outline-variant);
+      box-shadow: var(--mat-sys-level2);
     }
 
     .actions__status {
