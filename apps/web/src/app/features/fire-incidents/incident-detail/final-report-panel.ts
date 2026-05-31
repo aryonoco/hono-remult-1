@@ -27,7 +27,10 @@ import {
       <div class="flex flex-wrap items-center gap-3">
         <h2 class="m-0 text-lg font-medium">Final report</h2>
         @if (r.isSignedOff) {
-          <span class="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+          <span
+            class="inline-flex items-center gap-1 rounded-md border border-current/25 bg-status-safe-bg px-2 py-0.5 text-xs font-semibold text-status-safe"
+          >
+            <mat-icon class="!h-4 !w-4 !text-[1rem]" aria-hidden="true">verified</mat-icon>
             Signed off by {{ r.signedOffBy }} · {{ r.signedOffAt | date: 'dd/MM/yy, HH:mm' }}
           </span>
         }

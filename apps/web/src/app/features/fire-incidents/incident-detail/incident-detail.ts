@@ -10,7 +10,6 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
@@ -68,7 +67,6 @@ interface FireRequest {
     DecimalPipe,
     RouterLink,
     MatButtonModule,
-    MatCardModule,
     MatIconModule,
     MatExpansionModule,
     MatProgressBarModule,
@@ -76,6 +74,126 @@ interface FireRequest {
     FinalReportPanelComponent,
   ],
   templateUrl: './incident-detail.html',
+  styles: `
+    :host {
+      display: block;
+    }
+
+    .detail {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .panel {
+      margin: 0;
+      padding: 1.25rem 1.5rem;
+      border: var(--app-grid-border);
+      border-radius: var(--app-radius-card);
+      background: var(--mat-sys-surface-container-low);
+      color: var(--mat-sys-on-surface);
+    }
+
+    .panel--error {
+      border-color: var(--mat-sys-error);
+      color: var(--mat-sys-error);
+    }
+
+    .detail-head {
+      padding: 1.25rem 1.5rem;
+      border: var(--app-grid-border);
+      border-radius: var(--app-radius-card);
+      background: var(--mat-sys-surface);
+    }
+
+    .detail-head__title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .detail-head__name {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .major-flag {
+      color: var(--mat-sys-error);
+    }
+
+    /* Instrument readouts: muted label over a monospace value, packed into a responsive strip. */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+      gap: 0.75rem 1.5rem;
+      margin: 1.25rem 0 0;
+      padding-top: 1rem;
+      border-top: var(--app-grid-border);
+    }
+
+    .metric dt {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .metric dd {
+      margin: 0.125rem 0 0;
+      font-size: 0.9375rem;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .detail-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: var(--app-grid-border);
+    }
+
+    .detail-actions__spacer {
+      flex: 1 1 auto;
+    }
+
+    .danger {
+      --mdc-outlined-button-label-text-color: var(--mat-sys-error);
+      color: var(--mat-sys-error);
+    }
+
+    .section-title {
+      margin: 0 0 0.625rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .sitrep-desc {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sitrep-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    .sitrep-body .label {
+      color: var(--mat-sys-on-surface-variant);
+    }
+  `,
 })
 export class IncidentDetailComponent {
   private readonly route = inject(ActivatedRoute);

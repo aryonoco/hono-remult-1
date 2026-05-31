@@ -11,6 +11,10 @@ export type WidgetKind =
   | 'select'
   | 'datetime';
 
+// How many columns a field occupies in the 12-column responsive form grid. Resolved to a concrete
+// `col-*` class by <app-dynamic-form>; cells collapse toward full width as the container narrows.
+export type GridSpan = 'full' | 'half' | 'third' | 'quarter';
+
 export interface SelectOption {
   value: string | number;
   label: string;
@@ -24,6 +28,10 @@ export interface FieldHint<T> {
   optionsSignal?: Signal<readonly SelectOption[]>;
   label?: string;
   hint?: string;
+  // Secondary explanatory line shown under a boolean control row (checkbox/slideToggle).
+  description?: string;
+  // Column width in the form grid; defaults per-widget when omitted (see resolveSpan in form-engine).
+  span?: GridSpan;
   rows?: number;
   readonly?: boolean;
   required?: boolean;
@@ -38,6 +46,8 @@ export interface FieldHint<T> {
 export interface FieldGroup<T> {
   title: string;
   fields: readonly (keyof T & string)[];
+  // Optional sub-heading shown under the section legend.
+  description?: string;
 }
 
 export interface EntityFormConfig<T> {
@@ -57,6 +67,8 @@ export interface BuiltField {
   required: boolean;
   readonly: boolean;
   hint: string | undefined;
+  description: string | undefined;
+  span: GridSpan;
   enumValues: readonly string[] | undefined;
   enumLabels: Readonly<Record<string, string>> | undefined;
   optionsSignal: Signal<readonly SelectOption[]> | undefined;
@@ -70,6 +82,7 @@ export interface BuiltField {
 
 export interface BuiltGroup {
   title: string;
+  description: string | undefined;
   fields: readonly BuiltField[];
 }
 

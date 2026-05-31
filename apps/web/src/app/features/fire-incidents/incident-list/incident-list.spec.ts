@@ -145,7 +145,7 @@ describe('IncidentListComponent (responsive content)', () => {
     forceContent(fixture);
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('table')).toBeNull();
-    expect(host.querySelector('mat-card')).not.toBeNull();
+    expect(host.querySelector('.card')).not.toBeNull();
     expect(host.textContent).toContain('Test Fire');
   });
 

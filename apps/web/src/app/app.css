@@ -3,3 +3,152 @@
   flex-direction: column;
   height: 100%;
 }
+
+/* Keyboard skip link — themed (was hard-coded white, invisible in dark mode). */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 100;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--app-radius-card);
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+  font-weight: 600;
+  transition: top 120ms ease;
+}
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* ── App bar ─────────────────────────────────────────────────────────────── */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: var(--app-grid-border);
+}
+
+.appbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.appbar__logo {
+  color: var(--mat-sys-primary);
+}
+
+.appbar__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+
+.appbar__spacer {
+  flex: 1 1 auto;
+}
+
+/* ── Shell / sidenav ─────────────────────────────────────────────────────── */
+.shell {
+  flex: 1 1 auto;
+}
+
+.sidenav {
+  display: flex;
+  flex-direction: column;
+  width: 16rem;
+  border-right: var(--app-grid-border);
+  background: var(--mat-sys-surface-container-low);
+}
+
+.nav {
+  flex: 1 1 auto;
+}
+
+.nav__section {
+  margin: 1rem 1.25rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.nav .is-active {
+  font-weight: 600;
+}
+
+/* User identity chip pinned to the foot of the sidenav. */
+.userchip {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-top: var(--app-grid-border);
+}
+
+.userchip__avatar {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.userchip__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.userchip__name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userchip__role {
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.userchip--empty {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
+}
+
+/* ── Content column ──────────────────────────────────────────────────────── */
+.main {
+  padding: 1.25rem clamp(1rem, 4vw, 2rem) 3rem;
+  outline: none;
+}
+
+.content {
+  margin-inline: auto;
+  width: 100%;
+}
+
+.content--form {
+  max-width: var(--container-form);
+}
+
+.content--detail {
+  max-width: var(--container-detail);
+}
+
+.content--wide {
+  max-width: var(--container-wide);
+}

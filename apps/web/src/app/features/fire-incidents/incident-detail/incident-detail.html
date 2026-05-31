@@ -7,57 +7,51 @@
     <!-- progress bar above covers the initial load -->
   }
   @case ('error') {
-    <div role="alert" class="rounded border border-red-300 bg-red-50 p-4 text-red-900">
-      {{ errorMessage() }}
-    </div>
+    <div role="alert" class="panel panel--error">{{ errorMessage() }}</div>
   }
   @case ('idle') {
-    <mat-card class="p-6">
-      <p class="m-0">Select a dev user to begin.</p>
-    </mat-card>
+    <div class="panel">Select a dev user to begin.</div>
   }
   @default {
     @if (fire(); as f) {
-      <div class="flex flex-col gap-4">
-        <mat-card class="p-4">
-          <div class="flex flex-wrap items-center gap-3">
-            <h1 class="m-0 text-xl font-medium">{{ f.name }}</h1>
+      <div class="detail">
+        <section class="detail-head">
+          <div class="detail-head__title">
+            <h1 class="detail-head__name">{{ f.name }}</h1>
             <app-status-badge [status]="f.status" />
             @if (f.isMajor) {
-              <mat-icon class="text-orange-600" aria-label="Major incident">
-                local_fire_department
-              </mat-icon>
+              <mat-icon class="major-flag" aria-label="Major incident">local_fire_department</mat-icon>
             }
           </div>
 
-          <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
-            <div>
-              <dt class="text-xs text-muted">Global ID</dt>
-              <dd class="m-0">{{ f.globalIncidentId }}</dd>
+          <dl class="metrics">
+            <div class="metric">
+              <dt>Global ID</dt>
+              <dd class="mono">{{ f.globalIncidentId }}</dd>
             </div>
-            <div>
-              <dt class="text-xs text-muted">Fire No.</dt>
-              <dd class="m-0">{{ f.fireNumber | number: '3.0-0' }}</dd>
+            <div class="metric">
+              <dt>Fire No.</dt>
+              <dd class="mono">{{ f.fireNumber | number: '3.0-0' }}</dd>
             </div>
-            <div>
-              <dt class="text-xs text-muted">Level</dt>
-              <dd class="m-0">{{ levelLabel(f.incidentLevel) }}</dd>
+            <div class="metric">
+              <dt>Level</dt>
+              <dd>{{ levelLabel(f.incidentLevel) }}</dd>
             </div>
-            <div>
-              <dt class="text-xs text-muted">District</dt>
-              <dd class="m-0">{{ f.district?.name ?? '—' }}</dd>
+            <div class="metric">
+              <dt>District</dt>
+              <dd>{{ f.district?.name ?? '—' }}</dd>
             </div>
-            <div>
-              <dt class="text-xs text-muted">Reported</dt>
-              <dd class="m-0">{{ f.reportedAt | date: 'dd/MM/yy, HH:mm' }}</dd>
+            <div class="metric">
+              <dt>Reported</dt>
+              <dd class="mono">{{ f.reportedAt | date: 'dd/MM/yy, HH:mm' }}</dd>
             </div>
-            <div>
-              <dt class="text-xs text-muted">Last report</dt>
-              <dd class="m-0">{{ f.statusAsAt | date: 'dd/MM/yy, HH:mm' }}</dd>
+            <div class="metric">
+              <dt>Last report</dt>
+              <dd class="mono">{{ f.statusAsAt | date: 'dd/MM/yy, HH:mm' }}</dd>
             </div>
-            <div>
-              <dt class="text-xs text-muted">Next due</dt>
-              <dd class="m-0">
+            <div class="metric">
+              <dt>Next due</dt>
+              <dd class="mono">
                 @if (f.nextReportDue) {
                   {{ f.nextReportDue | date: 'dd/MM/yy, HH:mm' }}
                 } @else {
@@ -65,9 +59,9 @@
                 }
               </dd>
             </div>
-            <div>
-              <dt class="text-xs text-muted">Fire area</dt>
-              <dd class="m-0">
+            <div class="metric">
+              <dt>Fire area</dt>
+              <dd class="mono">
                 @if (f.fireAreaHectares != null) {
                   {{ f.fireAreaHectares | number: '1.0-1' }} ha
                 } @else {
@@ -77,34 +71,21 @@
             </div>
           </dl>
 
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div class="detail-actions">
             @if (canEdit()) {
-              <a
-                mat-stroked-button
-                data-testid="action-edit"
-                [routerLink]="['/incidents', f.id, 'edit']"
-              >
+              <a mat-stroked-button data-testid="action-edit" [routerLink]="['/incidents', f.id, 'edit']">
                 <mat-icon>edit</mat-icon>
                 Edit
               </a>
             }
             @if (canEscalateFire()) {
-              <button
-                mat-stroked-button
-                type="button"
-                data-testid="action-escalate"
-                (click)="onEscalate()"
-              >
+              <button mat-stroked-button type="button" data-testid="action-escalate" (click)="onEscalate()">
                 <mat-icon>arrow_upward</mat-icon>
                 Escalate
               </button>
             }
             @if (canNewSitrep()) {
-              <a
-                mat-stroked-button
-                data-testid="action-sitrep"
-                [routerLink]="['/incidents', f.id, 'sitrep']"
-              >
+              <a mat-stroked-button data-testid="action-sitrep" [routerLink]="['/incidents', f.id, 'sitrep']">
                 <mat-icon>note_add</mat-icon>
                 New Situation Report
               </a>
@@ -120,9 +101,11 @@
               </a>
             }
             @if (canDelete()) {
+              <span class="detail-actions__spacer"></span>
               <button
                 mat-stroked-button
                 type="button"
+                class="danger"
                 data-testid="action-delete"
                 (click)="onDelete()"
               >
@@ -131,28 +114,29 @@
               </button>
             }
           </div>
-        </mat-card>
+        </section>
 
         <section>
-          <h2 class="mb-2 text-lg font-medium">Situation reports</h2>
+          <h2 class="section-title">Situation reports</h2>
           @if (sitreps().length > 0) {
             <mat-accordion>
               @for (s of sitreps(); track s.id; let first = $first) {
                 <mat-expansion-panel [expanded]="first">
                   <mat-expansion-panel-header>
                     <mat-panel-title>Report #{{ s.reportNumber }}</mat-panel-title>
-                    <mat-panel-description class="flex items-center gap-2">
+                    <mat-panel-description class="sitrep-desc">
                       <app-status-badge [status]="s.status" />
-                      {{ s.submittedAt | date: 'dd/MM/yy, HH:mm' }}
+                      <span class="mono">{{ s.submittedAt | date: 'dd/MM/yy, HH:mm' }}</span>
                     </mat-panel-description>
                   </mat-expansion-panel-header>
 
-                  <div class="flex flex-col gap-2 text-sm">
+                  <div class="sitrep-body">
                     <p class="m-0">
-                      {{ s.personnel }} personnel · {{ s.vehicles }} vehicles ·
-                      {{ s.aircraft }} aircraft
+                      <span class="mono">{{ s.personnel }}</span> personnel ·
+                      <span class="mono">{{ s.vehicles }}</span> vehicles ·
+                      <span class="mono">{{ s.aircraft }}</span> aircraft
                       @if (s.fireAreaHectares != null) {
-                        · {{ s.fireAreaHectares | number: '1.0-1' }} ha
+                        · <span class="mono">{{ s.fireAreaHectares | number: '1.0-1' }}</span> ha
                       }
                     </p>
                     @if (s.potentialLoss) {
@@ -162,39 +146,29 @@
                       <p class="m-0">Potential spread: {{ potentialLabel(s.potentialSpread) }}</p>
                     }
                     @if (s.weatherConditions) {
-                      <p class="m-0"><span class="text-muted">Weather:</span> {{ s.weatherConditions }}</p>
+                      <p class="m-0"><span class="label">Weather:</span> {{ s.weatherConditions }}</p>
                     }
                     @if (s.currentStrategy) {
-                      <p class="m-0"><span class="text-muted">Strategy:</span> {{ s.currentStrategy }}</p>
+                      <p class="m-0"><span class="label">Strategy:</span> {{ s.currentStrategy }}</p>
                     }
                     @if (s.predictedBehaviour) {
-                      <p class="m-0">
-                        <span class="text-muted">Predicted behaviour:</span> {{ s.predictedBehaviour }}
-                      </p>
+                      <p class="m-0"><span class="label">Predicted behaviour:</span> {{ s.predictedBehaviour }}</p>
                     }
                     @if (s.controlProgress) {
-                      <p class="m-0">
-                        <span class="text-muted">Control progress:</span> {{ s.controlProgress }}
-                      </p>
+                      <p class="m-0"><span class="label">Control progress:</span> {{ s.controlProgress }}</p>
                     }
                     @if (s.communityImpact) {
-                      <p class="m-0">
-                        <span class="text-muted">Community impact:</span> {{ s.communityImpact }}
-                      </p>
+                      <p class="m-0"><span class="label">Community impact:</span> {{ s.communityImpact }}</p>
                     }
                     @if (s.significantEvents) {
-                      <p class="m-0">
-                        <span class="text-muted">Significant events:</span> {{ s.significantEvents }}
-                      </p>
+                      <p class="m-0"><span class="label">Significant events:</span> {{ s.significantEvents }}</p>
                     }
                   </div>
                 </mat-expansion-panel>
               }
             </mat-accordion>
           } @else {
-            <mat-card class="p-6">
-              <p class="m-0">No situation reports yet.</p>
-            </mat-card>
+            <div class="panel">No situation reports yet.</div>
           }
         </section>
 
@@ -211,17 +185,13 @@
                 (removeSignOff)="onRemoveSignOff()"
               />
             } @placeholder {
-              <mat-card class="p-4" data-testid="final-report-placeholder">
-                <p class="m-0 text-muted">Final report — scroll to load.</p>
-              </mat-card>
+              <div class="panel" data-testid="final-report-placeholder">Final report — scroll to load.</div>
             }
           }
         }
       </div>
     } @else {
-      <mat-card class="p-6">
-        <p class="m-0">Incident not found.</p>
-      </mat-card>
+      <div class="panel">Incident not found.</div>
     }
   }
 }

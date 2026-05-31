@@ -6,12 +6,35 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { RouterLink, RouterOutlet } from '@angular/router';
-import { map } from 'rxjs';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { type CurrentUser, DEV_DISTRICT_NAMES } from '@workspace/shared-domain';
+import { filter, map, startWith } from 'rxjs';
 
 import { DevAuthService } from './core/dev-auth.service';
 import { DevUserSwitcherComponent } from './shared/components/dev-user-switcher';
 import { ThemeToggleComponent } from './shared/components/theme-toggle/theme-toggle';
+
+// Reading-measure intent for the content column, declared on each route's `data` and resolved here.
+type ContentWidth = 'form' | 'detail' | 'wide';
+interface RouteData {
+  width?: ContentWidth;
+}
+
+const ROLE_LABELS: Readonly<Record<string, string>> = {
+  viewer: 'Viewer',
+  incidentEditor: 'Incident Editor',
+  stateOfficer: 'State Officer',
+  admin: 'Administrator',
+};
+
+const NAME_SPLIT = /\s+/;
 
 @Component({
   selector: 'app-root',
@@ -19,6 +42,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle/theme-tog
   imports: [
     RouterOutlet,
     RouterLink,
+    RouterLinkActive,
     MatToolbarModule,
     MatSidenavModule,
     MatListModule,
@@ -33,9 +57,60 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle/theme-tog
 export class App {
   private readonly devAuth = inject(DevAuthService);
   private readonly breakpointObserver = inject(BreakpointObserver);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
   protected readonly currentUser = this.devAuth.currentUser;
+
   protected readonly isHandset = toSignal(
     this.breakpointObserver.observe(Breakpoints.Handset).pipe(map((result) => result.matches)),
     { initialValue: false },
   );
+
+  // Widest sensible default; each route narrows it (forms read best in a tighter column).
+  protected readonly contentWidth = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      startWith(null),
+      map(() => this.resolveWidth()),
+    ),
+    { initialValue: 'detail' as ContentWidth },
+  );
+
+  private resolveWidth(): ContentWidth {
+    let node = this.route.firstChild;
+    let width: ContentWidth = 'detail';
+    while (node) {
+      const data = node.snapshot.data as RouteData;
+      if (data.width) {
+        width = data.width;
+      }
+      node = node.firstChild;
+    }
+    return width;
+  }
+
+  protected roleLabel(user: CurrentUser): string {
+    const roles = user.roles ?? [];
+    if (roles.length === 0) {
+      return 'No role';
+    }
+    return roles.map((role) => ROLE_LABELS[role] ?? role).join(', ');
+  }
+
+  protected districtLabel(user: CurrentUser): string {
+    if (user.districtId === null) {
+      return 'All districts';
+    }
+    return DEV_DISTRICT_NAMES[user.districtId] ?? `District ${user.districtId}`;
+  }
+
+  protected initials(name: string | undefined): string {
+    return (name ?? '')
+      .split(NAME_SPLIT)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('');
+  }
 }

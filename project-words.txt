@@ -140,3 +140,4 @@ describedby
 testid
 testids
 maxlength
+inputmode

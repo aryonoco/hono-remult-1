@@ -1,16 +1,22 @@
 import type { FireStatus } from './enums';
 
-export const STATUS_BADGE_BASE =
-  'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium';
+// Semantic visual tone for a fire status. The nine operational statuses collapse onto six tones that
+// the UI colours consistently. This module stays framework-free (no Tailwind, no Angular): the web app
+// maps each tone to theme-aware design tokens in status-badge.ts, so dark mode and theme overrides live there.
+export type StatusTone = 'going' | 'contained' | 'controlled' | 'safe' | 'neutral' | 'missing';
 
-export const STATUS_BADGE_CLASSES: Readonly<Record<FireStatus, string>> = {
-  going: 'bg-red-100 text-red-800 border-red-300',
-  contained: 'bg-amber-100 text-amber-800 border-amber-300',
-  underControlFirst: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  underControlSecond: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  safe: 'bg-green-100 text-green-800 border-green-300',
-  safeOverrun: 'bg-green-100 text-green-800 border-green-300',
-  safeNotFound: 'bg-gray-100 text-gray-800 border-gray-300',
-  safeFalseAlarm: 'bg-gray-100 text-gray-800 border-gray-300',
-  notFound: 'bg-orange-100 text-orange-800 border-orange-300',
+export const STATUS_TONES: Readonly<Record<FireStatus, StatusTone>> = {
+  going: 'going',
+  contained: 'contained',
+  underControlFirst: 'controlled',
+  underControlSecond: 'controlled',
+  safe: 'safe',
+  safeOverrun: 'safe',
+  safeNotFound: 'neutral',
+  safeFalseAlarm: 'neutral',
+  notFound: 'missing',
 };
+
+export function statusTone(status: FireStatus): StatusTone {
+  return STATUS_TONES[status];
+}

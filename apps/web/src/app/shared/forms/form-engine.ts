@@ -18,6 +18,7 @@ import type {
   EntityFormConfig,
   FieldGroup,
   FieldHint,
+  GridSpan,
   KnownValidationErrors,
   WidgetKind,
 } from './form-engine.types';
@@ -82,6 +83,23 @@ function resolveWidget<T>(field: FieldMetadata, hint: FieldHint<T> | undefined):
     return (hint?.maxLength ?? 0) >= TEXTAREA_THRESHOLD ? 'textarea' : 'text';
   }
   return 'text';
+}
+
+// Default grid width per widget when a hint doesn't set one. Short controls (numbers, enums) sit
+// multiple-up; free text and date/time take half; long-form text fills the row.
+const WIDGET_DEFAULT_SPAN: Readonly<Record<WidgetKind, GridSpan>> = {
+  text: 'half',
+  textarea: 'full',
+  number: 'third',
+  integer: 'third',
+  checkbox: 'half',
+  slideToggle: 'half',
+  select: 'half',
+  datetime: 'half',
+};
+
+function resolveSpan<T>(widget: WidgetKind, hint: FieldHint<T> | undefined): GridSpan {
+  return hint?.span ?? WIDGET_DEFAULT_SPAN[widget];
 }
 
 function buildValidators<T>(hint: FieldHint<T> | undefined): ValidatorFn[] {
@@ -153,6 +171,8 @@ function buildField<T>(
     required: hint?.required ?? false,
     readonly: hint?.readonly ?? false,
     hint: hint?.hint,
+    description: hint?.description,
+    span: resolveSpan(widget, hint),
     enumValues: hint?.enumValues,
     enumLabels: hint?.enumLabels,
     optionsSignal: hint?.optionsSignal,
@@ -253,6 +273,7 @@ export function buildForm<T>(
   const controls: Record<string, FormControl> = {};
   const groups: BuiltGroup[] = config.groups.map((group) => ({
     title: group.title,
+    description: group.description,
     fields: group.fields.map((key) => {
       const field = repo.metadata.fields.find(key) as FieldMetadata;
       const built = buildField(field, hintByKey.get(key), seedInstance);

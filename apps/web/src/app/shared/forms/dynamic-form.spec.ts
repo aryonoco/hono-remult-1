@@ -13,6 +13,8 @@ function field(
     required: false,
     readonly: false,
     hint: undefined,
+    description: undefined,
+    span: 'full',
     enumValues: undefined,
     enumLabels: undefined,
     optionsSignal: undefined,
@@ -52,6 +54,7 @@ describe('DynamicFormComponent', () => {
     const groups: BuiltGroup[] = [
       {
         title: 'G',
+        description: undefined,
         fields: [
           field({ key: 'txt', widget: 'text', control: controls.txt }),
           field({

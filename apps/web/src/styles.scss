@@ -11,6 +11,40 @@
   body {
     height: 100%;
   }
+
+  /* Paint the whole viewport with the themed surface so light/dark covers areas outside Material's
+     own containers (and avoids a white flash in dark mode). */
+  body {
+    margin: 0;
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface);
+    font-family: var(--font-sans);
+  }
+
+  /* Headings in our own markup use the display face (Libre Franklin); Material component headings are
+     already driven by the theme's brand-family below. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
+
+  /* One focus system for the whole app: a clear, theme-aware ring on keyboard focus only. Never
+     remove outlines — components that draw their own focus treatment opt out individually. */
+  :focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  /* Project-wide CSS custom properties consumed by component styles and [style] bindings. Kept here
+     (not in Tailwind's @theme) because they are raw values, not utility generators. */
+  :root {
+    --app-grid-border: 1px solid var(--mat-sys-outline-variant);
+    --app-focus-ring: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px var(--mat-sys-primary);
+    --app-radius-card: 0.5rem;
+    --app-space-section: 1.5rem;
+  }
 }
 
 @layer material {
@@ -18,9 +52,33 @@
     color-scheme: light dark; // follow the OS by default; ThemeService flips data-theme to override
     @include mat.theme(
       (
-        color: mat.$azure-palette,
-        typography: Roboto,
-        density: 0,
+        color: (
+          primary: mat.$blue-palette,
+          tertiary: mat.$orange-palette,
+        ),
+        typography: (
+          plain-family: 'Public Sans',
+          brand-family: 'Libre Franklin',
+          bold-weight: 700,
+          medium-weight: 600,
+          regular-weight: 400,
+        ),
+        density: -1,
+      )
+    );
+
+    // Console chrome: a slightly raised, tinted app bar that reads as a fixed header band.
+    @include mat.toolbar-overrides(
+      (
+        container-background-color: var(--mat-sys-surface-container),
+        container-text-color: var(--mat-sys-on-surface),
+      )
+    );
+
+    // Flat, outlined cards instead of floating drop-shadows — the "panel" feel of an ops console.
+    @include mat.card-overrides(
+      (
+        elevated-container-color: var(--mat-sys-surface),
       )
     );
   }

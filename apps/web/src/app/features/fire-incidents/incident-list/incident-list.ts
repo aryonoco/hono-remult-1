@@ -62,6 +62,134 @@ type ViewState = 'anonymous' | 'loading' | 'error' | 'empty' | 'content';
     StatusBadgeComponent,
   ],
   templateUrl: './incident-list.html',
+  styles: `
+    :host {
+      display: block;
+    }
+
+    .list-head {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .list-head__title {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .list-head__count {
+      color: var(--mat-sys-on-surface-variant);
+      font-size: 0.8125rem;
+      font-family: var(--font-mono);
+    }
+
+    .spacer {
+      flex: 1 1 auto;
+    }
+
+    .panel {
+      margin: 0;
+      padding: 1.25rem 1.5rem;
+      border: var(--app-grid-border);
+      border-radius: var(--app-radius-card);
+      background: var(--mat-sys-surface-container-low);
+      color: var(--mat-sys-on-surface);
+    }
+
+    .panel--error {
+      border-color: var(--mat-sys-error);
+      color: var(--mat-sys-error);
+    }
+
+    .table-panel {
+      border: var(--app-grid-border);
+      border-radius: var(--app-radius-card);
+      overflow: hidden;
+      background: var(--mat-sys-surface);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+    }
+
+    /* Sticky header sits on a solid container tint so rows scroll cleanly beneath it. */
+    th.mat-mdc-header-cell {
+      background: var(--mat-sys-surface-container);
+      font-weight: 600;
+    }
+
+    tr.mat-mdc-row:nth-child(even) {
+      background: color-mix(in srgb, var(--mat-sys-surface-container-low) 60%, transparent);
+    }
+
+    tr.mat-mdc-row:hover {
+      background: var(--mat-sys-surface-container-high);
+    }
+
+    .num {
+      text-align: right;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .row-link {
+      font-weight: 500;
+    }
+
+    .major-flag {
+      color: var(--mat-sys-error);
+      vertical-align: middle;
+    }
+
+    mat-paginator {
+      border-top: var(--app-grid-border);
+    }
+
+    /* ── Handset cards ── */
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .card {
+      display: block;
+      padding: 0.875rem 1rem;
+      border: var(--app-grid-border);
+      border-radius: var(--app-radius-card);
+      background: var(--mat-sys-surface);
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .card__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .card__name {
+      font-weight: 600;
+    }
+
+    .card__meta {
+      margin-top: 0.375rem;
+      font-size: 0.8125rem;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  `,
 })
 export class IncidentListComponent {
   private readonly devAuth = inject(DevAuthService);

@@ -1,13 +1,59 @@
 @import 'tailwindcss';
 
-/* Tailwind must also scan libs that hold class strings — STATUS_BADGE_CLASSES (a Phase 4
-   deliverable) will live in libs/shared/domain/src/fire/ui.ts — or those classes are purged from
-   the production build. */
+/* Tailwind scans component sources automatically; this keeps any class strings that live in the
+   framework-free shared lib (re-exported to the web app) from being purged in production builds. */
 @source '../../../libs/shared/domain/src';
 
-/* Semantic muted-text colour mapped to the Material M3 system token. Using `text-muted` (rather than an
-   `opacity-*` utility or a fixed grey) keeps de-emphasised text at AA contrast against the surface in both
-   the light and dark themes, where the tonal palette guarantees the on-surface-variant pairing. */
+/* ── Design tokens ──────────────────────────────────────────────────────────────────────────────
+   The token layer for the "Calm Command Console" look. Colour tokens bridge to Material's M3 system
+   tokens (`--mat-sys-*`) so a single theme drives both Material components and our Tailwind-styled
+   chrome, and so light/dark/system all follow the one `color-scheme` signal the ThemeService flips.
+   Status tokens are the exception: Material has no fire-status concept, so they carry their own
+   light/dark pair via `light-dark()` (the same mechanism Material uses internally).               */
 @theme {
+  /* Typography — Libre Franklin (display), Public Sans (body/UI), IBM Plex Mono (instrument data). */
+  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Libre Franklin', 'Public Sans', ui-sans-serif, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
+  /* Surface / text / line colours bridged to the active Material theme. `--color-muted` already
+     existed; the rest let Tailwind utilities (bg-surface, text-on-surface, border-outline…) stay in
+     lock-step with Material without hard-coded greys. */
   --color-muted: var(--mat-sys-on-surface-variant);
+  --color-surface: var(--mat-sys-surface);
+  --color-surface-container: var(--mat-sys-surface-container);
+  --color-surface-container-high: var(--mat-sys-surface-container-high);
+  --color-on-surface: var(--mat-sys-on-surface);
+  --color-outline: var(--mat-sys-outline);
+  --color-outline-variant: var(--mat-sys-outline-variant);
+  --color-primary: var(--mat-sys-primary);
+  --color-on-primary: var(--mat-sys-on-primary);
+  --color-error: var(--mat-sys-error);
+  --color-on-error: var(--mat-sys-on-error);
+
+  /* Fire-status tones — six semantic tones, each a light/dark pair. Foreground (text + border) and a
+     tinted surface. Values follow well-established AA-compliant tint/shade pairings (≈100/800 in
+     light, ≈950/300 in dark). FireStatus → tone mapping lives in status-badge.ts. */
+  --color-status-going: light-dark(#991b1b, #fca5a5);
+  --color-status-going-bg: light-dark(#fee2e2, #450a0a);
+  --color-status-contained: light-dark(#92400e, #fcd34d);
+  --color-status-contained-bg: light-dark(#fef3c7, #451a03);
+  --color-status-controlled: light-dark(#854d0e, #fde047);
+  --color-status-controlled-bg: light-dark(#fef9c3, #422006);
+  --color-status-safe: light-dark(#166534, #86efac);
+  --color-status-safe-bg: light-dark(#dcfce7, #052e16);
+  --color-status-neutral: light-dark(#334155, #cbd5e1);
+  --color-status-neutral-bg: light-dark(#f1f5f9, #1e293b);
+  --color-status-missing: light-dark(#9a3412, #fdba74);
+  --color-status-missing-bg: light-dark(#ffedd5, #431407);
+
+  /* Reading-measure container widths, switched per route intent by the content-shell wrapper.
+     Generates max-w-form / max-w-detail / max-w-wide. */
+  --container-form: 60rem;
+  --container-detail: 76rem;
+  --container-wide: 104rem;
+
+  /* Squared, instrument-like radii (softer than a pill, sharper than Material's default rounding). */
+  --radius-card: 0.5rem;
+  --radius-field: 0.375rem;
 }
