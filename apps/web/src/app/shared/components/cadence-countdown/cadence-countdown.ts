@@ -53,6 +53,6 @@ export class CadenceCountdownComponent {
       return '—';
     }
     const delta = due.getTime() - this.now().getTime();
-    return delta < 0 ? `−${fmt(-delta)}` : `in ${fmt(delta)}`;
+    return delta < 0 ? `${fmt(-delta)} overdue` : `in ${fmt(delta)}`;
   });
 }

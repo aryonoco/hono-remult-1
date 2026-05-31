@@ -50,7 +50,7 @@
      Semantic mapping: going=love, contained=gold, controlled=foam, safe=pine, neutral=subtle,
      missing=iris. FireStatus → tone mapping lives in fire/ui.ts (statusTone). */
   --color-status-going: light-dark(hsl(343 35% 46%), hsl(343 76% 71%));
-  --color-status-going-bg: light-dark(hsl(13 42% 91%), hsl(300 20% 23%));
+  --color-status-going-bg: light-dark(hsl(13 42% 91%), hsl(343 30% 23%));
   --color-status-contained: light-dark(hsl(35 81% 32%), hsl(35 88% 72%));
   --color-status-contained-bg: light-dark(hsl(35 70% 91%), hsl(338 8% 26%));
   --color-status-controlled: light-dark(hsl(189 30% 36%), hsl(189 43% 73%));

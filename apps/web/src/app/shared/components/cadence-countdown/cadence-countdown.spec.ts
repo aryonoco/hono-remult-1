@@ -37,7 +37,7 @@ describe('CadenceCountdownComponent', () => {
 
   it('marks a past due as overdue with a live status', async () => {
     const { host, text } = await render(new Date(NOW.getTime() - 6 * MIN));
-    expect(text).toBe('−6m');
+    expect(text).toBe('6m overdue');
     expect(host.getAttribute('data-state')).toBe('overdue');
     expect(host.querySelector('[role=status]')).not.toBeNull();
     expect(await findAxeViolations(host)).toEqual([]);
@@ -57,7 +57,7 @@ describe('CadenceCountdownComponent', () => {
 
   it('formats a multi-day overdue as whole days', async () => {
     const { host, text } = await render(new Date(NOW.getTime() - 3 * DAY));
-    expect(text).toBe('−3d');
+    expect(text).toBe('3d overdue');
     expect(host.getAttribute('data-state')).toBe('overdue');
     expect(host.querySelector('[role=status]')).not.toBeNull();
   });

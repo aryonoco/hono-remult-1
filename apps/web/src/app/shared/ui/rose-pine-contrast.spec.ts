@@ -29,12 +29,24 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, Pair, Pair]> = [
 
 // [tone, fg pair, bg pair] — badge fg↔bg must clear 4.5:1; fg↔surface (spine) must clear 3:1.
 const STATUS_PAIRS: ReadonlyArray<readonly [string, Pair, Pair]> = [
-  ['going', ['hsl(343 35% 46%)', 'hsl(343 76% 71%)'], ['hsl(13 42% 91%)', 'hsl(300 20% 23%)']],
+  ['going', ['hsl(343 35% 46%)', 'hsl(343 76% 71%)'], ['hsl(13 42% 91%)', 'hsl(343 30% 23%)']],
   ['contained', ['hsl(35 81% 32%)', 'hsl(35 88% 72%)'], ['hsl(35 70% 91%)', 'hsl(338 8% 26%)']],
   ['controlled', ['hsl(189 30% 36%)', 'hsl(189 43% 73%)'], ['hsl(90 8% 90%)', 'hsl(224 19% 27%)']],
   ['safe', ['hsl(197 53% 34%)', 'hsl(197 48% 57%)'], ['hsl(100 5% 88%)', 'hsl(218 31% 23%)']],
   ['neutral', ['hsl(248 12% 44%)', 'hsl(248 15% 67%)'], ['hsl(20 18% 90%)', 'hsl(248 18% 25%)']],
   ['missing', ['hsl(268 21% 46%)', 'hsl(267 57% 78%)'], ['hsl(0 18% 91%)', 'hsl(254 20% 28%)']],
+];
+
+// [tone, fg pair] — the detail-hero banner (incident-detail.ts `.detail-hero--<tone>`) paints the
+// status FOREGROUND token as its background and renders text in `--mat-sys-surface`. That text-on-tone
+// pairing must clear the AA text threshold (4.5:1) in both themes, not merely the 3:1 spine threshold.
+const HERO_TEXT_PAIRS: ReadonlyArray<readonly [string, Pair]> = [
+  ['going', ['hsl(343 35% 46%)', 'hsl(343 76% 71%)']],
+  ['contained', ['hsl(35 81% 32%)', 'hsl(35 88% 72%)']],
+  ['controlled', ['hsl(189 30% 36%)', 'hsl(189 43% 73%)']],
+  ['safe', ['hsl(197 53% 34%)', 'hsl(197 48% 57%)']],
+  ['neutral', ['hsl(248 12% 44%)', 'hsl(248 15% 67%)']],
+  ['missing', ['hsl(268 21% 46%)', 'hsl(267 57% 78%)']],
 ];
 
 const OUTLINE: Pair = ['hsl(248 12% 52%)', 'hsl(249 12% 47%)'];
@@ -107,6 +119,12 @@ describe('Rosé Pine token contrast (WCAG 2.2 AA)', () => {
       });
       it(`status-${tone} fg (spine/pin) clears non-text contrast vs surface — ${theme.name}`, () => {
         expect(contrastRatio(fg[theme.i], SURFACE[theme.i])).toBeGreaterThanOrEqual(AA_NON_TEXT);
+      });
+    }
+
+    for (const [tone, fg] of HERO_TEXT_PAIRS) {
+      it(`hero surface text on status-${tone} banner clears AA text contrast — ${theme.name}`, () => {
+        expect(contrastRatio(SURFACE[theme.i], fg[theme.i])).toBeGreaterThanOrEqual(AA_TEXT);
       });
     }
   }

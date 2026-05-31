@@ -32,6 +32,14 @@
   border-bottom: var(--app-grid-border);
 }
 
+/* Tighten the app-bar gap on small screens so the dev-user switcher and theme toggle fit without
+   truncation at handset widths (~390px). */
+@media (max-width: 512px) {
+  .appbar {
+    gap: 0.5rem;
+  }
+}
+
 .appbar__brand {
   display: inline-flex;
   align-items: center;

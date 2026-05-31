@@ -36,10 +36,26 @@
   }
 
   /* One focus system for the whole app: a clear, theme-aware ring on keyboard focus only. Never
-     remove outlines — components that draw their own focus treatment opt out individually. */
-  :focus-visible {
+     remove outlines — components that draw their own focus treatment opt out individually.
+     Scoped to NON-Material focus hosts. The button/icon-button/list-item families render
+     `mat.strong-focus-indicators()`'s ring on an INNER `.mat-focus-indicator` span, while
+     `:focus-visible` lands on the host (which carries `mdc-button`/`mat-mdc-*`, NOT
+     `.mat-focus-indicator`). Matching on the class alone therefore still hit those hosts and
+     doubled the ring; `:not(:has(.mat-focus-indicator))` instead excludes any host that CONTAINS
+     the indicator span, so Material controls keep their single strong-focus ring and only genuinely
+     plain elements (skip link, anchor tiles, focusable regions, and the `mat-select` host — which
+     has no indicator child and relies on this outline) get the global ring. */
+  :focus-visible:not(:has(.mat-focus-indicator)) {
     outline: 2px solid var(--mat-sys-primary);
     outline-offset: 2px;
+  }
+
+  /* On narrow screens drop the focus offset so the ring never clips at a container edge or under the
+     sticky app bar. The ring stays clearly visible — only its 2px gap is removed. */
+  @media (max-width: 512px) {
+    :focus-visible:not(:has(.mat-focus-indicator)) {
+      outline-offset: 0;
+    }
   }
 
   /* Project-wide CSS custom properties consumed by component styles and [style] bindings. Kept here

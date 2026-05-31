@@ -48,6 +48,16 @@ import { DevAuthService } from '../../core/dev-auth.service';
       max-width: 50vw;
       font-size: 0.75rem;
     }
+
+    /* On handset widths shrink the switcher so it and the theme toggle both fit the app bar at ~390px
+       without truncating. */
+    @media (max-width: 640px) {
+      .switcher {
+        width: 10rem;
+        max-width: 40vw;
+        font-size: 0.7rem;
+      }
+    }
   `,
 })
 export class DevUserSwitcherComponent {

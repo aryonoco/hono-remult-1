@@ -45,7 +45,7 @@ const PERCENT: number = 100;
     <dl class="mt-2.5 grid grid-cols-2 gap-x-3.5 gap-y-1.5 text-xs text-on-surface-variant">
       @for (s of segments(); track s.tone) {
         <div class="flex items-center gap-1.5">
-          <span class="h-2 w-2 rounded-[3px]" [class]="s.class" aria-hidden="true"></span>
+          <span class="h-3 w-3 rounded-sm" [class]="s.class" aria-hidden="true"></span>
           <dt>{{ s.label }}</dt>
           <dd class="ml-auto font-mono text-on-surface">{{ s.count }}</dd>
         </div>
