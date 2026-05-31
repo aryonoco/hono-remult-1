@@ -1,5 +1,4 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { DatePipe, DecimalPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -8,196 +7,70 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatPaginatorModule, type PageEvent } from '@angular/material/paginator';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSortModule, type Sort } from '@angular/material/sort';
-import { MatTableModule } from '@angular/material/table';
-import { RouterLink } from '@angular/router';
-import { FireIncident, INCIDENT_LEVEL_LABELS, type IncidentLevel } from '@workspace/shared-domain';
-import { type EntityOrderBy, type LiveQueryChangeInfo, remult } from 'remult';
+import {
+  computeFinancialYear,
+  District,
+  FireIncident,
+  FireStatus,
+  INCIDENT_LEVEL_LABELS,
+  type IncidentLevel,
+  type StatusTone,
+  statusTone,
+  TERMINAL_STATUSES,
+} from '@workspace/shared-domain';
+import { ResultAsync } from 'neverthrow';
+import { type EntityFilter, type EntityOrderBy, remult } from 'remult';
 import { map } from 'rxjs';
 
 import { DevAuthService } from '../../../core/dev-auth.service';
-import { NotificationService } from '../../../core/notification.service';
-import { canCreateIncident } from '../../../shared/auth/permissions';
-import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge';
-import { toErrorMessage } from '../../../shared/util/to-error-message';
+import { canCreateIncident, canViewDistrictRollup } from '../../../shared/auth/permissions';
 
-const DEFAULT_PAGE_SIZE = 10;
-
-// Columns whose header re-issues the server-side `orderBy`. `district` is a relation column that the API
-// cannot order by, so it is sorted client-side in `sortedIncidents`; everything else falls back to the
-// entity's default `createdAt desc`.
-type SortKey = 'name' | 'fireNumber' | 'statusAsAt' | 'district' | 'createdAt';
-type SortDirection = 'asc' | 'desc' | '';
+type StatusGroup = 'all' | 'active' | 'going' | 'resolved';
+type SortKey = 'name' | 'fireNumber' | 'statusAsAt' | 'districtId' | 'createdAt';
+interface ListFilters {
+  fy: number | 'all';
+  group: StatusGroup;
+  districtId: number | 'all';
+}
 interface SortState {
   active: SortKey;
-  direction: SortDirection;
+  direction: 'asc' | 'desc' | '';
 }
 interface PageState {
   pageIndex: number;
   pageSize: number;
 }
 type ViewState = 'anonymous' | 'loading' | 'error' | 'empty' | 'content';
+interface DistrictOption {
+  id: number;
+  name: string;
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+const FIRST_SEASON_FY = 2018;
+const DISTRICT_FETCH_LIMIT = 50;
+const TICK_INTERVAL_MS = 60_000;
+const PERCENT = 100;
+
+const toErr = (cause: unknown): Error =>
+  cause instanceof Error ? cause : new Error(String(cause));
 
 @Component({
   selector: 'app-incident-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DatePipe,
-    DecimalPipe,
-    RouterLink,
-    MatButtonModule,
-    MatCardModule,
-    MatIconModule,
-    MatPaginatorModule,
-    MatProgressBarModule,
-    MatSortModule,
-    MatTableModule,
-    StatusBadgeComponent,
-  ],
+  imports: [],
   templateUrl: './incident-list.html',
-  styles: `
-    :host {
-      display: block;
-    }
-
-    .list-head {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .list-head__title {
-      margin: 0;
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-    }
-
-    .list-head__count {
-      color: var(--mat-sys-on-surface-variant);
-      font-size: 0.8125rem;
-      font-family: var(--font-mono);
-    }
-
-    .spacer {
-      flex: 1 1 auto;
-    }
-
-    .panel {
-      margin: 0;
-      padding: 1.25rem 1.5rem;
-      border: var(--app-grid-border);
-      border-radius: var(--app-radius-card);
-      background: var(--mat-sys-surface-container-low);
-      color: var(--mat-sys-on-surface);
-    }
-
-    .panel--error {
-      border-color: var(--mat-sys-error);
-      color: var(--mat-sys-error);
-    }
-
-    .table-panel {
-      border: var(--app-grid-border);
-      border-radius: var(--app-radius-card);
-      overflow: hidden;
-      background: var(--mat-sys-surface);
-    }
-
-    .table-scroll {
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-    }
-
-    /* Sticky header sits on a solid container tint so rows scroll cleanly beneath it. */
-    th.mat-mdc-header-cell {
-      background: var(--mat-sys-surface-container);
-      font-weight: 600;
-    }
-
-    tr.mat-mdc-row:nth-child(even) {
-      background: color-mix(in srgb, var(--mat-sys-surface-container-low) 60%, transparent);
-    }
-
-    tr.mat-mdc-row:hover {
-      background: var(--mat-sys-surface-container-high);
-    }
-
-    .num {
-      text-align: right;
-    }
-
-    .mono {
-      font-family: var(--font-mono);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .row-link {
-      font-weight: 500;
-    }
-
-    .major-flag {
-      color: var(--mat-sys-error);
-      vertical-align: middle;
-    }
-
-    mat-paginator {
-      border-top: var(--app-grid-border);
-    }
-
-    /* ── Handset cards ── */
-    .cards {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .card {
-      display: block;
-      padding: 0.875rem 1rem;
-      border: var(--app-grid-border);
-      border-radius: var(--app-radius-card);
-      background: var(--mat-sys-surface);
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .card__top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-
-    .card__name {
-      font-weight: 600;
-    }
-
-    .card__meta {
-      margin-top: 0.375rem;
-      font-size: 0.8125rem;
-      color: var(--mat-sys-on-surface-variant);
-    }
-  `,
+  styleUrl: './incident-list.css',
 })
 export class IncidentListComponent {
   private readonly devAuth = inject(DevAuthService);
-  private readonly breakpointObserver = inject(BreakpointObserver);
-  private readonly notification = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly breakpoints = inject(BreakpointObserver);
 
-  protected readonly displayedColumns: string[] = [
+  protected readonly displayedColumns = [
     'name',
     'district',
     'fireNumber',
@@ -207,130 +80,208 @@ export class IncidentListComponent {
     'isMajor',
     'statusAsAt',
     'nextReportDue',
-  ];
+  ] as const;
 
   protected readonly currentUser = this.devAuth.currentUser;
-  protected readonly canCreate = computed(() => canCreateIncident(this.devAuth.currentUser()));
+  protected readonly canCreate = computed(() => canCreateIncident(this.currentUser()));
+  protected readonly showDistrictFilter = computed(() => canViewDistrictRollup(this.currentUser()));
   protected readonly isHandset = toSignal(
-    this.breakpointObserver.observe(Breakpoints.Handset).pipe(map((result) => result.matches)),
+    this.breakpoints.observe(Breakpoints.Handset).pipe(map((result) => result.matches)),
     { initialValue: false },
   );
+  protected readonly now = signal(new Date());
 
-  protected readonly rawIncidents = signal<FireIncident[]>([]);
-  protected readonly loading = signal(true);
-  protected readonly error = signal<string | null>(null);
+  protected readonly filters = signal<ListFilters>({
+    fy: computeFinancialYear(new Date()),
+    group: 'all',
+    districtId: 'all',
+  });
   protected readonly sortState = signal<SortState>({ active: 'createdAt', direction: 'desc' });
   protected readonly pageState = signal<PageState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
-
-  // `district` is a relation the API cannot order by, so its sort is applied here; all other active sorts
-  // are already honoured by the server `orderBy`.
-  protected readonly sortedIncidents = computed(() => {
-    const sort = this.sortState();
-    const items = this.rawIncidents();
-    if (sort.active !== 'district' || sort.direction === '') {
-      return items;
-    }
-    const factor = sort.direction === 'asc' ? 1 : -1;
-    return [...items].sort((a, b) => {
-      const byName = (a.district?.name ?? '').localeCompare(b.district?.name ?? '');
-      return byName !== 0 ? byName * factor : a.fireNumber - b.fireNumber;
-    });
+  protected readonly fyOptions = computed<(number | 'all')[]>(() => {
+    const current = computeFinancialYear(new Date());
+    return ['all', ...Array.from({ length: current - FIRST_SEASON_FY + 1 }, (_, i) => current - i)];
   });
+  protected readonly districtOptions = signal<DistrictOption[]>([]);
 
-  protected readonly pagedIncidents = computed(() => {
-    const { pageIndex, pageSize } = this.pageState();
-    const start = pageIndex * pageSize;
-    return this.sortedIncidents().slice(start, start + pageSize);
-  });
-
+  protected readonly rows = signal<FireIncident[]>([]);
+  protected readonly total = signal(0);
+  protected readonly loading = signal(true);
+  protected readonly error = signal<string | null>(null);
   protected readonly viewState = computed<ViewState>(() => {
-    if (this.currentUser() === undefined) {
+    if (!this.currentUser()) {
       return 'anonymous';
+    }
+    if (this.error()) {
+      return 'error';
     }
     if (this.loading()) {
       return 'loading';
     }
-    if (this.error() !== null) {
-      return 'error';
-    }
-    return this.rawIncidents().length === 0 ? 'empty' : 'content';
+    return this.total() === 0 ? 'empty' : 'content';
   });
+  protected readonly maxArea = computed(() =>
+    Math.max(1, ...this.rows().map((row) => row.fireAreaHectares ?? 0)),
+  );
 
-  // The dev-user switcher does not re-scope an open live query, so the subscription is keyed on the user id
-  // and re-opened whenever the user or the requested order changes.
-  private readonly userKey = computed(() => this.devAuth.currentUser()?.id);
+  private readonly whereKey = computed(() => JSON.stringify(this.filters()));
   private unsubscribe: (() => void) | null = null;
 
   constructor() {
-    effect(() => {
-      const id = this.userKey();
-      const sort = this.sortState();
-      this.subscribeForUser(id, sort);
-    });
+    const tick = setInterval(() => this.now.set(new Date()), TICK_INTERVAL_MS);
+    this.destroyRef.onDestroy(() => clearInterval(tick));
+    this.registerDistrictOptionsEffect();
+    this.registerTotalEffect();
+    this.registerRowsEffect();
     this.destroyRef.onDestroy(() => this.unsubscribe?.());
   }
 
-  protected onSortChange(event: Sort): void {
-    this.sortState.set({ active: event.active as SortKey, direction: event.direction });
+  // District options for the elevated district filter; re-fetched when the gate or user changes.
+  private registerDistrictOptionsEffect(): void {
+    effect(() => {
+      if (!(this.showDistrictFilter() && this.currentUser())) {
+        this.districtOptions.set([]);
+        return;
+      }
+      this.refreshDistrictOptions();
+    });
   }
 
-  protected onPage(event: PageEvent): void {
+  private async refreshDistrictOptions(): Promise<void> {
+    const result = await ResultAsync.fromPromise(
+      remult.repo(District).find({ limit: DISTRICT_FETCH_LIMIT }),
+      toErr,
+    );
+    result.match(
+      (districts) => this.districtOptions.set(districts.map((d) => ({ id: d.id, name: d.name }))),
+      () => this.districtOptions.set([]),
+    );
+  }
+
+  // Paginator total via a server-side count; re-fetched on user + filters (scale-independent).
+  private registerTotalEffect(): void {
+    effect(() => {
+      const id = this.currentUser()?.id;
+      this.whereKey();
+      if (!id) {
+        this.total.set(0);
+        return;
+      }
+      const where = untracked(() => this.buildWhere());
+      this.refreshTotal(where);
+    });
+  }
+
+  private async refreshTotal(where: EntityFilter<FireIncident>): Promise<void> {
+    const result = await ResultAsync.fromPromise(remult.repo(FireIncident).count(where), toErr);
+    result.match(
+      (count) => {
+        this.total.set(count);
+        this.error.set(null);
+      },
+      (cause) => this.error.set(cause.message),
+    );
+  }
+
+  // The page of rows via a server-paginated live query; re-subscribed on user + filters + sort + page.
+  private registerRowsEffect(): void {
+    effect(() => {
+      const id = this.currentUser()?.id;
+      this.whereKey();
+      const sort = this.sortState();
+      const page = this.pageState();
+      this.unsubscribe?.();
+      this.unsubscribe = null;
+      if (!id) {
+        this.rows.set([]);
+        this.loading.set(false);
+        return;
+      }
+      this.loading.set(true);
+      const where = untracked(() => this.buildWhere());
+      this.unsubscribe = remult
+        .repo(FireIncident)
+        .liveQuery({
+          where,
+          include: { district: true },
+          orderBy: this.mapSort(sort),
+          limit: page.pageSize,
+          page: page.pageIndex + 1,
+        })
+        .subscribe((info) => {
+          this.rows.set(info.items);
+          this.loading.set(false);
+        });
+    });
+  }
+
+  protected onSortChange(event: { active: string; direction: 'asc' | 'desc' | '' }): void {
+    this.sortState.set({ active: event.active as SortKey, direction: event.direction });
+    this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+  }
+
+  protected onPage(event: { pageIndex: number; pageSize: number }): void {
     this.pageState.set({ pageIndex: event.pageIndex, pageSize: event.pageSize });
   }
 
-  // Routed through a typed parameter because MatTable cell contexts (`let incident`) are `any`; indexing the
-  // total label record with a typed `IncidentLevel` keeps the access checked.
+  protected setFy(fy: number | 'all'): void {
+    this.filters.update((filters) => ({ ...filters, fy }));
+    this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+  }
+
+  protected setStatusGroup(group: StatusGroup): void {
+    this.filters.update((filters) => ({ ...filters, group }));
+    this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+  }
+
+  protected setDistrict(districtId: number | 'all'): void {
+    this.filters.update((filters) => ({ ...filters, districtId }));
+    this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+  }
+
+  protected tone(status: FireStatus): StatusTone {
+    return statusTone(status);
+  }
+
   protected levelLabel(level: IncidentLevel): string {
     return INCIDENT_LEVEL_LABELS[level];
   }
 
-  private subscribeForUser(id: string | undefined, sort: SortState): void {
-    this.unsubscribe?.();
-    this.unsubscribe = null;
-    this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+  protected areaPct(incident: FireIncident): number {
+    return Math.min(PERCENT, ((incident.fireAreaHectares ?? 0) / this.maxArea()) * PERCENT);
+  }
 
-    // `FireIncident.allowApiRead` is `Allow.authenticated`; an anonymous read is a 403, not an empty list,
-    // so the query is skipped entirely until a dev user is selected.
-    if (id === undefined) {
-      this.rawIncidents.set([]);
-      this.loading.set(false);
-      this.error.set(null);
-      return;
+  private buildWhere(): EntityFilter<FireIncident> {
+    const filters = this.filters();
+    const where: EntityFilter<FireIncident> = {};
+    if (filters.fy !== 'all') {
+      where.financialYear = filters.fy;
     }
-
-    this.loading.set(true);
-    this.error.set(null);
-    this.unsubscribe = remult
-      .repo(FireIncident)
-      .liveQuery({ include: { district: true }, orderBy: this.mapSort(sort) })
-      .subscribe({
-        next: (info: LiveQueryChangeInfo<FireIncident>) => {
-          this.rawIncidents.set(info.items);
-          this.loading.set(false);
-          this.error.set(null);
-        },
-        error: (cause: unknown) => {
-          const message = toErrorMessage(cause);
-          this.error.set(message);
-          this.loading.set(false);
-          this.notification.error(message);
-        },
-      });
+    if (filters.group === 'active') {
+      where.status = { $nin: [...TERMINAL_STATUSES] };
+    } else if (filters.group === 'going') {
+      where.status = FireStatus.going;
+    } else if (filters.group === 'resolved') {
+      where.status = { $in: [...TERMINAL_STATUSES] };
+    }
+    if (filters.districtId !== 'all') {
+      where.districtId = filters.districtId;
+    }
+    return where;
   }
 
   private mapSort(sort: SortState): EntityOrderBy<FireIncident> {
-    if (sort.direction === '') {
-      return { createdAt: 'desc' };
-    }
+    const dir = sort.direction === '' ? 'desc' : sort.direction;
     switch (sort.active) {
       case 'name':
-        return { name: sort.direction };
+        return { name: dir };
       case 'fireNumber':
-        return { fireNumber: sort.direction };
+        return { fireNumber: dir };
       case 'statusAsAt':
-        return { statusAsAt: sort.direction };
+        return { statusAsAt: dir };
+      case 'districtId':
+        return { districtId: dir };
       default:
-        // `district` (relation, client-sorted) and `createdAt` fall back to the entity default order.
         return { createdAt: 'desc' };
     }
   }

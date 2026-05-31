@@ -1,20 +1,14 @@
 <header class="list-head">
   <h1 class="list-head__title">Incidents</h1>
   @if (viewState() === 'content') {
-    <span class="list-head__count" aria-live="polite">{{ sortedIncidents().length }} total</span>
+    <span class="list-head__count" aria-live="polite">{{ total() }} total</span>
   }
   <span class="spacer"></span>
-  @if (canCreate()) {
-    <a matButton="filled" routerLink="/incidents/new">
-      <mat-icon>add</mat-icon>
-      New Incident
-    </a>
-  }
 </header>
 
 @switch (viewState()) {
   @case ('loading') {
-    <mat-progress-bar mode="indeterminate" aria-label="Loading incidents" />
+    <div class="panel">Loading incidents…</div>
   }
   @case ('error') {
     <div role="alert" class="panel panel--error">{{ error() }}</div>
@@ -23,141 +17,9 @@
     <div class="panel">Select a dev user to begin.</div>
   }
   @case ('empty') {
-    <div class="panel">
-      @if (currentUser()?.districtId !== null) {
-        No incidents in your district.
-      } @else {
-        No incidents found.
-      }
-    </div>
+    <div class="panel">No incidents match these filters.</div>
   }
   @case ('content') {
-    @if (isHandset()) {
-      <div class="cards">
-        @for (incident of pagedIncidents(); track incident.id) {
-          <a class="card" [routerLink]="['/incidents', incident.id]">
-            <div class="card__top">
-              <span class="card__name">{{ incident.name }}</span>
-              <app-status-badge [status]="incident.status" />
-            </div>
-            <div class="card__meta">
-              {{ incident.district?.name ?? '—' }} · Fire
-              <span class="mono">{{ incident.fireNumber | number: '3.0-0' }}</span> ·
-              {{ levelLabel(incident.incidentLevel) }}
-              @if (incident.isMajor) {
-                ·
-                <mat-icon class="major-flag" aria-label="Major incident">local_fire_department</mat-icon>
-              }
-            </div>
-            <div class="card__meta">
-              @if (incident.fireAreaHectares != null) {
-                <span class="mono">{{ incident.fireAreaHectares | number: '1.0-1' }}</span> ha ·
-              }
-              Last report
-              <span class="mono">{{ incident.statusAsAt | date: 'dd/MM/yy, HH:mm' }}</span>
-              @if (incident.nextReportDue) {
-                · Next due
-                <span class="mono">{{ incident.nextReportDue | date: 'dd/MM/yy, HH:mm' }}</span>
-              }
-            </div>
-          </a>
-        }
-      </div>
-    } @else {
-      <div class="table-panel">
-        <div class="table-scroll">
-          <table
-            mat-table
-            matSort
-            aria-label="Fire incidents"
-            [dataSource]="pagedIncidents()"
-            [matSortActive]="sortState().active"
-            [matSortDirection]="sortState().direction"
-            (matSortChange)="onSortChange($event)"
-            class="w-full"
-          >
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
-              <td mat-cell *matCellDef="let incident">
-                <a class="row-link" [routerLink]="['/incidents', incident.id]">{{ incident.name }}</a>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="district">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header>District</th>
-              <td mat-cell *matCellDef="let incident">{{ incident.district?.name ?? '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="fireNumber">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Fire No.</th>
-              <td mat-cell *matCellDef="let incident" class="num mono">
-                {{ incident.fireNumber | number: '3.0-0' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let incident">
-                <app-status-badge [status]="incident.status" />
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="fireAreaHectares">
-              <th mat-header-cell *matHeaderCellDef class="num">Area (ha)</th>
-              <td mat-cell *matCellDef="let incident" class="num mono">
-                @if (incident.fireAreaHectares != null) {
-                  {{ incident.fireAreaHectares | number: '1.0-1' }}
-                } @else {
-                  —
-                }
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="incidentLevel">
-              <th mat-header-cell *matHeaderCellDef>Level</th>
-              <td mat-cell *matCellDef="let incident">{{ levelLabel(incident.incidentLevel) }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="isMajor">
-              <th mat-header-cell *matHeaderCellDef>Major</th>
-              <td mat-cell *matCellDef="let incident">
-                @if (incident.isMajor) {
-                  <mat-icon class="major-flag" aria-label="Major incident">local_fire_department</mat-icon>
-                }
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="statusAsAt">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Last Report</th>
-              <td mat-cell *matCellDef="let incident" class="num mono">
-                {{ incident.statusAsAt | date: 'dd/MM/yy, HH:mm' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="nextReportDue">
-              <th mat-header-cell *matHeaderCellDef class="num">Next Due</th>
-              <td mat-cell *matCellDef="let incident" class="num mono">
-                @if (incident.nextReportDue) {
-                  {{ incident.nextReportDue | date: 'dd/MM/yy, HH:mm' }}
-                } @else {
-                  —
-                }
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-          </table>
-        </div>
-
-        <mat-paginator
-          [length]="sortedIncidents().length"
-          [pageSize]="pageState().pageSize"
-          [pageIndex]="pageState().pageIndex"
-          [pageSizeOptions]="[5, 10, 25]"
-          (page)="onPage($event)"
-        />
-      </div>
-    }
+    <div class="panel">{{ rows().length }} of {{ total() }} incidents</div>
   }
 }
