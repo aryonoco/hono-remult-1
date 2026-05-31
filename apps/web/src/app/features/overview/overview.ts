@@ -32,7 +32,7 @@ import {
   TERMINAL_STATUSES,
 } from '@workspace/shared-domain';
 import { ResultAsync } from 'neverthrow';
-import { type EntityFilter, remult } from 'remult';
+import { type EntityFilter, type LiveQueryChangeInfo, remult } from 'remult';
 import { DevAuthService } from '../../core/dev-auth.service';
 import { canCreateIncident, canViewDistrictRollup } from '../../shared/auth/permissions';
 import { CadenceCountdownComponent } from '../../shared/components/cadence-countdown/cadence-countdown';
@@ -153,8 +153,14 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       background: var(--color-status-going);
     }
 
+    /* Offline/reconnecting: the visible pill must never imply a live stream. Use a muted token and
+       drop the pulse so the header is honest in lock-step with the Overdue tile's [live] region. */
+    .overview__live-dot--offline {
+      background: var(--mat-sys-on-surface-variant);
+    }
+
     @media (prefers-reduced-motion: no-preference) {
-      .overview__live-dot {
+      .overview__live-dot:not(.overview__live-dot--offline) {
         animation: overview-pulse 2s ease-in-out infinite;
       }
     }
@@ -183,6 +189,9 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
 
     @container (min-width: 48rem) {
       .overview__panels {
+        /* align-items:start so the short status-mix column sizes to its content instead of
+           stretching to the taller needs-attention column (which left a tall void). */
+        align-items: start;
         grid-template-columns: minmax(0, 18rem) 1fr;
       }
     }
@@ -260,6 +269,31 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       color: var(--mat-sys-on-surface-variant);
     }
 
+    /* DASH-5: the map-overflow note is an at-a-glance signal that the plotted set is truncated.
+       Promote it to a contained-tone warning chip so it reads as advisory, not body copy. */
+    .overview__note--warning {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      margin-top: 0.75rem;
+      padding: 0.375rem 0.625rem;
+      border-radius: var(--app-radius-card);
+      background: var(--color-status-contained-bg);
+      color: var(--color-status-contained);
+      font-weight: 500;
+    }
+
+    /* Element-qualified (specificity 0,1,1) to reliably beat Material's icon size rule (specificity
+       0,1,0), which ships outside any cascade layer, without relying on stylesheet source order or
+       !important; see styling-conventions.md. */
+    mat-icon.overview__note-icon {
+      flex: none;
+      width: 1.125rem;
+      height: 1.125rem;
+      font-size: 1.125rem;
+      line-height: 1;
+    }
+
     .overview__map-placeholder {
       display: grid;
       place-items: center;
@@ -320,6 +354,14 @@ export class OverviewComponent {
   // Bounded LIVE sets.
   protected readonly attention = signal<FireIncident[]>([]);
   protected readonly recentSitreps = signal<SituationReport[]>([]);
+  // Honest LIVE indicator (DASH-2): each bounded liveQuery owns its own connection flag — `next` (a push
+  // arrived) sets it true, `error` (the SSE channel dropped) sets it false. The badge is only honest when
+  // BOTH channels are delivering, so `liveConnected` is the conjunction; a single dead stream flips it off.
+  // A single shared boolean would be order-dependent under a partial outage (last callback wins), which is
+  // the exact dishonesty this change removes.
+  private readonly attentionLive = signal(false);
+  private readonly sitrepsLive = signal(false);
+  protected readonly liveConnected = computed(() => this.attentionLive() && this.sitrepsLive());
 
   // Season (selected FY) — SERVER-derived.
   protected readonly selectedFy = signal<number>(computeFinancialYear(new Date()));
@@ -367,31 +409,7 @@ export class OverviewComponent {
     const tick = setInterval(() => this.now.set(new Date()), TICK_MS);
     this.destroyRef.onDestroy(() => clearInterval(tick));
     // Live bounded subscriptions — re-subscribe on user change only.
-    effect(() => {
-      const id = this.currentUser()?.id;
-      this.unsubscribeAttention?.();
-      this.unsubscribeSitreps?.();
-      this.unsubscribeAttention = null;
-      this.unsubscribeSitreps = null;
-      if (!id) {
-        this.attention.set([]);
-        this.recentSitreps.set([]);
-        return;
-      }
-      this.unsubscribeAttention = remult
-        .repo(FireIncident)
-        .liveQuery({
-          where: ACTIVE,
-          orderBy: { nextReportDue: 'asc' },
-          limit: ATTENTION_LIMIT,
-          include: { district: true },
-        })
-        .subscribe((info) => this.attention.set(info.items));
-      this.unsubscribeSitreps = remult
-        .repo(SituationReport)
-        .liveQuery({ orderBy: { submittedAt: 'desc' }, limit: SITREP_LIMIT })
-        .subscribe((info) => this.recentSitreps.set(info.items));
-    });
+    effect(() => this.subscribeLive(this.currentUser()?.id));
     this.destroyRef.onDestroy(() => {
       this.unsubscribeAttention?.();
       this.unsubscribeSitreps?.();
@@ -414,6 +432,48 @@ export class OverviewComponent {
         this.refreshSeason();
       }
     });
+  }
+
+  // Tear down any prior subscriptions, reset both live flags, then (when signed in) open the two bounded
+  // liveQuery streams. Each stream owns its own connection flag so `liveConnected` stays honest under a
+  // partial outage — see the `attentionLive`/`sitrepsLive` declaration above.
+  private subscribeLive(id: string | undefined): void {
+    this.unsubscribeAttention?.();
+    this.unsubscribeSitreps?.();
+    this.unsubscribeAttention = null;
+    this.unsubscribeSitreps = null;
+    this.attentionLive.set(false);
+    this.sitrepsLive.set(false);
+    if (!id) {
+      this.attention.set([]);
+      this.recentSitreps.set([]);
+      return;
+    }
+    this.unsubscribeAttention = remult
+      .repo(FireIncident)
+      .liveQuery({
+        where: ACTIVE,
+        orderBy: { nextReportDue: 'asc' },
+        limit: ATTENTION_LIMIT,
+        include: { district: true },
+      })
+      .subscribe({
+        next: (info: LiveQueryChangeInfo<FireIncident>) => {
+          this.attention.set(info.items);
+          this.attentionLive.set(true);
+        },
+        error: () => this.attentionLive.set(false),
+      });
+    this.unsubscribeSitreps = remult
+      .repo(SituationReport)
+      .liveQuery({ orderBy: { submittedAt: 'desc' }, limit: SITREP_LIMIT })
+      .subscribe({
+        next: (info: LiveQueryChangeInfo<SituationReport>) => {
+          this.recentSitreps.set(info.items);
+          this.sitrepsLive.set(true);
+        },
+        error: () => this.sitrepsLive.set(false),
+      });
   }
 
   protected setFy(fy: number): void {

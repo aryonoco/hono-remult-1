@@ -356,9 +356,15 @@ describe('OverviewComponent — operational surface (Task 3.2)', () => {
     // Active count excludes the terminal fire.
     expect(instance(fixture).activeCount()).toBe(2);
     expect(instance(fixture).overdueCount()).toBe(1);
-    // Overdue tile exposes a polite live region.
+    // DASH-2: the live push flipped the honest LIVE flag, so the Overdue tile exposes its polite live
+    // region (role=status appears only while liveConnected() is true).
+    expect(instance(fixture).liveConnected()).toBe(true);
     const overdueTile = root.querySelector('[data-testid="kpi-overdue"]');
     expect(overdueTile?.querySelector('[role=status]')).not.toBeNull();
+    // The visible section-header pill reads "Live" and carries no offline marker while connected.
+    const livePill = root.querySelector('[data-testid="overview-live"]');
+    expect(livePill?.getAttribute('data-live-state')).toBeNull();
+    expect(livePill?.textContent).toContain('Live');
 
     // Status-mix bar present.
     expect(root.querySelector('app-status-mix-bar')).not.toBeNull();
@@ -377,6 +383,56 @@ describe('OverviewComponent — operational surface (Task 3.2)', () => {
     expect(root.querySelector('app-incident-map')).not.toBeNull();
 
     expect(await findAxeViolations(root)).toEqual([]);
+  });
+
+  it('keeps LIVE honest: no role=status while the live stream errors (DASH-2)', async () => {
+    remult.user = { ...ADMIN };
+    await seedOperational();
+    // Simulate a downed SSE/liveQuery transport: the initial load rejects, firing the `error` callback.
+    remult.apiClient.httpClient = {
+      get: async (url: string): Promise<any> =>
+        url.includes(LIVE_QUERY_ACTION) ? Promise.reject(new Error('stream down')) : [],
+      put: async (): Promise<any> => undefined,
+      delete: async (): Promise<void> => undefined,
+      post: async (url: string): Promise<any> =>
+        url.includes(LIVE_QUERY_ACTION) ? Promise.reject(new Error('stream down')) : [],
+    };
+    const fixture = await setup({ ...ADMIN });
+    setNow(fixture, NOW);
+    await settle(fixture);
+
+    // The flag stays false and the Overdue tile drops its live region — no dishonest "LIVE".
+    expect(instance(fixture).liveConnected()).toBe(false);
+    const overdueTile = html(fixture).querySelector('[data-testid="kpi-overdue"]');
+    expect(overdueTile?.querySelector('[role=status]')).toBeNull();
+
+    // The VISIBLE section-header pill must move in lock-step with the ARIA signal: no "Live", a
+    // muted reconnecting state instead, so a sighted user is never told the stream is up.
+    const livePill = html(fixture).querySelector('[data-testid="overview-live"]');
+    expect(livePill?.getAttribute('data-live-state')).toBe('offline');
+    expect(livePill?.textContent).not.toContain('Live');
+    expect(livePill?.textContent).toContain('Reconnecting');
+
+    expect(await findAxeViolations(html(fixture))).toEqual([]);
+  });
+
+  it('promotes the map-overflow note to a warning chip with an info icon (DASH-5)', async () => {
+    remult.user = { ...ADMIN };
+    await seedOperational();
+    const fixture = await setup({ ...ADMIN });
+    setNow(fixture, NOW);
+    await settle(fixture);
+    // Force the truncated-set condition (the bounded fetch normally plots everything in this seed).
+    instance(fixture).mapOverflow.set(7);
+    await fixture.whenStable();
+    TestBed.tick();
+
+    const chip = html(fixture).querySelector('.overview__note--warning');
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain('+7 more active not plotted');
+    expect(chip?.querySelector('mat-icon')?.textContent?.trim()).toBe('info');
+
+    expect(await findAxeViolations(html(fixture))).toEqual([]);
   });
 });
 

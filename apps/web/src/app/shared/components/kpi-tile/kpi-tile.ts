@@ -13,7 +13,7 @@ import { SPINE_TONE } from '../../ui/tone-classes';
     @if (link()) {
       <a
         [routerLink]="link()"
-        class="relative block overflow-hidden rounded-card border border-outline-variant bg-surface-container-low p-3.5 no-underline focus-visible:outline-2"
+        class="relative block overflow-hidden rounded-card border border-outline-variant bg-surface-container-low p-3.5 no-underline transition-colors hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <ng-container [ngTemplateOutlet]="content" />
       </a>

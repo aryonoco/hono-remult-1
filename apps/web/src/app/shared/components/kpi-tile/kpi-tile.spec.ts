@@ -46,10 +46,17 @@ describe('KpiTileComponent', () => {
     await fixture.whenStable();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.querySelector('a')).not.toBeNull();
+    const anchor = host.querySelector('a');
+    expect(anchor).not.toBeNull();
     expect(host.querySelector('div')).toBeNull();
 
     expect(spine(host)?.classList.contains('bg-primary')).toBe(true);
     expect(liveRegion(host)).toBeNull();
+
+    // DASH-4: the link tile carries a hover affordance and a strong, token-driven focus ring.
+    expect(anchor?.classList.contains('hover:bg-surface-container-high')).toBe(true);
+    expect(anchor?.classList.contains('transition-colors')).toBe(true);
+    expect(anchor?.classList.contains('focus-visible:outline-primary')).toBe(true);
+    expect(anchor?.classList.contains('focus-visible:outline-offset-2')).toBe(true);
   });
 });

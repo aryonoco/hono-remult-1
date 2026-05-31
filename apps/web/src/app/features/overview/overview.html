@@ -11,10 +11,17 @@
     <section aria-labelledby="ops-h" class="overview__section">
       <div class="overview__section-head">
         <h2 id="ops-h" class="overview__heading">Active operations</h2>
-        <span class="overview__live" data-testid="overview-live">
-          <span class="overview__live-dot" aria-hidden="true"></span>
-          <span>Live</span>
-        </span>
+        @if (liveConnected()) {
+          <span class="overview__live" data-testid="overview-live">
+            <span class="overview__live-dot" aria-hidden="true"></span>
+            <span>Live</span>
+          </span>
+        } @else {
+          <span class="overview__live" data-testid="overview-live" data-live-state="offline">
+            <span class="overview__live-dot overview__live-dot--offline" aria-hidden="true"></span>
+            <span>Reconnecting…</span>
+          </span>
+        }
       </div>
 
       <div class="overview__kpis">
@@ -34,7 +41,7 @@
             label="Overdue"
             [value]="overdueCount()"
             [tone]="overdueCount() ? 'going' : 'neutral'"
-            [live]="true"
+            [live]="liveConnected()"
           />
         </div>
         <app-kpi-tile
@@ -122,7 +129,10 @@
           </div>
         }
         @if (mapOverflow()) {
-          <p class="overview__note">+{{ mapOverflow() }} more active not plotted</p>
+          <p class="overview__note overview__note--warning">
+            <mat-icon class="overview__note-icon" aria-hidden="true">info</mat-icon>
+            <span>+{{ mapOverflow() }} more active not plotted</span>
+          </p>
         }
       </section>
     </section>
