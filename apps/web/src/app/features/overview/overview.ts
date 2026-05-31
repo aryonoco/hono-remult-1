@@ -17,6 +17,7 @@ import { RouterLink } from '@angular/router';
 import {
   computeFinancialYear,
   District,
+  FIRE_STATUS_LABELS,
   FIRE_STATUS_VALUES,
   FireIncident,
   type FireStatus,
@@ -56,6 +57,25 @@ interface RegionRow {
   regionId: number;
   regionName: string;
   count: number;
+}
+
+// Projection of the bounded map fetch (the `find` select) onto the shared MapPoint shape. Rows without
+// coordinates are dropped; `areaHa`/`status` feed the extent circle and colour-independent label.
+type MapRow = Pick<FireIncident, 'name' | 'latitude' | 'longitude' | 'status' | 'fireAreaHectares'>;
+function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
+  return rows
+    .filter(
+      (r): r is MapRow & { latitude: number; longitude: number } =>
+        r.latitude != null && r.longitude != null,
+    )
+    .map((r) => ({
+      lat: r.latitude,
+      lng: r.longitude,
+      tone: statusTone(r.status),
+      name: r.name,
+      areaHa: r.fireAreaHectares ?? 0,
+      status: FIRE_STATUS_LABELS[r.status],
+    }));
 }
 
 @Component({
@@ -427,7 +447,14 @@ export class OverviewComponent {
           where: ACTIVE,
           orderBy: { statusAsAt: 'desc' },
           limit: MAP_CAP,
-          select: { id: true, name: true, latitude: true, longitude: true, status: true },
+          select: {
+            id: true,
+            name: true,
+            latitude: true,
+            longitude: true,
+            status: true,
+            fireAreaHectares: true,
+          },
         }),
       ]),
       toErr,
@@ -448,19 +475,7 @@ export class OverviewComponent {
         this.majorCount.set(major);
         this.overdueCount.set(overdue);
         this.totalActiveAreaHa.set(areaAgg.fireAreaHectares.sum ?? 0);
-        this.mapPoints.set(
-          rows
-            .filter(
-              (r): r is typeof r & { latitude: number; longitude: number } =>
-                r.latitude != null && r.longitude != null,
-            )
-            .map((r) => ({
-              lat: r.latitude,
-              lng: r.longitude,
-              tone: statusTone(r.status),
-              name: r.name,
-            })),
-        );
+        this.mapPoints.set(toMapPoints(rows));
         this.mapOverflow.set(Math.max(0, active - rows.length));
         this.errorMsg.set(null);
         this.opsLoaded.set(true);

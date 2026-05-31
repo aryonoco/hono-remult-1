@@ -37,4 +37,10 @@ export interface MapPoint {
   lng: number;
   tone: StatusTone;
   name: string;
+  // Fire extent in hectares. When > 0 the map draws an area-sized circle (approximate extent) around
+  // the centroid pin; absent/0 falls back to a plain toned pin. The true boundary polygon is FIRE-AREA-5.
+  areaHa?: number;
+  // The fire's status label, surfaced in the marker title/alt and the SVG-fallback list so colour is
+  // never the sole signal (MAP-3).
+  status?: string;
 }

@@ -18,6 +18,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
+  FIRE_STATUS_LABELS,
   FinalReport,
   FireIncident,
   INCIDENT_LEVEL_LABELS,
@@ -446,7 +447,8 @@ export class IncidentDetailComponent {
   });
 
   // One map point for the detail view (the map component fits a single-incident view); empty when the fire
-  // has no recorded coordinates, which the map renders as its empty state.
+  // has no recorded coordinates, which the map renders as its empty state. `areaHa`/`status` drive the
+  // area-sized extent circle and the colour-independent marker text (FIRE-AREA-4 / MAP-3).
   protected readonly detailMapPoints = computed<MapPoint[]>(() => {
     const fire = this.fire();
     return fire?.latitude != null && fire?.longitude != null
@@ -456,6 +458,8 @@ export class IncidentDetailComponent {
             lng: fire.longitude,
             tone: statusTone(fire.status),
             name: fire.name,
+            areaHa: fire.fireAreaHectares ?? 0,
+            status: FIRE_STATUS_LABELS[fire.status],
           },
         ]
       : [];

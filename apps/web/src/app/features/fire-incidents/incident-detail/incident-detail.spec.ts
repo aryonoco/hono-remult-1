@@ -12,6 +12,7 @@ import {
   type CurrentUser,
   DEV_USERS,
   District,
+  FIRE_STATUS_LABELS,
   FinalReport,
   FireIncident,
   FireStatus,
@@ -430,17 +431,25 @@ describe('IncidentDetailComponent (actions)', () => {
 });
 
 describe('IncidentDetailComponent (map points + author names)', () => {
-  it('derives one map point with the status tone when coordinates are present', async () => {
+  it('derives one map point with the status tone, area and status label when coordinates are present', async () => {
     const fixture = await setup(ADMIN);
     await seed(fixture, {
       status: FireStatus.going,
       latitude: -38.1,
       longitude: 143.5,
       name: 'Coastal Fire',
+      fireAreaHectares: 1200,
     });
     const points = instance(fixture).detailMapPoints();
     expect(points).toEqual([
-      { lat: -38.1, lng: 143.5, tone: statusTone(FireStatus.going), name: 'Coastal Fire' },
+      {
+        lat: -38.1,
+        lng: 143.5,
+        tone: statusTone(FireStatus.going),
+        name: 'Coastal Fire',
+        areaHa: 1200,
+        status: FIRE_STATUS_LABELS[FireStatus.going],
+      },
     ]);
   });
 

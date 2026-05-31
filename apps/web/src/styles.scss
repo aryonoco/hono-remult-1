@@ -233,6 +233,56 @@
     background: var(--color-status-missing);
   }
 
+  // Leaflet `L.circle` extent overlays (FIRE-AREA-4). Leaflet renders the circle as an SVG `<path>` in
+  // its own overlay pane — outside any Angular component's encapsulated DOM — so the per-tone fill/stroke
+  // must live here (global), mirroring `.fire-marker--*`. The path carries the `.leaflet-interactive`
+  // class plus the tone class set via the circle's `className` option; fill-opacity/weight come from the
+  // circle options. Colour stays token-driven (the fire-status tokens from tailwind.css).
+  .fire-circle--going {
+    fill: var(--color-status-going);
+    stroke: var(--color-status-going);
+  }
+  .fire-circle--contained {
+    fill: var(--color-status-contained);
+    stroke: var(--color-status-contained);
+  }
+  .fire-circle--controlled {
+    fill: var(--color-status-controlled);
+    stroke: var(--color-status-controlled);
+  }
+  .fire-circle--safe {
+    fill: var(--color-status-safe);
+    stroke: var(--color-status-safe);
+  }
+  .fire-circle--neutral {
+    fill: var(--color-status-neutral);
+    stroke: var(--color-status-neutral);
+  }
+  .fire-circle--missing {
+    fill: var(--color-status-missing);
+    stroke: var(--color-status-missing);
+  }
+
+  // Leaflet attribution: opt the required CARTO/OSM links out of Leaflet's raw grey-on-white into the
+  // theme tokens, with a visible keyboard-focus ring so the credit links are accessible in both themes
+  // (MAP-7). The container background/text follow the surface so the credit reads in dark mode too.
+  .leaflet-control-attribution {
+    background: var(--mat-sys-surface-container-low);
+    color: var(--mat-sys-on-surface-variant);
+  }
+  .leaflet-control-attribution a {
+    color: var(--mat-sys-primary);
+    text-decoration: underline;
+  }
+  .leaflet-control-attribution a:hover {
+    color: var(--mat-sys-on-surface);
+  }
+  .leaflet-control-attribution a:focus-visible {
+    outline: 2px solid var(--mat-sys-secondary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
   .app-notification-success {
     border-inline-start: 4px solid var(--mat-sys-tertiary, #2e7d32);
   }
