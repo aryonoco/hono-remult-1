@@ -1,6 +1,6 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
@@ -59,6 +59,7 @@ export class App {
   private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly currentUser = this.devAuth.currentUser;
 
@@ -76,6 +77,17 @@ export class App {
     ),
     { initialValue: 'detail' as ContentWidth },
   );
+
+  constructor() {
+    // SC 2.4.3 / 2.4.11: on every completed navigation move focus to the content landmark so keyboard
+    // and screen-reader users land in the new view rather than at the top of the (unchanged) chrome.
+    // `queueMicrotask` defers until the freshly routed component has rendered `#main`.
+    this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
+      if (event instanceof NavigationEnd) {
+        queueMicrotask(() => document.getElementById('main')?.focus());
+      }
+    });
+  }
 
   private resolveWidth(): ContentWidth {
     let node = this.route.firstChild;
