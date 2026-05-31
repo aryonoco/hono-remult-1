@@ -53,6 +53,7 @@ export {
   computeFinancialYear,
   computeGlobalIncidentId,
   computeNextReportDue,
+  INITIAL_REPORT_MS,
   isServerInternal,
   LEVEL_ORDER,
   LIMITS,
