@@ -139,6 +139,15 @@
         elevated-container-color: var(--mat-sys-surface),
       )
     );
+
+    // Squared, instrument-like form fields whose outline matches the panel borders the dynamic-form
+    // sections draw, so inputs read as part of the same tactical surface.
+    @include mat.form-field-overrides(
+      (
+        outlined-container-shape: var(--radius-field),
+        outlined-outline-color: var(--mat-sys-outline-variant),
+      )
+    );
   }
 
   html[data-theme='light'] {

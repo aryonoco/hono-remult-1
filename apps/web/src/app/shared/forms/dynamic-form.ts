@@ -213,9 +213,9 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
       margin: 0;
       min-inline-size: 0;
       padding: 1rem 1.25rem 1.25rem;
-      border: var(--app-grid-border);
+      border: 1px solid var(--mat-sys-outline-variant);
       border-radius: var(--app-radius-card);
-      background: var(--mat-sys-surface);
+      background: var(--mat-sys-surface-container-low);
       /* Establishes the query container so field cells collapse on the section's width, not the
          viewport — robust inside the narrower sidenav content column. */
       container-type: inline-size;
@@ -283,9 +283,9 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
       gap: 0.25rem;
       min-height: 44px;
       padding: 0.5rem 0.75rem;
-      border: var(--app-grid-border);
+      border: 1px solid var(--mat-sys-outline-variant);
       border-radius: var(--app-radius-card);
-      background: var(--mat-sys-surface-container-low);
+      background: var(--mat-sys-surface-container);
     }
 
     .control-row__desc {
