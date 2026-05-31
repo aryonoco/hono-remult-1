@@ -15,35 +15,72 @@
   @default {
     @if (fire(); as f) {
       <div class="detail">
-        <section class="detail-head">
-          <div class="detail-head__title">
-            <h1 class="detail-head__name">{{ f.name }}</h1>
+        <h1 class="detail-title" tabindex="-1">{{ f.name }}</h1>
+
+        <header class="detail-hero" [class]="heroToneClass()">
+          <div class="detail-hero__lead">
             <app-status-badge [status]="f.status" />
+            <span class="detail-hero__level">{{ levelLabel(f.incidentLevel) }}</span>
             @if (f.isMajor) {
-              <mat-icon class="major-flag" aria-label="Major incident">local_fire_department</mat-icon>
+              <span class="detail-hero__major">
+                <mat-icon aria-hidden="true">local_fire_department</mat-icon>
+                Major
+              </span>
             }
           </div>
 
-          <dl class="metrics">
-            <div class="metric">
+          <dl class="detail-hero__meta">
+            <div class="detail-hero__cell">
+              <dt>Cadence</dt>
+              <dd>
+                <app-cadence-countdown [due]="cadenceDue(f)" [now]="now()" />
+              </dd>
+            </div>
+            <div class="detail-hero__cell">
               <dt>Global ID</dt>
               <dd class="mono">{{ f.globalIncidentId }}</dd>
             </div>
+            <div class="detail-hero__cell">
+              <dt>Reported</dt>
+              <dd class="mono">{{ f.reportedAt | date: 'dd/MM/yy, HH:mm' }}</dd>
+            </div>
+            <div class="detail-hero__cell">
+              <dt>Created by</dt>
+              <dd>{{ authorName(f.createdBy) }}</dd>
+            </div>
+          </dl>
+        </header>
+
+        <section class="panel detail-info">
+          <dl class="detail-stats">
+            <div class="stat">
+              <dt>Fire area</dt>
+              <dd class="mono">
+                @if (f.fireAreaHectares != null) {
+                  {{ f.fireAreaHectares | number: '1.0-1' }} <span class="stat__unit">ha</span>
+                } @else {
+                  —
+                }
+              </dd>
+            </div>
+            <div class="stat">
+              <dt>Personnel</dt>
+              <dd class="mono">{{ f.totalPersonnel }}</dd>
+            </div>
+            <div class="stat">
+              <dt>Vehicles / aircraft</dt>
+              <dd class="mono">{{ f.totalVehicles }} <span class="stat__unit">veh</span> · {{ f.totalAircraft }} <span class="stat__unit">air</span></dd>
+            </div>
+          </dl>
+
+          <dl class="metrics">
             <div class="metric">
               <dt>Fire No.</dt>
               <dd class="mono">{{ f.fireNumber | number: '3.0-0' }}</dd>
             </div>
             <div class="metric">
-              <dt>Level</dt>
-              <dd>{{ levelLabel(f.incidentLevel) }}</dd>
-            </div>
-            <div class="metric">
               <dt>District</dt>
               <dd>{{ f.district?.name ?? '—' }}</dd>
-            </div>
-            <div class="metric">
-              <dt>Reported</dt>
-              <dd class="mono">{{ f.reportedAt | date: 'dd/MM/yy, HH:mm' }}</dd>
             </div>
             <div class="metric">
               <dt>Last report</dt>
@@ -54,16 +91,6 @@
               <dd class="mono">
                 @if (f.nextReportDue) {
                   {{ f.nextReportDue | date: 'dd/MM/yy, HH:mm' }}
-                } @else {
-                  —
-                }
-              </dd>
-            </div>
-            <div class="metric">
-              <dt>Fire area</dt>
-              <dd class="mono">
-                @if (f.fireAreaHectares != null) {
-                  {{ f.fireAreaHectares | number: '1.0-1' }} ha
                 } @else {
                   —
                 }
@@ -115,6 +142,27 @@
             }
           </div>
         </section>
+
+        <div class="detail-grid">
+          <section class="panel" aria-labelledby="detail-map-h">
+            <h2 id="detail-map-h" class="section-title">Location</h2>
+            @defer (on viewport; prefetch on idle) {
+              <app-incident-map [points]="detailMapPoints()" [locationDescription]="f.locationDescription" />
+            } @placeholder {
+              <div class="panel" data-testid="map-placeholder">Map — scroll to load.</div>
+            }
+          </section>
+
+          <section class="panel" aria-labelledby="detail-timeline-h">
+            <h2 id="detail-timeline-h" class="section-title">Lifecycle</h2>
+            <app-incident-timeline
+              [fire]="f"
+              [sitreps]="sitreps()"
+              [finalReport]="finalReport()"
+              [now]="now()"
+            />
+          </section>
+        </div>
 
         <section>
           <h2 class="section-title">Situation reports</h2>

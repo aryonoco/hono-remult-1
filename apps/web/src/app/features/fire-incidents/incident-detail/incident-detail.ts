@@ -115,29 +115,156 @@ const TICK_MS = 60_000;
       color: var(--mat-sys-error);
     }
 
-    .detail-head {
-      padding: 1.25rem 1.5rem;
-      border: var(--app-grid-border);
-      border-radius: var(--app-radius-card);
-      background: var(--mat-sys-surface);
+    .detail-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.625rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      outline: none;
+      scroll-margin-top: 4rem;
     }
 
-    .detail-head__title {
+    /* Severity hero: a status-toned banner. Background is the status foreground token; text sits on it as the
+       base surface colour (the inverse of the AA-verified text-on-base pairing, so it stays legible). */
+    .detail-hero {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem 1.5rem;
+      padding: 1rem 1.5rem;
+      border-radius: var(--app-radius-card);
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface);
+    }
+
+    .detail-hero--going {
+      background: var(--color-status-going);
+      color: var(--mat-sys-surface);
+    }
+
+    .detail-hero--contained {
+      background: var(--color-status-contained);
+      color: var(--mat-sys-surface);
+    }
+
+    .detail-hero--controlled {
+      background: var(--color-status-controlled);
+      color: var(--mat-sys-surface);
+    }
+
+    .detail-hero--safe {
+      background: var(--color-status-safe);
+      color: var(--mat-sys-surface);
+    }
+
+    .detail-hero--neutral {
+      background: var(--color-status-neutral);
+      color: var(--mat-sys-surface);
+    }
+
+    .detail-hero--missing {
+      background: var(--color-status-missing);
+      color: var(--mat-sys-surface);
+    }
+
+    .detail-hero__lead {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 0.75rem;
+      font-weight: 600;
     }
 
-    .detail-head__name {
-      margin: 0;
-      font-size: 1.5rem;
+    .detail-hero__level {
+      font-family: var(--font-display);
       font-weight: 700;
-      letter-spacing: -0.01em;
     }
 
-    .major-flag {
-      color: var(--mat-sys-error);
+    .detail-hero__major {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.8125rem;
+    }
+
+    .detail-hero__major mat-icon {
+      width: 1.125rem;
+      height: 1.125rem;
+      font-size: 1.125rem;
+    }
+
+    .detail-hero__meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(8rem, max-content));
+      gap: 0.5rem 1.75rem;
+      margin: 0;
+    }
+
+    .detail-hero__cell dt {
+      font-size: 0.625rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+
+    .detail-hero__cell dd {
+      margin: 0.125rem 0 0;
+      font-size: 0.9375rem;
+      font-weight: 600;
+    }
+
+    .detail-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Headline instrument tiles: bold mono readouts of the live crew/area figures. */
+    .detail-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+      gap: 0.75rem;
+      margin: 0;
+    }
+
+    .stat {
+      padding: 0.75rem 0.875rem;
+      border: var(--app-grid-border);
+      border-radius: var(--app-radius-card);
+      background: var(--mat-sys-surface-container);
+    }
+
+    .stat dt {
+      font-size: 0.625rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .stat dd {
+      margin: 0.25rem 0 0;
+      font-size: 1.375rem;
+      font-weight: 600;
+      line-height: 1.1;
+    }
+
+    .stat__unit {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    /* Two-up location + lifecycle; stacks under the container width. */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      gap: 1.25rem;
     }
 
     /* Instrument readouts: muted label over a monospace value, packed into a responsive strip. */

@@ -457,3 +457,101 @@ describe('IncidentDetailComponent (map points + author names)', () => {
     expect(instance(fixture).authorName(EDITOR.id)).toBe(operatorName(EDITOR.id));
   });
 });
+
+describe('IncidentDetailComponent (hero, stats, map + timeline)', () => {
+  function el(fixture: ComponentFixture<IncidentDetailComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('renders the severity hero with status badge, level, cadence + author', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, { status: FireStatus.going, incidentLevel: IncidentLevel.levelTwo });
+    const hero = el(fixture).querySelector('.detail-hero');
+    expect(hero).not.toBeNull();
+    expect(hero?.classList.contains('detail-hero--going')).toBe(true);
+    expect(hero?.querySelector('app-status-badge')).not.toBeNull();
+    expect(hero?.querySelector('app-cadence-countdown')).not.toBeNull();
+    expect(el(fixture).textContent).toContain('Level 2');
+    expect(el(fixture).textContent).toContain(operatorName(EDITOR.id));
+  });
+
+  it('renders three instrument stat tiles with mono values', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, { fireAreaHectares: 1240, totalPersonnel: 42, totalVehicles: 8 });
+    const stats = el(fixture).querySelectorAll('.detail-stats .stat');
+    expect(stats.length).toBe(3);
+    expect(el(fixture).textContent).toContain('42');
+  });
+
+  it('mounts the timeline and defers the map behind its placeholder', async () => {
+    const fixture = await setup(EDITOR);
+    const fire = Object.assign(new FireIncident(), {
+      id: 'fire-1',
+      name: 'Placeholder Fire',
+      districtId: 12,
+      fireNumber: 7,
+      globalIncidentId: 101,
+      status: FireStatus.going,
+      incidentLevel: IncidentLevel.levelOne,
+      isMajor: false,
+      createdBy: EDITOR.id,
+      reportedAt: new Date('2026-01-15T03:30:00Z'),
+      statusAsAt: new Date('2026-01-15T03:30:00Z'),
+      situationReports: [] as SituationReport[],
+    });
+    instance(fixture).fireResource.set(fire);
+    TestBed.tick();
+    const deferBlocks = await fixture.getDeferBlocks();
+    await Promise.all(deferBlocks.map((block) => block.render(DeferBlockState.Placeholder)));
+    TestBed.tick();
+    expect(el(fixture).querySelector('app-incident-timeline')).not.toBeNull();
+    expect(el(fixture).querySelector('[data-testid="map-placeholder"]')).not.toBeNull();
+  });
+
+  it('renders the map component once the deferred block loads', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, { latitude: -38.1, longitude: 143.5 });
+    expect(el(fixture).querySelector('app-incident-map')).not.toBeNull();
+  });
+
+  it('keeps every preserved action testid + the final-report placeholder resolvable', async () => {
+    const fixture = await setup(ADMIN);
+    const fire = Object.assign(new FireIncident(), {
+      id: 'fire-1',
+      name: 'Preserved Fire',
+      districtId: 12,
+      fireNumber: 7,
+      globalIncidentId: 101,
+      status: FireStatus.safe,
+      incidentLevel: IncidentLevel.levelOne,
+      isMajor: false,
+      createdBy: EDITOR.id,
+      reportedAt: new Date('2026-01-15T03:30:00Z'),
+      statusAsAt: new Date('2026-01-15T03:30:00Z'),
+      situationReports: [] as SituationReport[],
+      finalReport: unsignedFinal(),
+    });
+    instance(fixture).fireResource.set(fire);
+    TestBed.tick();
+    const deferBlocks = await fixture.getDeferBlocks();
+    await Promise.all(deferBlocks.map((block) => block.render(DeferBlockState.Placeholder)));
+    TestBed.tick();
+    // Admin on a terminal fire with an unsigned final report sees the elevated action set.
+    expect(shown(fixture, 'action-edit')).toBe(true);
+    expect(shown(fixture, 'action-escalate')).toBe(true);
+    expect(shown(fixture, 'action-create-final')).toBe(false);
+    expect(shown(fixture, 'action-delete')).toBe(true);
+    expect(shown(fixture, 'final-report-placeholder')).toBe(true);
+  });
+
+  it('has no structural accessibility violations with hero + map + timeline', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, {
+      status: FireStatus.going,
+      latitude: -38.1,
+      longitude: 143.5,
+      situationReports: [sampleSitrep()],
+    });
+    expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
+  });
+});
