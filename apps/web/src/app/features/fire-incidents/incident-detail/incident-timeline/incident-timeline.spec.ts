@@ -1,12 +1,6 @@
 import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import {
-  FinalReport,
-  FireIncident,
-  FireStatus,
-  IncidentLevel,
-  SituationReport,
-} from '@workspace/shared-domain';
+import { FinalReport, FireIncident, FireStatus, IncidentLevel } from '@workspace/shared-domain';
 import { findAxeViolations } from '../../../../../testing/axe-helper';
 import { IncidentTimelineComponent } from './incident-timeline';
 
@@ -34,30 +28,16 @@ function fireRow(overrides: Partial<FireIncident> = {}): FireIncident {
   });
 }
 
-function sitrep(reportNumber: number, at: string, status: FireStatus): SituationReport {
-  return Object.assign(new SituationReport(), {
-    id: `sr-${reportNumber}`,
-    fireIncidentId: 'fire-1',
-    reportNumber,
-    fireName: 'Ridge Track',
-    status,
-    submittedBy: 'op-12-1',
-    submittedAt: new Date(at),
-  });
-}
-
 function host(fixture: ComponentFixture<IncidentTimelineComponent>): HTMLElement {
   return fixture.nativeElement as HTMLElement;
 }
 
 async function render(
   fire: FireIncident,
-  sitreps: readonly SituationReport[] = [],
   finalReport?: FinalReport,
 ): Promise<ComponentFixture<IncidentTimelineComponent>> {
   const fixture = TestBed.createComponent(IncidentTimelineComponent);
   fixture.componentRef.setInput('fire', fire);
-  fixture.componentRef.setInput('sitreps', sitreps);
   fixture.componentRef.setInput('finalReport', finalReport);
   fixture.componentRef.setInput('now', NOW);
   await fixture.whenStable();
@@ -71,17 +51,14 @@ describe('IncidentTimelineComponent', () => {
     });
   });
 
-  it('renders an ordered list with one li per event in chronological order', async () => {
-    const sitreps = [
-      sitrep(1, '2026-05-31T10:00:00Z', FireStatus.going),
-      sitrep(2, '2026-05-31T11:00:00Z', FireStatus.underControlFirst),
-    ];
-    const el = host(await render(fireRow(), sitreps));
+  it('renders an ordered list with one li per lifecycle event in chronological order', async () => {
+    const el = host(await render(fireRow()));
     const list = el.querySelector('ol');
     expect(list).not.toBeNull();
     const items = [...el.querySelectorAll('li')];
-    // started, detected, reported, crewSent, crewArrived, declaredMajor, sitrep1, sitrep2, nextDue
-    expect(items).toHaveLength(9);
+    // started, detected, reported, crewSent, crewArrived, declaredMajor, nextDue — sitreps are not merged
+    // into the timeline (they own the accordion on the detail screen).
+    expect(items).toHaveLength(7);
     const times = items.map((li) => li.querySelector('time')?.getAttribute('datetime') ?? '');
     const sorted = [...times].sort();
     expect(times).toEqual(sorted);
@@ -96,10 +73,12 @@ describe('IncidentTimelineComponent', () => {
     }
   });
 
-  it('renders a status badge for sitrep events', async () => {
-    const sitreps = [sitrep(1, '2026-05-31T10:00:00Z', FireStatus.underControlFirst)];
-    const el = host(await render(fireRow(), sitreps));
-    expect(el.querySelector('app-status-badge')).not.toBeNull();
+  it('does not merge sitrep events into the timeline', async () => {
+    // Sitreps are surfaced in the detail screen's accordion only; the timeline shows lifecycle markers,
+    // the sign-off and the next-due event, so it carries no per-sitrep status badge.
+    const el = host(await render(fireRow()));
+    expect(el.querySelector('app-status-badge')).toBeNull();
+    expect(el.textContent).not.toContain('Situation report');
   });
 
   it('marks the trailing nextDue event as overdue with role=status', async () => {
@@ -124,7 +103,7 @@ describe('IncidentTimelineComponent', () => {
       signedOffBy: 'op-12-1',
       signedOffAt: new Date('2026-05-31T11:30:00Z'),
     });
-    const el = host(await render(fireRow({ status: FireStatus.safe }), [], fr));
+    const el = host(await render(fireRow({ status: FireStatus.safe }), fr));
     expect(el.textContent).toContain('Hamish Calder');
   });
 
@@ -138,7 +117,6 @@ describe('IncidentTimelineComponent', () => {
   });
 
   it('has no structural accessibility violations', async () => {
-    const sitreps = [sitrep(1, '2026-05-31T10:00:00Z', FireStatus.going)];
-    expect(await findAxeViolations(host(await render(fireRow(), sitreps)))).toEqual([]);
+    expect(await findAxeViolations(host(await render(fireRow())))).toEqual([]);
   });
 });

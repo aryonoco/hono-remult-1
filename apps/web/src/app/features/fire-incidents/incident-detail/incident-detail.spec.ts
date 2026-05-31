@@ -496,6 +496,56 @@ describe('IncidentDetailComponent (hero, stats, map + timeline)', () => {
     expect(el(fixture).textContent).toContain('42');
   });
 
+  it('wraps the hero cadence countdown in an urgency-toned chip', async () => {
+    const fixture = await setup(EDITOR);
+    // A non-terminal fire whose next report is already due renders the overdue chip variant.
+    await seed(fixture, {
+      status: FireStatus.going,
+      nextReportDue: new Date('2026-01-15T00:00:00Z'),
+    });
+    instance(fixture).now.set(new Date('2026-01-15T03:30:00Z'));
+    TestBed.tick();
+    const chip = el(fixture).querySelector('.detail-hero__cadence');
+    expect(chip).not.toBeNull();
+    expect(chip?.classList.contains('detail-hero__cadence--overdue')).toBe(true);
+    // The countdown stays inside the chip so chip styling and figure move together.
+    expect(chip?.querySelector('app-cadence-countdown')).not.toBeNull();
+  });
+
+  it('mutes and labels zero crew/aircraft stat tiles', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, { totalPersonnel: 0, totalVehicles: 0, totalAircraft: 0 });
+    const zeroTiles = el(fixture).querySelectorAll('.detail-stats .stat--zero');
+    // Personnel (0) and Vehicles/aircraft (0/0) are both flagged as none-assigned.
+    expect(zeroTiles.length).toBe(2);
+    expect(el(fixture).querySelectorAll('.detail-stats .stat__none').length).toBe(2);
+    expect(el(fixture).textContent).toContain('(none assigned)');
+  });
+
+  it('keeps a positive crew tile out of the zero treatment', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, { totalPersonnel: 12, totalVehicles: 0, totalAircraft: 0 });
+    const tiles = [...el(fixture).querySelectorAll('.detail-stats .stat')];
+    const personnel = tiles.find((t) => t.querySelector('dt')?.textContent === 'Personnel');
+    expect(personnel?.classList.contains('stat--zero')).toBe(false);
+  });
+
+  it('offers the create-sitrep CTA from the empty state for an editor', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, { situationReports: [] });
+    const empty = el(fixture).querySelector('.panel--empty');
+    expect(empty).not.toBeNull();
+    expect(empty?.getAttribute('role')).toBe('status');
+    expect(shown(fixture, 'action-sitrep-empty')).toBe(true);
+  });
+
+  it('hides the empty-state CTA from a viewer who cannot create sitreps', async () => {
+    const fixture = await setup(VIEWER);
+    await seed(fixture, { situationReports: [] });
+    expect(el(fixture).querySelector('.panel--empty')).not.toBeNull();
+    expect(shown(fixture, 'action-sitrep-empty')).toBe(false);
+  });
+
   it('mounts the timeline and defers the map behind its placeholder', async () => {
     const fixture = await setup(EDITOR);
     const fire = Object.assign(new FireIncident(), {

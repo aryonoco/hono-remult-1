@@ -2,16 +2,11 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import {
   FIRE_DETECTION_METHOD_LABELS,
-  FIRE_STATUS_LABELS,
   type FinalReport,
   type FireIncident,
-  type FireStatus,
   operatorName,
-  type SituationReport,
   type StatusTone,
-  statusTone,
 } from '@workspace/shared-domain';
-import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge';
 import { isTerminalStatus } from '../../../../shared/util/fire-status';
 
 type EventTone = StatusTone | 'event' | 'overdue';
@@ -24,13 +19,11 @@ interface TimelineEvent {
     | 'crewSent'
     | 'crewArrived'
     | 'declaredMajor'
-    | 'sitrep'
     | 'signOff'
     | 'nextDue';
   at: Date;
   label: string;
   tone: EventTone;
-  status?: FireStatus;
   detail?: string;
   future?: boolean;
   overdue?: boolean;
@@ -121,19 +114,6 @@ function lifecycleEvents(fire: FireIncident): TimelineEvent[] {
   return out;
 }
 
-function sitrepEvents(sitreps: readonly SituationReport[]): TimelineEvent[] {
-  return [...sitreps]
-    .sort((a, b) => a.reportNumber - b.reportNumber)
-    .filter((s): s is SituationReport & { submittedAt: Date } => s.submittedAt instanceof Date)
-    .map((s) => ({
-      at: s.submittedAt,
-      kind: 'sitrep',
-      label: `Situation report ${s.reportNumber} — ${FIRE_STATUS_LABELS[s.status]}`,
-      tone: statusTone(s.status),
-      status: s.status,
-    }));
-}
-
 function signOffEvent(finalReport: FinalReport | undefined): TimelineEvent | null {
   if (finalReport?.isSignedOff && finalReport.signedOffAt) {
     return {
@@ -165,14 +145,14 @@ function nextDueEvent(fire: FireIncident, now: Date): TimelineEvent | null {
 @Component({
   selector: 'app-incident-timeline',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, StatusBadgeComponent],
+  imports: [DatePipe],
   template: `
     <ol role="list" class="incident-timeline">
       @for (e of events(); track $index) {
         <li [class.is-overdue]="e.overdue">
           <span class="incident-timeline__dot" [class]="dotClass(e)" aria-hidden="true"></span>
           <div class="incident-timeline__body" [attr.role]="e.overdue ? 'status' : null">
-            <span class="incident-timeline__label">{{ e.label }}@if (e.status) { <app-status-badge [status]="e.status" /> }@if (e.overdue) { <span class="sr-only"> (overdue)</span> }</span>
+            <span class="incident-timeline__label">{{ e.label }}@if (e.overdue) { <span class="sr-only"> (overdue)</span> }</span>
             @if (e.detail) { <span class="incident-timeline__detail">{{ e.detail }}</span> }
           </div>
           <time class="incident-timeline__time font-mono tabular-nums" [attr.datetime]="e.at.toISOString()">{{ e.at | date: 'dd/MM/yy, HH:mm' }}</time>
@@ -196,7 +176,6 @@ function nextDueEvent(fire: FireIncident, now: Date): TimelineEvent | null {
 })
 export class IncidentTimelineComponent {
   readonly fire = input.required<FireIncident>();
-  readonly sitreps = input<readonly SituationReport[]>([]);
   readonly finalReport = input<FinalReport | undefined>(undefined);
   readonly now = input<Date>(new Date());
   protected dotClass(e: TimelineEvent): string {
@@ -205,7 +184,7 @@ export class IncidentTimelineComponent {
   protected readonly events = computed<readonly TimelineEvent[]>(() => {
     const f = this.fire();
     const signOff = signOffEvent(this.finalReport());
-    const out = [...lifecycleEvents(f), ...sitrepEvents(this.sitreps())];
+    const out = [...lifecycleEvents(f)];
     if (signOff) {
       out.push(signOff);
     }

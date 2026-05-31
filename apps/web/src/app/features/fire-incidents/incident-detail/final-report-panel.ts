@@ -32,14 +32,16 @@ import {
         <h2 class="m-0 font-display text-lg font-semibold">Final report</h2>
         @if (r.isSignedOff) {
           <span
-            class="inline-flex items-center gap-1 rounded-md border border-current/25 bg-status-safe-bg px-2 py-0.5 text-xs font-semibold text-status-safe"
+            class="inline-flex items-center gap-1 rounded-md border bg-status-safe-bg px-2 py-0.5 text-xs font-semibold text-status-safe"
+            [style.border-color]="safeBorder"
           >
             <mat-icon class="h-4! w-4! text-[1rem]!" aria-hidden="true">verified</mat-icon>
             Signed off by {{ signedOffByName() }} · {{ r.signedOffAt | date: 'dd/MM/yy, HH:mm' }}
           </span>
         } @else if (r.signOffRemovedBy) {
           <span
-            class="inline-flex items-center gap-1 rounded-md border border-current/25 bg-status-neutral-bg px-2 py-0.5 text-xs font-semibold text-status-neutral"
+            class="inline-flex items-center gap-1 rounded-md border bg-status-neutral-bg px-2 py-0.5 text-xs font-semibold text-status-neutral"
+            [style.border-color]="neutralBorder"
           >
             <mat-icon class="h-4! w-4! text-[1rem]!" aria-hidden="true">lock_open</mat-icon>
             Sign-off removed by {{ signOffRemovedByName() }}
@@ -174,6 +176,13 @@ export class FinalReportPanelComponent {
   readonly canEditFinal = input(false);
   readonly signOff = output<void>();
   readonly removeSignOff = output<void>();
+
+  // Sign-off badge borders (DETAIL-5): a token-derived hairline via color-mix, so the border tracks the
+  // status tone through both themes (the previous `border-current/25` followed the text colour but did not
+  // pick up the theme-aware status token). 25% of the tone over transparent matches the badge's tint.
+  protected readonly safeBorder = 'color-mix(in srgb, var(--color-status-safe) 25%, transparent)';
+  protected readonly neutralBorder =
+    'color-mix(in srgb, var(--color-status-neutral) 25%, transparent)';
 
   // Resolve the stored operator/user ids to display names (the seed stores ids like `op-45-3`).
   protected readonly signedOffByName = computed(() => operatorName(this.report().signedOffBy));

@@ -23,6 +23,7 @@ import {
   FireIncident,
   INCIDENT_LEVEL_LABELS,
   type IncidentLevel,
+  MS_PER_MINUTE,
   operatorName,
   POTENTIAL_LABELS,
   type Potential,
@@ -73,6 +74,17 @@ interface FireRequest {
 // Re-tick the cadence countdown each minute so an overdue marker on a live fire stays honest between loads.
 const TICK_MS = 60_000;
 
+// Cadence urgency thresholds + chip glyphs (DETAIL-1). `soon` mirrors the cadence-countdown's own 60-minute
+// window so the hero chip's highlight matches the figure it wraps.
+type CadenceState = 'overdue' | 'soon' | 'upcoming' | 'none';
+const CADENCE_SOON_MS: number = 60 * MS_PER_MINUTE;
+const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
+  overdue: 'warning',
+  soon: 'schedule',
+  upcoming: 'schedule',
+  none: 'check_circle',
+};
+
 @Component({
   selector: 'app-incident-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -116,6 +128,31 @@ const TICK_MS = 60_000;
       color: var(--mat-sys-error);
     }
 
+    /* Situation-reports empty state (DETAIL-4): a centred, low-surface panel with a glyph and a conditional
+       CTA, announced as a status region. Dashed hairline marks it as an awaiting-content placeholder. */
+    .panel--empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 2rem 1.5rem;
+      border-style: dashed;
+      background: var(--mat-sys-surface-container-low);
+      color: var(--mat-sys-on-surface-variant);
+      text-align: center;
+    }
+
+    .panel--empty mat-icon {
+      width: 2rem;
+      height: 2rem;
+      font-size: 2rem;
+      opacity: 0.7;
+    }
+
+    .panel--empty__text {
+      margin: 0;
+    }
+
     .detail-title {
       margin: 0;
       font-family: var(--font-display);
@@ -124,6 +161,14 @@ const TICK_MS = 60_000;
       letter-spacing: -0.01em;
       outline: none;
       scroll-margin-top: 4rem;
+    }
+
+    /* The title is the route-change focus target (tabindex="-1"). Keep it ring-free on a pointer/landing
+       focus, but show a clear ring when the focus is keyboard/programmatic so the move is visible (DETAIL-9). */
+    .detail-title:focus-visible {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: 2px;
+      border-radius: var(--app-radius-card);
     }
 
     /* Severity hero: a status-toned banner. Background is the status foreground token; text sits on it as the
@@ -172,6 +217,7 @@ const TICK_MS = 60_000;
 
     .detail-hero__lead {
       display: flex;
+      flex-shrink: 0;
       flex-wrap: wrap;
       align-items: center;
       gap: 0.75rem;
@@ -201,9 +247,16 @@ const TICK_MS = 60_000;
 
     .detail-hero__meta {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(8rem, max-content));
+      flex: 1 1 auto;
+      grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
       gap: 0.5rem 1.75rem;
       margin: 0;
+    }
+
+    /* Cadence reads first in source order; the chip self-sizes so the live-clock signal never stretches
+       across the whole meta row. */
+    .detail-hero__cell--cadence {
+      align-self: start;
     }
 
     .detail-hero__cell dt {
@@ -220,6 +273,40 @@ const TICK_MS = 60_000;
       font-weight: 600;
     }
 
+    /* Cadence chip (DETAIL-1): an inline status pill in the hero that makes the reporting clock the primary
+       urgency signal. The chip text is the hero's surface-colour foreground (the AA-verified inverse pairing
+       checked by HERO_TEXT_PAIRS), so it sits directly on the pure status tone with NO background fill — a
+       translucent surface wash would lighten the tone in the light (Dawn) theme and drop the text below AA.
+       The ringed border (derived from --mat-sys-surface via color-mix, so it tracks both themes) carries the
+       raised-chip read; overdue/soon brighten the ring and the leading glyph carries the state. */
+    .detail-hero__cadence {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.25rem 0.625rem;
+      border-radius: var(--app-radius-card);
+      border: 1px solid color-mix(in srgb, var(--mat-sys-surface) 35%, transparent);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .detail-hero__cadence mat-icon {
+      width: 1.125rem;
+      height: 1.125rem;
+      font-size: 1.125rem;
+    }
+
+    /* Escalate via the border + warning glyph rather than a fill: the chip text stays on the pure status
+       tone (the AA-verified surface-on-tone pairing), so urgency is carried by a brighter ring and the
+       leading glyph, leaving the text-vs-tone contrast untouched in both themes. */
+    .detail-hero__cadence--soon {
+      border-color: color-mix(in srgb, var(--mat-sys-surface) 65%, transparent);
+    }
+
+    .detail-hero__cadence--overdue {
+      border-color: var(--mat-sys-surface);
+    }
+
     .detail-info {
       display: flex;
       flex-direction: column;
@@ -228,7 +315,7 @@ const TICK_MS = 60_000;
     /* Headline instrument tiles: bold mono readouts of the live crew/area figures. */
     .detail-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
       gap: 0.75rem;
       margin: 0;
     }
@@ -238,6 +325,16 @@ const TICK_MS = 60_000;
       border: var(--app-grid-border);
       border-radius: var(--app-radius-card);
       background: var(--mat-sys-surface-container);
+    }
+
+    /* A zero crew/aircraft figure is real data, not a gap: mute the tile and label it so it reads as
+       "none assigned" rather than a missing value (DETAIL-2). The figure stays AA-legible. */
+    .stat--zero {
+      background: var(--mat-sys-surface-container-low);
+    }
+
+    .stat--zero dd {
+      color: var(--mat-sys-on-surface-variant);
     }
 
     .stat dt {
@@ -257,6 +354,14 @@ const TICK_MS = 60_000;
 
     .stat__unit {
       font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .stat__none {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.6875rem;
       font-weight: 500;
       color: var(--mat-sys-on-surface-variant);
     }
@@ -336,6 +441,51 @@ const TICK_MS = 60_000;
 
     .sitrep-body .label {
       color: var(--mat-sys-on-surface-variant);
+    }
+
+    /* Subtle elevation hierarchy (DETAIL-8): the hero sits highest, the primary instrument panel one step
+       up from the secondary location/timeline panels, so the page reads as layered surfaces rather than a
+       flat stack. Levels come from distinct --mat-sys-surface-container tokens (theme-aware, no shadows). */
+    .detail-info.panel {
+      background: var(--mat-sys-surface-container);
+    }
+
+    /* Mobile (DETAIL-6/8): stack the hero, tighten the page rhythm and section paddings so the layout is
+       not desktop-first padded at handset widths. */
+    @media (max-width: 640px) {
+      .detail {
+        gap: 1rem;
+      }
+
+      .detail-hero {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.875rem 1rem;
+      }
+
+      .panel {
+        padding: 1rem 1.125rem;
+      }
+
+      .metrics {
+        margin-top: 1rem;
+      }
+
+      .detail-grid {
+        gap: 1rem;
+      }
+    }
+
+    /* Handset (DETAIL-7): force a tidy two-up stat grid and trim the readout size so the tiles do not
+       oversize on a narrow viewport. */
+    @media (max-width: 480px) {
+      .detail-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stat dd {
+        font-size: 1.125rem;
+      }
     }
   `,
 })
@@ -470,6 +620,29 @@ export class IncidentDetailComponent {
     const fire = this.fire();
     return fire ? `detail-hero--${statusTone(fire.status)}` : '';
   });
+
+  // Cadence urgency drives the hero chip's highlight + icon: overdue and soon are escalated so the
+  // reporting clock is the hero's primary status signal (DETAIL-1). Mirrors the cadence-countdown's own
+  // state thresholds so chip and figure stay in lock-step; a terminal fire has no live cadence.
+  private readonly cadenceState = computed<CadenceState>(() => {
+    const fire = this.fire();
+    const due = fire ? this.cadenceDue(fire) : null;
+    if (!due) {
+      return 'none';
+    }
+    const delta = due.getTime() - this.now().getTime();
+    if (delta < 0) {
+      return 'overdue';
+    }
+    if (delta <= CADENCE_SOON_MS) {
+      return 'soon';
+    }
+    return 'upcoming';
+  });
+  protected readonly cadenceChipClass = computed(
+    () => `detail-hero__cadence--${this.cadenceState()}`,
+  );
+  protected readonly cadenceIcon = computed(() => CADENCE_ICONS[this.cadenceState()]);
 
   private announcedId: string | null = null;
 

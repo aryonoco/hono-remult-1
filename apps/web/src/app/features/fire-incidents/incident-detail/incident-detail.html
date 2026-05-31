@@ -30,10 +30,13 @@
           </div>
 
           <dl class="detail-hero__meta">
-            <div class="detail-hero__cell">
+            <div class="detail-hero__cell detail-hero__cell--cadence">
               <dt>Cadence</dt>
               <dd>
-                <app-cadence-countdown [due]="cadenceDue(f)" [now]="now()" appearance="inverse" />
+                <span class="detail-hero__cadence" [class]="cadenceChipClass()">
+                  <mat-icon aria-hidden="true">{{ cadenceIcon() }}</mat-icon>
+                  <app-cadence-countdown [due]="cadenceDue(f)" [now]="now()" appearance="inverse" />
+                </span>
               </dd>
             </div>
             <div class="detail-hero__cell">
@@ -63,13 +66,24 @@
                 }
               </dd>
             </div>
-            <div class="stat">
+            <div class="stat" [class.stat--zero]="f.totalPersonnel === 0">
               <dt>Personnel</dt>
-              <dd class="mono">{{ f.totalPersonnel }}</dd>
+              <dd class="mono">
+                {{ f.totalPersonnel }}
+                @if (f.totalPersonnel === 0) {
+                  <span class="stat__none">(none assigned)</span>
+                }
+              </dd>
             </div>
-            <div class="stat">
+            <div class="stat" [class.stat--zero]="f.totalVehicles === 0 && f.totalAircraft === 0">
               <dt>Vehicles / aircraft</dt>
-              <dd class="mono">{{ f.totalVehicles }} <span class="stat__unit">veh</span> · {{ f.totalAircraft }} <span class="stat__unit">air</span></dd>
+              <dd class="mono">
+                {{ f.totalVehicles }} <span class="stat__unit">veh</span> · {{ f.totalAircraft }}
+                <span class="stat__unit">air</span>
+                @if (f.totalVehicles === 0 && f.totalAircraft === 0) {
+                  <span class="stat__none">(none assigned)</span>
+                }
+              </dd>
             </div>
           </dl>
 
@@ -155,12 +169,7 @@
 
           <section class="panel" aria-labelledby="detail-timeline-h">
             <h2 id="detail-timeline-h" class="section-title">Lifecycle</h2>
-            <app-incident-timeline
-              [fire]="f"
-              [sitreps]="sitreps()"
-              [finalReport]="finalReport()"
-              [now]="now()"
-            />
+            <app-incident-timeline [fire]="f" [finalReport]="finalReport()" [now]="now()" />
           </section>
         </div>
 
@@ -216,7 +225,20 @@
               }
             </mat-accordion>
           } @else {
-            <div class="panel">No situation reports yet.</div>
+            <div class="panel panel--empty" role="status">
+              <mat-icon aria-hidden="true">assignment</mat-icon>
+              <p class="panel--empty__text">No situation reports yet.</p>
+              @if (canNewSitrep()) {
+                <a
+                  matButton="outlined"
+                  data-testid="action-sitrep-empty"
+                  [routerLink]="['/incidents', f.id, 'sitrep']"
+                >
+                  <mat-icon>note_add</mat-icon>
+                  Create situation report
+                </a>
+              }
+            </div>
           }
         </section>
 
