@@ -61,17 +61,18 @@
 .sidenav {
   display: flex;
   flex-direction: column;
-  width: 16rem;
+  width: 15rem;
   border-right: var(--app-grid-border);
   background: var(--mat-sys-surface-container-low);
 }
 
 .nav {
   flex: 1 1 auto;
+  padding: 0.25rem 0.5rem;
 }
 
 .nav__section {
-  margin: 1rem 1.25rem 0.25rem;
+  margin: 0.75rem 0.75rem 0.25rem;
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
