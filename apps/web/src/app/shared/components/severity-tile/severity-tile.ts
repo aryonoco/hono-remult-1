@@ -18,7 +18,7 @@ const LEVEL_DIGIT: Readonly<Record<IncidentLevel, string>> = {
   host: { class: 'inline-grid place-items-center rounded-card font-display font-extrabold' },
   template: `<span
     [class]="toneClass()"
-    class="grid h-10 w-10 place-items-center rounded-card text-lg"
+    class="grid h-8 w-8 place-items-center rounded-card text-base leading-none"
     role="img"
     [attr.aria-label]="label()"
     >{{ digit() }}</span
