@@ -9,7 +9,7 @@ import {
 import { MatPaginatorHarness } from '@angular/material/paginator/testing';
 import { MatSortHarness } from '@angular/material/sort/testing';
 import { MatTableHarness } from '@angular/material/table/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import {
   type CurrentUser,
   computeFinancialYear,
@@ -36,6 +36,9 @@ const ADMIN = DEV_USERS[0]!; // admin, districtId null
 const VIEWER = DEV_USERS[5]!; // viewer, dev-viewer-otway
 const CURRENT_FY = computeFinancialYear(new Date());
 const PRIOR_FY = CURRENT_FY - 1;
+// Mirrors the component's default page size (the first PAGE_SIZE_OPTIONS entry); the URL codec only
+// accepts the real paginator options, so tests drive pagination with this rather than an arbitrary size.
+const DEFAULT_PAGE_SIZE = 25;
 
 const notificationStub = { success: () => undefined, error: () => undefined };
 
@@ -55,23 +58,51 @@ function decodeOrderBy(params: URLSearchParams): EntityOrderBy<FireIncident> {
   return { [sort]: order } as EntityOrderBy<FireIncident>;
 }
 
+// Decode a single (non-repeated) predicate onto the where clause. Pulled out of the loop so `decodeWhere`
+// only orchestrates the repeated `status.ne` accumulation, keeping each function's branching modest.
+function applyPredicate(where: EntityFilter<FireIncident>, key: string, value: string): void {
+  switch (key) {
+    case 'status.in':
+      where.status = { $in: JSON.parse(value) as FireStatus[] };
+      break;
+    case 'financialYear':
+      where.financialYear = Number(value);
+      break;
+    case 'districtId.in':
+      // Region expansion: `districtId: { $in: [...] }` serialises to `districtId.in=<json array>`.
+      where.districtId = { $in: JSON.parse(value) as number[] };
+      break;
+    case 'districtId':
+      where.districtId = Number(value);
+      break;
+    case 'isMajor':
+      // The major-group equality predicate encodes as the bare boolean param `isMajor=true`.
+      where.isMajor = value === 'true';
+      break;
+    case 'nextReportDue.lt':
+      // The overdue cut-off `nextReportDue: { $lt: now }` serialises the date via `.lt` (ISO string).
+      where.nextReportDue = { $lt: new Date(value) };
+      break;
+    case 'status':
+      where.status = value as FireStatus;
+      break;
+    default:
+      break;
+  }
+}
+
 // Reconstruct the entity filter from the encoded query string. Only the component's filter vocabulary is
 // handled: `status.ne` (repeated) → `$nin`, `status.in` (JSON array) → `$in`, bare equality, plus the
-// `financialYear`/`districtId` scalars.
+// `financialYear`/`districtId` scalars, the `isMajor` flag, the `nextReportDue.lt` cut-off, and the
+// `districtId.in` region expansion.
 function decodeWhere(params: URLSearchParams): EntityFilter<FireIncident> {
   const where: EntityFilter<FireIncident> = {};
   const neValues: FireStatus[] = [];
   for (const [key, value] of params.entries()) {
     if (key === 'status.ne') {
       neValues.push(value as FireStatus);
-    } else if (key === 'status.in') {
-      where.status = { $in: JSON.parse(value) as FireStatus[] };
-    } else if (key === 'financialYear') {
-      where.financialYear = Number(value);
-    } else if (key === 'districtId') {
-      where.districtId = Number(value);
-    } else if (key === 'status') {
-      where.status = value as FireStatus;
+    } else {
+      applyPredicate(where, key, value);
     }
   }
   if (neValues.length > 0) {
@@ -128,6 +159,20 @@ async function seedDistrict(): Promise<void> {
     regionName: 'Barwon South West',
     isActive: true,
   });
+}
+
+// Two districts in region 1 (Otway, Far South West) and one in region 2 (Mallee) so a region filter has a
+// non-trivial expansion to assert against (region 1 → districts 12 + 14, region 2 → district 22).
+async function seedMultiRegionDistricts(): Promise<void> {
+  const repo = remult.repo(District);
+  await repo.insert({ id: 12, name: 'Otway', regionId: 1, regionName: 'Barwon South West' });
+  await repo.insert({
+    id: 14,
+    name: 'Far South West',
+    regionId: 1,
+    regionName: 'Barwon South West',
+  });
+  await repo.insert({ id: 22, name: 'Mallee', regionId: 2, regionName: 'Loddon Mallee' });
 }
 
 // Insert via the repo (the lifecycle hook sets server-managed defaults), then patch the server-managed
@@ -247,6 +292,22 @@ async function createComponent(
   return fixture;
 }
 
+// Seed the URL with query params BEFORE the component subscribes, so its constructor reads them on the
+// first `queryParamMap` emission — the deep-link path. Navigating to the current route with `queryParams`
+// is enough under `provideRouter([])`.
+async function createComponentWithQuery(
+  user: CurrentUser | undefined,
+  queryParams: Record<string, string | number>,
+): Promise<ComponentFixture<IncidentListComponent>> {
+  configure(user, false);
+  await TestBed.compileComponents();
+  const router = TestBed.inject(Router);
+  await router.navigate([], { queryParams });
+  const fixture = TestBed.createComponent(IncidentListComponent);
+  await fixture.whenStable();
+  return fixture;
+}
+
 function text(fixture: ComponentFixture<IncidentListComponent>): string {
   return (fixture.nativeElement as HTMLElement).textContent ?? '';
 }
@@ -322,21 +383,24 @@ describe('IncidentListComponent (server pagination + filters)', () => {
     remult.user = { ...ADMIN };
     await seedThirtyFires();
     const fixture = await createComponent({ ...ADMIN });
+    // Widen to all years (30 fires) and use the default page size (25), a real paginator option, so the
+    // page size survives the URL round-trip: page 1 holds 25 rows, page 2 the remaining 5.
+    instance(fixture).setFy('all');
     instance(fixture).onSortChange({ active: 'name', direction: 'asc' });
-    instance(fixture).onPage({ pageIndex: 0, pageSize: 10 });
+    instance(fixture).onPage({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
     await settle(fixture);
     const firstPageIds = instance(fixture)
       .rows()
       .map((row: FireIncident) => row.id);
 
-    instance(fixture).onPage({ pageIndex: 1, pageSize: 10 });
+    instance(fixture).onPage({ pageIndex: 1, pageSize: DEFAULT_PAGE_SIZE });
     await settle(fixture);
     const secondPageIds = instance(fixture)
       .rows()
       .map((row: FireIncident) => row.id);
 
     // Server pagination: the second page returns a distinct, non-overlapping slice.
-    expect(firstPageIds.length).toBe(10);
+    expect(firstPageIds.length).toBe(DEFAULT_PAGE_SIZE);
     expect(secondPageIds.length).toBeGreaterThan(0);
     for (const id of secondPageIds) {
       expect(firstPageIds).not.toContain(id);
@@ -418,8 +482,8 @@ describe('IncidentListComponent (filter bar, sort & paginator)', () => {
     const loader = TestbedHarnessEnvironment.loader(fixture);
     const group = await loader.getHarness(MatButtonToggleGroupHarness);
     const toggles = await group.getToggles();
-    // All / Active / Going / Resolved.
-    expect(toggles).toHaveLength(4);
+    // All / Active / Going / Major / Overdue / Resolved.
+    expect(toggles).toHaveLength(6);
     const going = await loader.getHarness(MatButtonToggleGroupHarness);
     const goingToggle = (await going.getToggles({ text: 'Going' }))[0]!;
     await goingToggle.toggle();
@@ -714,5 +778,207 @@ describe('IncidentListComponent (handset severity cards)', () => {
     expect(root.querySelector('mat-paginator')).not.toBeNull();
 
     expect(await findAxeViolations(root)).toEqual([]);
+  });
+});
+
+// A far-future cadence so an active fire is NOT overdue (nextReportDue must be >= now to stay current).
+const FUTURE_DUE = new Date('2099-01-01T00:00:00Z');
+// A past cadence (before the real test clock) so an active fire IS overdue.
+const PAST_DUE = new Date('2026-01-15T00:00:00Z');
+
+describe('IncidentListComponent (major + overdue groups)', () => {
+  async function seedGroupFires(): Promise<void> {
+    await seedDistrict();
+    // Active major fire (counts for both Major and, as not overdue, not Overdue).
+    await seedFire({
+      id: 'major-active',
+      name: 'Major Active',
+      status: FireStatus.going,
+      isMajor: true,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    // Active, non-major, overdue fire (counts for Overdue, not Major).
+    await seedFire({
+      id: 'overdue-active',
+      name: 'Overdue Active',
+      status: FireStatus.going,
+      nextReportDue: PAST_DUE,
+      financialYear: CURRENT_FY,
+    });
+    // Active, non-major, on-time fire (neither Major nor Overdue).
+    await seedFire({
+      id: 'on-time-active',
+      name: 'On Time Active',
+      status: FireStatus.going,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    // Terminal fire that was once major and is past due — excluded from both active-only groups.
+    await seedFire({
+      id: 'terminal-major',
+      name: 'Terminal Major',
+      status: FireStatus.safe,
+      isMajor: true,
+      nextReportDue: PAST_DUE,
+      financialYear: CURRENT_FY,
+    });
+  }
+
+  it('filters to active major fires for the major group', async () => {
+    remult.user = { ...ADMIN };
+    await seedGroupFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    instance(fixture).setStatusGroup('major');
+    await settle(fixture);
+
+    expect(instance(fixture).filters().group).toBe('major');
+    expect(instance(fixture).total()).toBe(1);
+    const rows = instance(fixture).rows() as FireIncident[];
+    expect(rows.map((row) => row.id)).toEqual(['major-active']);
+    for (const row of rows) {
+      expect(row.isMajor).toBe(true);
+      expect(row.status).toBe(FireStatus.going);
+    }
+  });
+
+  it('filters to active fires past their next report for the overdue group', async () => {
+    remult.user = { ...ADMIN };
+    await seedGroupFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    instance(fixture).setStatusGroup('overdue');
+    await settle(fixture);
+
+    expect(instance(fixture).filters().group).toBe('overdue');
+    expect(instance(fixture).total()).toBe(1);
+    const rows = instance(fixture).rows() as FireIncident[];
+    expect(rows.map((row) => row.id)).toEqual(['overdue-active']);
+  });
+});
+
+describe('IncidentListComponent (region filter)', () => {
+  async function seedRegionFires(): Promise<void> {
+    await seedMultiRegionDistricts();
+    // Region 1 holds two districts; seed one fire in each plus a region-2 fire to prove the narrowing.
+    await seedFire({
+      id: 'r1-otway',
+      name: 'Region One Otway',
+      status: FireStatus.going,
+      districtId: 12,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    await seedFire({
+      id: 'r1-fsw',
+      name: 'Region One Far South West',
+      status: FireStatus.going,
+      districtId: 14,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    await seedFire({
+      id: 'r2-mallee',
+      name: 'Region Two Mallee',
+      status: FireStatus.going,
+      districtId: 22,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+  }
+
+  it('narrows to the districts inside the chosen region for an elevated user', async () => {
+    remult.user = { ...ADMIN };
+    await seedRegionFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    // Region 1 expands to districts 12 + 14, so only those two fires remain (region 2 drops out).
+    instance(fixture).setRegion(1);
+    await settle(fixture);
+
+    expect(instance(fixture).filters().region).toBe(1);
+    expect(instance(fixture).total()).toBe(2);
+    const ids = (instance(fixture).rows() as FireIncident[]).map((row) => row.id).sort();
+    expect(ids).toEqual(['r1-fsw', 'r1-otway']);
+  });
+
+  it('lets an explicit district override the region', async () => {
+    remult.user = { ...ADMIN };
+    await seedRegionFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    instance(fixture).setRegion(1);
+    instance(fixture).setDistrict(12);
+    await settle(fixture);
+
+    // District wins: only the Otway (12) fire shows, even though region 1 also contains district 14.
+    expect(instance(fixture).total()).toBe(1);
+    const ids = (instance(fixture).rows() as FireIncident[]).map((row) => row.id);
+    expect(ids).toEqual(['r1-otway']);
+  });
+});
+
+describe('IncidentListComponent (deep-linkable URL filters)', () => {
+  it('seeds the controls and where clause from the query params on load', async () => {
+    remult.user = { ...ADMIN };
+    await seedDistrict();
+    await seedFire({
+      id: 'major-active',
+      name: 'Major Active',
+      status: FireStatus.going,
+      isMajor: true,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    await seedFire({
+      id: 'on-time-active',
+      name: 'On Time Active',
+      status: FireStatus.going,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+
+    // Deep link straight into the major group at the current FY.
+    const fixture = await createComponentWithQuery(
+      { ...ADMIN },
+      { group: 'major', fy: CURRENT_FY },
+    );
+    await settle(fixture);
+
+    // The signal seeds from the URL and the where clause filters to the single active major fire.
+    expect(instance(fixture).filters().group).toBe('major');
+    expect(instance(fixture).filters().fy).toBe(CURRENT_FY);
+    expect(instance(fixture).total()).toBe(1);
+    expect((instance(fixture).rows() as FireIncident[]).map((row) => row.id)).toEqual([
+      'major-active',
+    ]);
+  });
+
+  it('ignores district and region query params for a non-elevated viewer', async () => {
+    // Seed as admin (the insert hook pins non-elevated users to their own district), then load as a
+    // viewer with a hand-edited URL trying to widen scope — the reader must clamp both away.
+    remult.user = { ...ADMIN };
+    await seedMultiRegionDistricts();
+    await seedFire({
+      id: 'r2-mallee',
+      name: 'Region Two Mallee',
+      status: FireStatus.going,
+      districtId: 22,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    remult.user = { ...VIEWER };
+
+    const fixture = await createComponentWithQuery({ ...VIEWER }, { region: 2, districtId: 22 });
+    await settle(fixture);
+
+    // A viewer cannot widen scope from the URL: both scope params clamp back to 'all'.
+    expect(instance(fixture).filters().region).toBe('all');
+    expect(instance(fixture).filters().districtId).toBe('all');
   });
 });

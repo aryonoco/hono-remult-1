@@ -299,10 +299,26 @@
     <mat-button-toggle value="all" aria-label="All statuses">All</mat-button-toggle>
     <mat-button-toggle value="active" aria-label="Active incidents">Active</mat-button-toggle>
     <mat-button-toggle value="going" aria-label="Going incidents">Going</mat-button-toggle>
+    <mat-button-toggle value="major" aria-label="Major incidents">Major</mat-button-toggle>
+    <mat-button-toggle value="overdue" aria-label="Overdue incidents">Overdue</mat-button-toggle>
     <mat-button-toggle value="resolved" aria-label="Resolved incidents">Resolved</mat-button-toggle>
   </mat-button-toggle-group>
 
   @if (showDistrictFilter()) {
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-bar__field">
+      <mat-label>Region</mat-label>
+      <mat-select
+        aria-label="Region"
+        [value]="filters().region"
+        (selectionChange)="setRegion($event.value)"
+      >
+        <mat-option value="all">All regions</mat-option>
+        @for (region of regionOptions(); track region.regionId) {
+          <mat-option [value]="region.regionId">{{ region.regionName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-bar__field">
       <mat-label>District</mat-label>
       <mat-select

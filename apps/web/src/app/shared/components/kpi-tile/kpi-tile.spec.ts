@@ -59,4 +59,23 @@ describe('KpiTileComponent', () => {
     expect(anchor?.classList.contains('focus-visible:outline-primary')).toBe(true);
     expect(anchor?.classList.contains('focus-visible:outline-offset-2')).toBe(true);
   });
+
+  it('carries the supplied query params on the link tile href', async () => {
+    const fixture = TestBed.createComponent(KpiTileComponent);
+    fixture.componentRef.setInput('label', 'Overdue');
+    fixture.componentRef.setInput('value', 3);
+    fixture.componentRef.setInput('link', '/incidents');
+    fixture.componentRef.setInput('queryParams', { group: 'overdue', fy: 2026 });
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const anchor = host.querySelector('a');
+    expect(anchor).not.toBeNull();
+    // RouterLink resolves the bound queryParams into the rendered href, so a deep-linkable tile carries
+    // the full filter query string an operator can follow straight into the list.
+    const href = anchor?.getAttribute('href') ?? '';
+    expect(href).toContain('/incidents');
+    expect(href).toContain('group=overdue');
+    expect(href).toContain('fy=2026');
+  });
 });

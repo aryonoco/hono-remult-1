@@ -13,6 +13,7 @@ import { SPINE_TONE } from '../../ui/tone-classes';
     @if (link()) {
       <a
         [routerLink]="link()"
+        [queryParams]="queryParams()"
         class="relative block overflow-hidden rounded-card border border-outline-variant bg-surface-container-low p-3.5 no-underline transition-colors hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <ng-container [ngTemplateOutlet]="content" />
@@ -45,6 +46,9 @@ export class KpiTileComponent {
   readonly tone = input<'accent' | StatusTone>('accent');
   readonly emphasis = input(false);
   readonly link = input<string | undefined>(undefined);
+  // Optional query params for the link tile. RouterLink ignores an undefined value, so callers that
+  // omit this stay plain links — this is the hook deep-linkable KPI tiles use to seed list filters.
+  readonly queryParams = input<Record<string, string | number> | undefined>(undefined);
   readonly live = input(false);
   protected readonly spineClass = computed(() => {
     const t = this.tone();
