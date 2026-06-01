@@ -28,45 +28,48 @@
     [mode]="isHandset() ? 'over' : 'side'"
     [opened]="!isHandset()"
   >
-    <nav aria-label="Primary" class="nav">
-      <p class="nav__section">Operations</p>
-      <mat-nav-list>
-        <a
-          mat-list-item
-          routerLink="/overview"
-          routerLinkActive
-          #overviewLink="routerLinkActive"
-          [activated]="overviewLink.isActive"
-        >
-          <mat-icon matListItemIcon aria-hidden="true">insights</mat-icon>
-          <span matListItemTitle>Overview</span>
-        </a>
-        <a
-          mat-list-item
-          routerLink="/incidents"
-          routerLinkActive
-          #incidentsLink="routerLinkActive"
-          [activated]="incidentsLink.isActive"
-        >
-          <mat-icon matListItemIcon aria-hidden="true">local_fire_department</mat-icon>
-          <span matListItemTitle>Incidents</span>
-        </a>
-      </mat-nav-list>
-    </nav>
+    <div class="sidenav__inner">
+      <nav aria-label="Primary" class="nav">
+        <p class="nav__section">Operations</p>
+        <mat-nav-list>
+          <a
+            mat-list-item
+            routerLink="/overview"
+            routerLinkActive
+            #overviewLink="routerLinkActive"
+            [activated]="overviewLink.isActive"
+          >
+            <mat-icon matListItemIcon aria-hidden="true">insights</mat-icon>
+            <span matListItemTitle>Overview</span>
+          </a>
+          <a
+            mat-list-item
+            routerLink="/incidents"
+            routerLinkActive
+            #incidentsLink="routerLinkActive"
+            [activated]="incidentsLink.isActive"
+          >
+            <mat-icon matListItemIcon aria-hidden="true">local_fire_department</mat-icon>
+            <span matListItemTitle>Incidents</span>
+          </a>
+        </mat-nav-list>
+      </nav>
 
-    @if (currentUser(); as user) {
-      <div class="userchip">
-        <span class="userchip__avatar" aria-hidden="true">{{ initials(user.name) }}</span>
-        <span class="userchip__meta">
-          <span class="userchip__name">{{ user.name }}</span>
-          <span class="userchip__role">
-            {{ roleLabel(user) }} <span class="userchip__district">· {{ districtLabel(user) }}</span>
+      @if (currentUser(); as user) {
+        <div class="userchip">
+          <span class="userchip__avatar" aria-hidden="true">{{ initials(user.name) }}</span>
+          <span class="userchip__meta">
+            <span class="userchip__name">{{ user.name }}</span>
+            <span class="userchip__role">
+              {{ roleLabel(user) }}
+              <span class="userchip__district">· {{ districtLabel(user) }}</span>
+            </span>
           </span>
-        </span>
-      </div>
-    } @else {
-      <div class="userchip userchip--empty">Not signed in</div>
-    }
+        </div>
+      } @else {
+        <div class="userchip userchip--empty">Not signed in</div>
+      }
+    </div>
   </mat-sidenav>
 
   <mat-sidenav-content>

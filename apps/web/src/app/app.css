@@ -72,11 +72,18 @@
 }
 
 .sidenav {
-  display: flex;
-  flex-direction: column;
   width: 15rem;
   border-inline-end: var(--app-grid-border);
   background: var(--mat-sys-surface-container-low);
+}
+
+/* Flex column lives on this wrapper — not the .sidenav host — because Material projects
+   content into an intermediate `.mat-drawer-inner-container` (display: block). Filling that
+   container here lets .nav grow and pin the user chip to the foot of the panel. */
+.sidenav__inner {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100%;
 }
 
 .nav {
