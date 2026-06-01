@@ -12,10 +12,14 @@
       <mat-icon>menu</mat-icon>
     </button>
   }
-  <span class="appbar__brand">
+  <a
+    class="appbar__brand"
+    routerLink="/overview"
+    aria-label="Fire Incidents — go to overview"
+  >
     <mat-icon class="appbar__logo" aria-hidden="true">local_fire_department</mat-icon>
     <span class="appbar__title">Fire Incidents</span>
-  </span>
+  </a>
   <span class="appbar__spacer"></span>
   <app-theme-toggle />
   <app-dev-user-switcher />

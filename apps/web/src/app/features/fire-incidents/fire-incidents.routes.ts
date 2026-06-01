@@ -12,25 +12,40 @@ import { SituationReportFormComponent } from './sitrep-form/situation-report-for
 // longer path wins. Every form route carries the unsaved-changes guard; the two final-report routes pass
 // their `mode` through route data.
 export const fireIncidentRoutes: Routes = [
-  { path: '', component: IncidentListComponent },
-  { path: 'new', component: IncidentFormComponent, canDeactivate: [unsavedChangesGuard] },
-  { path: ':id/edit', component: IncidentFormComponent, canDeactivate: [unsavedChangesGuard] },
+  { path: '', title: 'Incidents', component: IncidentListComponent },
+  {
+    path: 'new',
+    title: 'New incident',
+    component: IncidentFormComponent,
+    canDeactivate: [unsavedChangesGuard],
+  },
+  {
+    path: ':id/edit',
+    title: 'Edit incident',
+    component: IncidentFormComponent,
+    canDeactivate: [unsavedChangesGuard],
+  },
   {
     path: ':id/sitrep',
+    title: 'Situation report',
     component: SituationReportFormComponent,
     canDeactivate: [unsavedChangesGuard],
   },
   {
     path: ':id/final/edit',
+    title: 'Edit final report',
     component: FinalReportFormComponent,
     data: { mode: 'edit' },
     canDeactivate: [unsavedChangesGuard],
   },
   {
     path: ':id/final',
+    title: 'Final report',
     component: FinalReportFormComponent,
     data: { mode: 'create' },
     canDeactivate: [unsavedChangesGuard],
   },
-  { path: ':id', component: IncidentDetailComponent },
+  // `:id` resolves the 'Incident' fallback title; IncidentDetailComponent overrides it with the
+  // incident name once the fire loads.
+  { path: ':id', title: 'Incident', component: IncidentDetailComponent },
 ];

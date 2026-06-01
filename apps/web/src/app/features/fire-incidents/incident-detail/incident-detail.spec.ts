@@ -7,6 +7,7 @@ import {
   TestBed,
 } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
+import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import {
   type CurrentUser,
@@ -474,6 +475,15 @@ describe('IncidentDetailComponent (map points + author names)', () => {
     const fixture = await setup(ADMIN);
     await seed(fixture, {});
     expect(instance(fixture).authorName(EDITOR.id)).toBe(operatorName(EDITOR.id));
+  });
+});
+
+describe('IncidentDetailComponent (document title)', () => {
+  it('sets the document title to the incident name once the fire loads', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { name: 'Otway Ridge Fire' });
+    // Overrides the route's 'Incident' fallback title with the loaded incident name + wordmark suffix.
+    expect(TestBed.inject(Title).getTitle()).toBe('Otway Ridge Fire — Fire Incidents');
   });
 });
 

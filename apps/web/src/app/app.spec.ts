@@ -4,7 +4,8 @@ import { ANIMATION_MODULE_TYPE } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatNavListHarness } from '@angular/material/list/testing';
 import { MatToolbarHarness } from '@angular/material/toolbar/testing';
-import { provideRouter, Router } from '@angular/router';
+import { Title } from '@angular/platform-browser';
+import { provideRouter, Router, TitleStrategy } from '@angular/router';
 import { remult } from 'remult';
 import { of } from 'rxjs';
 import { findAxeViolations } from '../testing/axe-helper';
@@ -12,6 +13,7 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { DevAuthService } from './core/dev-auth.service';
 import { NotificationService } from './core/notification.service';
+import { AppTitleStrategy } from './core/title-strategy';
 
 const breakpointStub = { observe: () => of({ matches: false, breakpoints: {} }) };
 
@@ -87,6 +89,19 @@ describe('App', () => {
     expect((await toolbar.getRowsAsText()).join(' ')).toContain('Fire Incidents');
   });
 
+  it('exposes the brand wordmark as a home link to the overview', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const brand = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      'a.appbar__brand',
+    );
+    expect(brand).not.toBeNull();
+    // RouterLink resolves the routerLink to an href; the accessible name names the destination.
+    expect(brand?.getAttribute('href')).toBe('/overview');
+    expect(brand?.getAttribute('aria-label')).toBe('Fire Incidents — go to overview');
+    expect(brand?.textContent).toContain('Fire Incidents');
+  });
+
   it('lists Overview then Incidents in the primary navigation', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
@@ -102,7 +117,7 @@ describe('App', () => {
   });
 });
 
-describe('App (route-change focus management)', () => {
+describe('App (route titles + focus management)', () => {
   beforeEach(async () => {
     localStorage.clear();
     stubBrowserApis();
@@ -112,6 +127,8 @@ describe('App (route-change focus management)', () => {
       imports: [App],
       providers: [
         provideRouter(routes),
+        // Mirror the app config: the AppTitleStrategy suffixes each route title with the wordmark.
+        { provide: TitleStrategy, useClass: AppTitleStrategy },
         { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
         { provide: BreakpointObserver, useValue: breakpointStub },
         { provide: NotificationService, useValue: notificationStub },
@@ -125,12 +142,32 @@ describe('App (route-change focus management)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('moves focus to the main content region after navigation', async () => {
+  it('suffixes each route title with the app wordmark', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const router = TestBed.inject(Router);
+    const title = TestBed.inject(Title);
+
+    await router.navigateByUrl('/overview');
+    await fixture.whenStable();
+    expect(title.getTitle()).toBe('Overview — Fire Incidents');
+
     await router.navigateByUrl('/incidents');
     await fixture.whenStable();
+    expect(title.getTitle()).toBe('Incidents — Fire Incidents');
+  });
+
+  it('moves focus to the main content region on a non-initial navigation', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    // The first completed navigation is intentionally skipped (it stands in for the initial page
+    // load), so drive one navigation before asserting that the next one moves focus.
+    await router.navigateByUrl('/overview');
+    await fixture.whenStable();
+    await router.navigateByUrl('/incidents');
+    await fixture.whenStable();
+    // The incidents list has no `h1[tabindex="-1"]`, so focus lands on the `#main` landmark fallback.
     expect(document.activeElement).toBe(document.getElementById('main'));
   });
 });

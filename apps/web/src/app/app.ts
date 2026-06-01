@@ -1,5 +1,12 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  inject,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -60,6 +67,11 @@ export class App {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+
+  // Guards the very first NavigationEnd (initial page load) so route-change focus management never
+  // hijacks the browser's own initial focus; flips true after the first completed navigation.
+  private hasNavigated = false;
 
   protected readonly currentUser = this.devAuth.currentUser;
 
@@ -79,14 +91,43 @@ export class App {
   );
 
   constructor() {
-    // SC 2.4.3 / 2.4.11: on every completed navigation move focus to the content landmark so keyboard
-    // and screen-reader users land in the new view rather than at the top of the (unchanged) chrome.
-    // `queueMicrotask` defers until the freshly routed component has rendered `#main`.
+    // SC 2.4.3 / 4.1.3: on each completed (non-initial) navigation move keyboard/screen-reader focus
+    // to the new view's primary heading (the `h1[tabindex="-1"]` carries scroll-margin so it clears
+    // the sticky app bar), falling back to the `#main` landmark when a view has no such heading, so
+    // the view change is perceivable rather than leaving focus on the unchanged chrome.
     this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
-      if (event instanceof NavigationEnd) {
-        queueMicrotask(() => document.getElementById('main')?.focus());
+      if (!(event instanceof NavigationEnd)) {
+        return;
       }
+      // Skip the very first navigation (initial page load) so the browser's own initial focus stands.
+      if (!this.hasNavigated) {
+        this.hasNavigated = true;
+        return;
+      }
+      this.focusNewView();
     });
+  }
+
+  // Schedule the focus move for after the freshly routed view has rendered. `afterNextRender` runs
+  // once post-render and is zoneless-safe; it needs an injection context, hence the explicit injector.
+  private focusNewView(): void {
+    afterNextRender(
+      () => {
+        // Skip while a Material dialog (or any role=dialog overlay) is open: focus belongs to the
+        // modal, and stealing it back to the page would trap keyboard users behind the dialog.
+        const dialogOpen = document.querySelector(
+          '.cdk-overlay-container .mat-mdc-dialog-container, .cdk-overlay-container [role=dialog]',
+        );
+        if (dialogOpen) {
+          return;
+        }
+        const target =
+          document.querySelector<HTMLElement>('main h1[tabindex="-1"]') ??
+          document.getElementById('main');
+        target?.focus({ preventScroll: false });
+      },
+      { injector: this.injector },
+    );
   }
 
   private resolveWidth(): ContentWidth {

@@ -45,14 +45,34 @@
   }
 }
 
+/* The brand is the toolbar's home link (back to the overview). Keep the original inline-flex
+   wordmark layout, strip the anchor's default underline/colour so it reads as the wordmark, and
+   keep a >=24px target. A subtle hover lift on the logo plus a token focus ring (matching the
+   app-wide :focus-visible system in styles.scss) make it a clear, keyboard-reachable affordance —
+   it is the only anchor in the toolbar region, so no nested-anchor risk. */
 .appbar__brand {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 1.5rem;
+  border-radius: var(--app-radius-card);
+  color: inherit;
+  text-decoration: none;
+}
+
+.appbar__brand:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
 }
 
 .appbar__logo {
   color: var(--mat-sys-primary);
+}
+
+/* Subtle hover affordance on the home link: fade the logo slightly (the wordmark target stays put).
+   Declared AFTER `.appbar__logo` so the more-specific selector sits later in source order. */
+.appbar__brand:hover .appbar__logo {
+  opacity: 0.85;
 }
 
 .appbar__title {

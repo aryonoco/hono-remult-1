@@ -386,3 +386,4 @@ Accel
 # Map marker symbology — CSS/typography terms
 FOUT
 unlayered
+wordmark

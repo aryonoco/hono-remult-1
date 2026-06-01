@@ -16,6 +16,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   FinalReport,
@@ -578,6 +579,7 @@ export class IncidentDetailComponent {
   private readonly notification = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly title = inject(Title);
   private readonly destroyRef = inject(DestroyRef);
 
   // A minute clock feeds the hero cadence countdown; cleared on destroy.
@@ -743,6 +745,9 @@ export class IncidentDetailComponent {
       const fire = this.fire();
       if (fire && this.announcedId !== fire.id) {
         this.announcer.announce(`Incident ${fire.name} opened`, 'polite');
+        // Replace the route's 'Incident' fallback title with the loaded incident name so the browser
+        // tab / history reflects which incident is open (matches AppTitleStrategy's wordmark suffix).
+        this.title.setTitle(`${fire.name} — Fire Incidents`);
         this.announcedId = fire.id;
       }
     });
