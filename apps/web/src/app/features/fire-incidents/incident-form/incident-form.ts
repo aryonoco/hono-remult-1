@@ -118,6 +118,11 @@ export class IncidentFormComponent implements CanComponentDeactivate {
         return 'notFound';
       }
     }
+    // Hold the form in `loading` until the district options resolve, so the District select is never
+    // briefly empty/half-populated on first paint (FU-9/FORM-5).
+    if (this.districtsResource.isLoading()) {
+      return 'loading';
+    }
     return this.builtForm() ? 'ready' : 'loading';
   });
 

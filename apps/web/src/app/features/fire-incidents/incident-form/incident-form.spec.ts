@@ -60,6 +60,13 @@ async function setup(
   await TestBed.compileComponents();
   const fixture = TestBed.createComponent(IncidentFormComponent);
   TestBed.tick();
+  // The httpStub does not serve queries, so resolve the districts resource directly — the page gates
+  // `ready` on it (FU-9), and production loads the list from the API. Harmless for the anonymous case
+  // (which returns before the gate) and for edit tests (which set editResource themselves).
+  (fixture.componentInstance as any).districtsResource.set([
+    Object.assign(new District(), { id: DISTRICT_ID, name: 'Otway', isActive: true }),
+  ]);
+  TestBed.tick();
   return fixture;
 }
 
