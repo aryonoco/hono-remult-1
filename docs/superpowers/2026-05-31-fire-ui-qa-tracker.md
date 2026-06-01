@@ -139,6 +139,35 @@ Brief: `.superpowers/forms-uplift-brief.md`.
 - [ ] **FU-8 (minor): Dialog focus + rings** — folds in FORM-2 (`{autoFocus:'first-tabbable',restoreFocus:true}` + primary `cdkFocusInitial`) and FORM-3 (visible dialog button focus ring both themes). (`incident-detail.ts`, `unsaved-changes.ts`, dialog components, `styles.scss`)
 - [ ] **FU-9 (minor): Ready-gating** — folds in FORM-5: gate `pageState` ready on async option resolution (districts / parent resource). (`incident-form.ts`, `situation-report-form.ts`)
 
+## Workstream: Scope clarity (NEW — user-requested 2026-06-01; SCHEDULE AFTER FIXTURES + FORMS are fully done)
+
+Every page must make explicit **what data scope it is showing** — statewide vs a single district/region. Today an
+admin/stateOfficer sees `/overview` ("Active operations", "Status mix", "Recent activity", "Active incident map",
+"Season FY2026", KPIs) with the data being **statewide** but never labelled as such; and a district-scoped viewer
+(e.g. **"Saanvi Viewer — viewer · Otway"**) sees the **identical headings** even though their data is limited to
+their district/region — with no on-page indication of that narrowing. Audit ALL surfaces and make the scope
+unambiguous. Respect the existing permission/role model (`Roles`, `canViewDistrictRollup`, the user's `districtId`
+scoping in `auth/current-user` / `DEV_USERS`). Same quality bar (token colour, modern Angular, WCAG AA both themes,
+responsive, preserve testids). **Verify in the browser as BOTH an admin/stateOfficer AND a district viewer** (use the
+dev-user switcher). Decompose into small, context-safe sub-workflows (lesson from the failed FIXTURES/FORMS runs).
+
+- [ ] **SCOPE-1 (major): Reusable scope indicator** — a single, consistent scope affordance (e.g. a badge/subtitle
+  "Statewide" vs "Otway district") derived once from the current user (role + `districtId`) and shown on the relevant
+  page headers. Prefer a small shared component/computed over per-page ad-hoc text. (`core` or `shared/ui`, consumed by pages)
+- [ ] **SCOPE-2 (major): Overview scope labelling** — the `/overview` H1 / "Active operations" band / KPI captions /
+  "Status mix" / "Recent activity" / "Active incident map" / "Season FY…" panels must each read clearly as statewide
+  (elevated roles) or as the viewer's district. The map title + the needs-attention list should say whose area they cover.
+  (`features/overview/overview.{ts,html}`)
+- [ ] **SCOPE-3 (major): Incident list scope labelling** — the list a district viewer sees is already filtered to their
+  district; make that explicit (heading/subtitle/filter state), and label the elevated-role view as statewide / all
+  districts. Ensure the district filter control reflects/locks to the viewer's scope where appropriate. (`incident-list.{ts,html}`)
+- [ ] **SCOPE-4 (minor): Detail + forms scope context** — confirm the incident detail and the 3 form pages make their
+  context clear (which district an incident belongs to; that a district viewer can only act within their scope). Add
+  scope context where a viewer could be confused. (`incident-detail.*`, form pages)
+- [ ] **SCOPE-5 (minor): A11y + correctness of scope** — the scope indicator must be a real text affordance (not colour
+  alone), announced sensibly, and must match the ACTUAL server-side scoping (no claiming "statewide" when the data is
+  filtered, or vice-versa). Verify the rollup/aggregate KPIs honour the same scope as the lists/maps on the page.
+
 ## Verified-fixed log
 
 - **LIST-1..LIST-9 — DONE, browser-verified** (Compact density tightening confirmed live; full dark/responsive/state matrix folded into the final Phase-7 sweep) (commits `2d6eb82` severity-tile 32px, `dd5086c` table density via scoped `mat.table-overrides`, `6cd9d2f` layout/columns/sort/filter-responsive/states/live-query-error). 257 web tests + `check:ci` green; zero lint suppressions. **Before ticking LIST-* above:** restart `bunx nx serve web`, verify Compact genuinely tightens rows, columns/sort/filters/area-bar/states read well in **light + dark** at **1320/820/390**, then tick.
