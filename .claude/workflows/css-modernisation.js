@@ -125,8 +125,22 @@ excerpts, not whole files. Return the structured inventory. Mark already-modern 
   { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, agentType: 'Explore' },
 )
 
-const targets = inventory.areas.filter((a) => a.priority !== 'already-modern')
-log(`${inventory.areas.length} styling areas found; ${targets.length} need modernisation.`)
+// Dedupe by path: an inventory may list one file under several `kind`s (e.g. a
+// component's inline styles AND its template's arbitrary Tailwind). Merge them so
+// exactly ONE agent edits each file — concurrent edits to one file would clobber.
+const byPath = new Map()
+for (const a of inventory.areas) {
+  if (a.priority === 'already-modern') continue
+  const prev = byPath.get(a.path)
+  if (prev) {
+    prev.legacyNotes = [prev.legacyNotes, a.legacyNotes].filter(Boolean).join(' | ')
+    prev.kind = prev.kind === a.kind ? prev.kind : `${prev.kind}+${a.kind}`
+  } else {
+    byPath.set(a.path, { ...a })
+  }
+}
+const targets = [...byPath.values()]
+log(`${inventory.areas.length} styling areas found; ${targets.length} distinct files need modernisation.`)
 if (targets.length === 0) {
   return { inventory, results: [], note: 'All styling already modern.' }
 }
