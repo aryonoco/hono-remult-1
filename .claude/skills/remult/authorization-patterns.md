@@ -55,18 +55,46 @@ allowApiCrud: Allow.authenticated  // Same permission for all CRUD ops
 })
 ```
 
-### apiPreprocessFilter — modify incoming filter criteria
+### apiPreprocessFilter — adjust the incoming filter before it runs
 
 ```typescript
-@Entity('tasks', {
-  apiPreprocessFilter: (filter, context) => {
-    // Force non-admins to only see their own data
-    if (!context.user || !context.isAllowed(Roles.admin)) {
-      filter.createdBy = context.user?.id;
-    }
-  },
+@Entity<Task>('tasks', {
+  // The 2nd arg is { metadata, getFilterPreciseValues } — NOT the user. Read the
+  // user from the ambient `remult`, and RETURN the (possibly augmented) filter.
+  apiPreprocessFilter: (filter) =>
+    remult.isAllowed(Roles.admin)
+      ? filter
+      : { $and: [filter, { createdBy: remult.user?.id ?? '__none__' }] },
 })
 ```
+
+For plain ownership scoping prefer `apiPrefilter`; reach for `apiPreprocessFilter` only when you must
+inspect or transform the caller's incoming filter.
+
+---
+
+## Reusable access rules — `Filter.createCustom`
+
+When the same ownership/scope predicate is needed in more than one place (e.g. an `apiPrefilter` on a
+parent **and** a child entity, plus client queries), define it once as a custom filter instead of
+duplicating the `where`. The body runs server-side and can read `remult.user`.
+
+```typescript
+export class Task {
+  static mine = Filter.createCustom<Task>(() =>
+    remult.isAllowed(Roles.admin) ? {} : { ownerId: remult.user?.id ?? '__none__' },
+  );
+}
+
+@Entity<Task>('tasks', {
+  apiPrefilter: () => Task.mine(),       // server-enforced row scope
+})
+// Reuse the exact same rule in a client query or another entity's prefilter:
+await repo(Task).find({ where: Task.mine() });
+```
+
+This keeps one authoritative definition of "rows this user may see". See
+[advanced-queries.md](advanced-queries.md) for the full `Filter.createCustom` reference.
 
 ---
 
@@ -104,18 +132,21 @@ role = '';
 Use entity metadata to conditionally render UI:
 
 ```typescript
-const repo = remult.repo(Task);
+// Entity-level — on metadata: apiReadAllowed is a PROPERTY; the others are METHODS taking an item
+repo(Task).metadata.apiReadAllowed;                  // boolean property — can the user read at all?
+repo(Task).metadata.apiInsertAllowed(repo(Task).create()); // method — pass a candidate row
 
-// Entity-level
-repo.metadata.apiReadAllowed();        // Can current user read?
-repo.metadata.apiInsertAllowed(task);  // Can current user insert?
-repo.metadata.apiUpdateAllowed(task);  // Can current user update this task?
-repo.metadata.apiDeleteAllowed(task);  // Can current user delete this task?
+// Row-level — entity-ref GETTERS (the row is already bound, no argument)
+repo(Task).getEntityRef(task).apiUpdateAllowed;  // can the user update THIS row?
+repo(Task).getEntityRef(task).apiDeleteAllowed;  // can the user delete THIS row?
 
-// Field-level
-repo.fields.title.includedInApi(task);     // Is this field visible?
-repo.fields.title.apiUpdateAllowed(task);  // Can user update this field?
+// Field-level — methods that take the row
+repo(Task).fields.title.includedInApi(task);     // is this field visible?
+repo(Task).fields.title.apiUpdateAllowed(task);  // can the user update this field?
 ```
+
+These re-evaluate against the current `remult.user` and mirror the server check exactly — never duplicate
+the permission logic in a component. See [value-lists-and-metadata.md](value-lists-and-metadata.md).
 
 ---
 

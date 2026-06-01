@@ -36,6 +36,33 @@ export class Task {
 
 ---
 
+## Id Fields
+
+```typescript
+@Fields.id()                 // UUID primary key — the default for new entities
+id = '';
+
+@Fields.id({ idFactory: () => nanoid() })  // custom id generator
+id = '';
+
+@Fields.autoIncrement()      // only when a DB-side numeric sequence is required
+id = 0;
+```
+
+**Avoid:** `Fields.cuid()` — it **does not exist** in Remult v3 (a common hallucination). Prefer
+`Fields.id()` over the legacy `Fields.uuid()`. `findId` resolves to a falsy value (`undefined | null`)
+when nothing matches — guard with `if (!row)`.
+
+---
+
+## Enum / Status Fields
+
+Model enums as `@ValueListFieldType` classes (id + caption + extra props) and render them from metadata —
+see [value-lists-and-metadata.md](value-lists-and-metadata.md). A plain `Fields.literal(() => VALUES)`
+string-literal union is the lighter alternative when no per-value metadata is needed.
+
+---
+
 ## Abstract Base Entity
 
 **Pattern:** Share common fields across entities.
@@ -69,11 +96,17 @@ export class Task extends BaseEntity {
 @Fields.string()
 customerId = '';
 
+// Short form: pass the FK field name
 @Relations.toOne<Order, Customer>(() => Customer, 'customerId')
+customer?: Customer;
+
+// Object form (equivalent) — required for composite/renamed keys
+@Relations.toOne(() => Customer, { field: 'customerId' })
 customer?: Customer;
 ```
 
-**Avoid:** Defining a relation without the explicit FK field — makes queries and filtering harder.
+**Avoid:** Defining a relation without the explicit FK field — makes queries and filtering harder. Eager
+load with `find({ include: { customer: true } })`; never load relations in a loop (N+1).
 
 ---
 
@@ -175,7 +208,7 @@ export class Task {
 export class Task {
   @BackendMethod({ allowed: Roles.admin })
   static async archiveCompleted() {
-    await remult.repo(Task).updateMany({
+    await repo(Task).updateMany({
       where: { completed: true },
       set: { archived: true },
     });
@@ -277,11 +310,10 @@ const tasks = await repo.find({
   select: { id: true, title: true },
 });
 
-// Suppress result return entirely (bulk operations)
+// Bulk update returns just a count (Promise<number>) — no rows fetched, no `select` option
 await repo.updateMany({
   where: { completed: true },
   set: { archived: true },
-  select: 'none',
 });
 ```
 

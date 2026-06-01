@@ -10,7 +10,7 @@ for an in-memory one, set `remult.user`, and exercise the entity API directly.
 reference rows the tests need (from `fire-incident.backend.spec.ts`).
 
 ```ts
-import { InMemoryDataProvider, remult } from 'remult';
+import { InMemoryDataProvider, remult, repo } from 'remult';
 import { DEV_USERS } from '../auth/dev-users';
 import { District } from './district';
 import { FireIncident } from './fire-incident';
@@ -21,7 +21,7 @@ const DISTRICT_ID = 12;
 beforeEach(async () => {
   remult.dataProvider = new InMemoryDataProvider();
   remult.user = OFFICER;
-  await remult.repo(District).insert({
+  await repo(District).insert({
     id: DISTRICT_ID,
     name: 'Otway',
     regionId: 1,
@@ -38,12 +38,12 @@ on `remult` and `neverthrow`; the module boundary forbids the rest.
 
 ## 2. Exercise the Real Entity API
 
-**Pattern:** insert through `remult.repo(...)`, then call the BackendMethod under test and reload to assert persisted
+**Pattern:** insert through `repo(...)`, then call the BackendMethod under test and reload to assert persisted
 state (from `fire-incident.backend.spec.ts`).
 
 ```ts
 function seedFire(overrides: Partial<FireIncident> = {}): Promise<FireIncident> {
-  return remult.repo(FireIncident).insert({
+  return repo(FireIncident).insert({
     name: 'Test Fire',
     districtId: DISTRICT_ID,
     reportedAt: new Date(),
@@ -54,7 +54,7 @@ function seedFire(overrides: Partial<FireIncident> = {}): Promise<FireIncident> 
 it('raises the incident level and bumps statusAsAt', async () => {
   const fire = await seedFire();
   await FireIncident.escalate(fire.id, IncidentLevel.levelTwo);
-  const reloaded = await remult.repo(FireIncident).findId(fire.id);
+  const reloaded = await repo(FireIncident).findId(fire.id);
   expect(reloaded!.incidentLevel).toBe(IncidentLevel.levelTwo);
 });
 ```
@@ -90,8 +90,15 @@ mutating `remult.user` (from `fire-incident.backend.spec.ts`).
 ```ts
 import { withServerInternal } from './helpers';
 
-await withServerInternal(() => remult.repo(FireIncident).update(fire.id, { isDeleted: true }));
+await withServerInternal(() => repo(FireIncident).update(fire.id, { isDeleted: true }));
 ```
+
+**Note:** under a plain `InMemoryDataProvider`, reassigning `remult.user` only affects validation, business logic, and
+computed fields — direct `repo()` calls run with **backend authority** and do **not** enforce `allowApi*` or
+`apiPrefilter`. So this harness proves a rule's *value*, not its API *enforcement*. To prove API authorization is
+actually enforced, use `TestApiDataProvider` (from `remult/server`), which routes operations through the API pipeline
+so forbidden ops throw. Keep using `InMemoryDataProvider` for validation/logic tests; reach for `TestApiDataProvider`
+only when the assertion is "the API rejects this".
 
 ## 5. Plain Vitest Globals
 

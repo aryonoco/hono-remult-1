@@ -34,9 +34,11 @@ paths: ["apps/web/**/*.ts"]
 
 ## Data Access
 
-- Use `remult.repo(Entity)` directly in components — no wrapper services for basic CRUD
+- Use the inline `repo(Entity)` accessor (`import { repo } from 'remult'`) directly in components — no wrapper
+  services for basic CRUD. Call `repo(Entity)` at each use site; never use `remult.repo(Entity)` or stash a repo in a
+  field/variable
 - Wrap all Remult calls in `ResultAsync.fromPromise()` for explicit error handling
-- LiveQuery: `repo.liveQuery().subscribe(info => tasks.set(info.items))`
+- LiveQuery: `repo(Task).liveQuery().subscribe(info => tasks.set(info.items))`
 - Clean up subscriptions via `inject(DestroyRef).onDestroy(() => unsubscribe())`
 
 ## Templates

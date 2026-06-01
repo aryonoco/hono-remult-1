@@ -10,8 +10,12 @@ Vitest under the Angular `@angular/build:unit-test` builder (web) and a plain Vi
 ## Choosing a Harness
 
 - Web/component specs: Angular `TestBed` with standalone `imports`.
-- Domain specs: set `remult.dataProvider = new InMemoryDataProvider()` and `remult.user`. Never import `@angular/*`
-  or `TestBed` into a domain spec — the `scope:shared` boundary forbids it.
+- Domain specs (validation / logic): set `remult.dataProvider = new InMemoryDataProvider()` and `remult.user`. Never
+  import `@angular/*` or `TestBed` into a domain spec — the `scope:shared` boundary forbids it.
+- Authorization-enforcement specs: a plain `InMemoryDataProvider` runs `repo()` calls with backend authority and
+  bypasses `allowApi*`/`apiPrefilter` — it proves a rule's *value*, not its enforcement. To prove the API actually
+  rejects an operation, use `remult.dataProvider = TestApiDataProvider({ dataProvider: new InMemoryDataProvider() })`
+  (from `remult/server`) and toggle `remult.user`; forbidden ops throw.
 
 ## Change Detection
 

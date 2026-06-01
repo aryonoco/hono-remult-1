@@ -38,18 +38,18 @@ relies on.
 
 | List size             | Pattern                                                   |
 | --------------------- | --------------------------------------------------------- |
-| Small, bounded        | `repo.find({ limit, page })`                              |
-| Large / server-paged  | `repo.query({ pageSize }).paginator()`                    |
+| Small, bounded        | `repo(X).find({ limit, page })`                           |
+| Large / server-paged  | `repo(X).query({ pageSize }).paginator()`                 |
 | Need a total count    | `await paginator.count()` (or `query.count()`)            |
 | Deep or sorted paging | OFFSET paging backed by an Atlas index on the sort column |
 
 ### Liveness
 
-| Need                                | Pattern                                                            |
-| ----------------------------------- | ------------------------------------------------------------------ |
-| One-shot read                       | `repo.find(...)` / `repo.findId(...)`                              |
-| Real-time list                      | `repo.liveQuery(...).subscribe(...)`, unsubscribe via `DestroyRef` |
-| Changes inside an included relation | Not tracked by LiveQuery — re-query or live-query the child        |
+| Need                                | Pattern                                                               |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| One-shot read                       | `repo(X).find(...)` / `repo(X).findId(...)`                           |
+| Real-time list                      | `repo(X).liveQuery(...).subscribe(...)`, unsubscribe via `DestroyRef` |
+| Changes inside an included relation | Not tracked by LiveQuery — re-query or live-query the child           |
 
 ## Key Principles
 

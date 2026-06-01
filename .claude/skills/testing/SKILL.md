@@ -25,10 +25,11 @@ When the reference files are insufficient, read targeted sections from `llms-ful
 
 ### Which harness style
 
-| Code under test                                 | Style                                              |
-| ----------------------------------------------- | -------------------------------------------------- |
-| Angular component, service, pipe                | TestBed with standalone `imports`                  |
-| Remult entity, BackendMethod, isomorphic helper | `InMemoryDataProvider` + `remult.user`, no TestBed |
+| Code under test                                       | Style                                                       |
+| ----------------------------------------------------- | ----------------------------------------------------------- |
+| Angular component, service, pipe                      | TestBed with standalone `imports`                           |
+| Remult entity validation / logic, isomorphic helper   | `InMemoryDataProvider` + `remult.user`, no TestBed          |
+| Proving `allowApi*` / `apiPrefilter` is enforced      | `TestApiDataProvider` (from `remult/server`), toggle `remult.user` |
 
 ### Flushing change detection (zoneless)
 

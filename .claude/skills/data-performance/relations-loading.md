@@ -9,7 +9,7 @@ results.
 **Pattern:** Load related rows in one round trip with `include:` in the find options.
 
 ```typescript
-const fire = await remult.repo(FireIncident).findId(params.id, {
+const fire = await repo(FireIncident).findId(params.id, {
   include: {
     district: true,
     situationReports: true,
@@ -28,13 +28,13 @@ expression, so a relation is loaded conditionally without branching the query �
 
 ```typescript
 // One query for the list, then one query PER ROW for the relation.
-const fires = await remult.repo(FireIncident).find();
+const fires = await repo(FireIncident).find();
 for (const fire of fires) {
-  fire.district = await remult.repo(District).findId(fire.districtId); // N+1
+  fire.district = await repo(District).findId(fire.districtId); // N+1
 }
 ```
 
-In an Angular template the same anti-pattern hides inside `@for` — never call `remult.repo(...)`
+In an Angular template the same anti-pattern hides inside `@for` — never call `repo(...)`
 from a cell binding. Load the relation once with `include:` and render the joined object.
 
 ## 2. `defaultIncluded` trade-offs
@@ -84,7 +84,7 @@ fireIncident?: FireIncident;
 `paginator.count()` (or `query.count()`); step pages with `paginator.nextPage()`.
 
 ```typescript
-const query = remult.repo(FireIncident).query({
+const query = repo(FireIncident).query({
   pageSize: 100,
   orderBy: { createdAt: 'desc' },
   include: { district: true },
@@ -112,7 +112,7 @@ them in Atlas via the entity's `*SchemaExtras` array (see `postgres-provider.md`
 For a small bounded list, plain `find` with `limit`/`page` is fine:
 
 ```typescript
-const recent = await remult.repo(SituationReport).find({
+const recent = await repo(SituationReport).find({
   where: { fireIncidentId },
   orderBy: { reportNumber: 'desc' },
   limit: 2,
@@ -133,8 +133,7 @@ private unsubscribe: (() => void) | null = null;
 // In setup:
 this.destroyRef.onDestroy(() => this.unsubscribe?.());
 
-this.unsubscribe = remult
-  .repo(FireIncident)
+this.unsubscribe = repo(FireIncident)
   .liveQuery({ include: { district: true }, orderBy: this.mapSort(sort) })
   .subscribe({
     next: (info: LiveQueryChangeInfo<FireIncident>) => {
@@ -152,7 +151,7 @@ this.unsubscribe = remult
 
 ```typescript
 // No handle kept, no DestroyRef wiring → stream lives forever.
-remult.repo(FireIncident).liveQuery().subscribe((info) => this.items.set(info.items));
+repo(FireIncident).liveQuery().subscribe((info) => this.items.set(info.items));
 ```
 
 **Caveats:**

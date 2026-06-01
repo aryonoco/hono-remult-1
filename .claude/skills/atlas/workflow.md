@@ -98,7 +98,7 @@ diff would be wrong.
 1. Connecting to `atlas_desired` via `pg.Client`
 2. `DROP SCHEMA app CASCADE` followed by `CREATE SCHEMA app` — full reset
 3. Booting Remult against the fresh schema with `createPostgresDataProvider({ schema: 'app' })`
-4. Calling `dataProvider.ensureSchema(entities.map(e => remult.repo(e).metadata))`
+4. Calling `dataProvider.ensureSchema(entities.map(e => repo(e).metadata))`
 
 After this, `atlas_desired` holds *exactly* what the current entity definitions imply — no historical residue. Atlas can
 then diff cleanly.

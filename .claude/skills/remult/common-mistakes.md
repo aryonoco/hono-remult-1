@@ -94,7 +94,7 @@ apiPrefilter: () => {
 ```typescript
 apiPrefilter: () => ({ archived: false })
 // Later in a BackendMethod:
-const tasks = await remult.repo(Task).find(); // Gets archived too!
+const tasks = await repo(Task).find(); // Gets archived too!
 ```
 
 **Why:** `apiPrefilter` only applies to API requests, not backend queries.
@@ -135,14 +135,14 @@ await repo.save(task);
 ```typescript
 @Injectable()
 export class TaskService {
-  async getTasks() { return remult.repo(Task).find(); }
-  async addTask(t: Partial<Task>) { return remult.repo(Task).insert(t); }
+  async getTasks() { return repo(Task).find(); }
+  async addTask(t: Partial<Task>) { return repo(Task).insert(t); }
 }
 ```
 
 **Why:** The Repository IS the service. Wrapping it adds boilerplate with no value.
 
-**Correct:** Use `remult.repo(Task)` directly in components.
+**Correct:** Use `repo(Task)` directly in components.
 
 ---
 
@@ -245,7 +245,7 @@ const customers = await repo(Customer).find({
 ```typescript
 @BackendMethod({ allowed: Allow.authenticated })
 async deleteAllData() {
-  await remult.repo(Task).deleteMany({ where: 'all' });
+  await repo(Task).deleteMany({ where: 'all' });
   // Any authenticated user can nuke the database!
 }
 ```
@@ -260,7 +260,7 @@ async deleteAllData() {
   if (!remult.isAllowed(Roles.admin)) {
     throw new Error('Admin only');
   }
-  await remult.repo(Task).deleteMany({ where: 'all' });
+  await repo(Task).deleteMany({ where: 'all' });
 }
 ```
 
@@ -281,3 +281,129 @@ passwordHash = '';  // Sent to every API consumer!
 @Fields.string({ includeInApi: false })
 passwordHash = '';
 ```
+
+---
+
+## 15. `Fields.cuid()` — Decorator That Does Not Exist
+
+**Wrong:**
+
+```typescript
+@Fields.cuid()      // hallucinated — not a Remult v3 decorator
+id = '';
+```
+
+**Why:** `Fields.cuid()` was removed; agents reach for it by default. `Fields.uuid()` is legacy.
+
+**Correct:** `@Fields.id()` (UUID), or `@Fields.autoIncrement()` only when a DB sequence is needed.
+
+```typescript
+@Fields.id()
+id = '';
+```
+
+---
+
+## 16. `remult.repo()` or a Stored Repo Variable Instead of Inline `repo()`
+
+**Wrong:**
+
+```typescript
+const repo = remult.repo(Task);        // cached on a local — avoid storing it
+await repo.find();
+this.taskRepo = remult.repo(Task);     // worse: cached on a class field at construction
+```
+
+**Why:** `repo(Entity)` is request-context-aware and per-request scoped; `remult.repo(Entity)` is
+equivalent. Caching a repo on a long-lived class field can outlive its request context on the server.
+
+**Correct:** import the top-level `repo` and call it inline at every use site.
+
+```typescript
+import { repo } from 'remult';
+await repo(Task).find();
+```
+
+---
+
+## 17. Hand-Rolled find-then-insert Instead of `upsert`
+
+**Wrong:**
+
+```typescript
+let tag = await repo(Tag).findFirst({ name });
+if (!tag) tag = await repo(Tag).insert({ name });   // racy, verbose
+```
+
+**Why:** Two round-trips with a race window; gets worse looped over many names (N+1).
+
+**Correct:** `upsert` for one row; a single `$in` lookup + bulk `insert` for many.
+
+```typescript
+await repo(Tag).upsert({ where: { name }, set: { name } });
+```
+
+---
+
+## 18. Denormalized Counter / N+1 Instead of a `sqlExpression` Column
+
+**Wrong:**
+
+```typescript
+@Fields.integer() commentCount = 0;   // kept in sync by Comment lifecycle hooks — drifts
+// …or counting per row in a loop (N+1)
+```
+
+**Why:** Stored counters need reconciliation and are concurrency-prone; loops are N+1.
+
+**Correct:** a DB-computed column the API can sort/filter in one round-trip — `sqlRelations` for a
+relation aggregate, or a `sqlExpression` subquery as the always-available fallback.
+
+```typescript
+@sqlRelations(Post).comments.$count()   // computed in SQL — no drift, no N+1
+commentCount = 0;
+```
+
+See [advanced-queries.md](advanced-queries.md).
+
+---
+
+## 19. Hardcoded Dropdown Options / Labels in Components
+
+**Wrong:**
+
+```typescript
+statusOptions = ['open', 'in-progress', 'done'];   // second source of truth, drifts
+```
+
+**Why:** Duplicates what the entity already declares; labels and options fall out of sync.
+
+**Correct:** render from the entity — `getValueList(...)` for options, `metadata.fields[...].caption` for
+labels, `getEntityRef(row).apiUpdateAllowed` for permission-gated controls. See
+[value-lists-and-metadata.md](value-lists-and-metadata.md).
+
+---
+
+## 20. Testing Authorization With Direct `repo` Calls / Metadata Reads
+
+**Wrong:**
+
+```typescript
+remult.dataProvider = new InMemoryDataProvider();
+await repo(Task).delete(task);                 // succeeds — direct calls bypass allowApi*
+expect(repo(Task).metadata.apiDeleteAllowed(task)).toBe(false); // checks the value, not enforcement
+```
+
+**Why:** Direct repository calls run with backend authority, so they never exercise `allowApi*`. A
+metadata read verifies the rule's *value*, not that the pipeline *blocks* the operation.
+
+**Correct:** use `TestApiDataProvider` to drive the API pipeline; forbidden ops throw `Forbidden`.
+
+```typescript
+import { TestApiDataProvider } from 'remult/server';
+remult.dataProvider = TestApiDataProvider({ dataProvider: new InMemoryDataProvider() });
+remult.user = { id: '1' };                     // non-admin
+await expect(repo(Task).delete(task)).rejects.toThrow(/Forbidden/);
+```
+
+See [server-and-testing.md](server-and-testing.md).

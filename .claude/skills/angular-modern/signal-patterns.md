@@ -80,7 +80,7 @@ effect(() => {
 protected readonly userResource = resource({
   request: () => ({ id: this.userId() }),  // Reactive params
   loader: async ({ request }) => {
-    return await remult.repo(User).findFirst({ id: request.id });
+    return await repo(User).findFirst({ id: request.id });
   },
 });
 // userResource.status() — 'idle' | 'loading' | 'resolved' | 'error'

@@ -16,25 +16,25 @@ const toError = (error: unknown): AppError => ({
 
 // Find
 const result = await ResultAsync.fromPromise(
-  repo.find({ where: { completed: false } }),
+  repo(Task).find({ where: { completed: false } }),
   toError,
 );
 
 // Insert
 const result = await ResultAsync.fromPromise(
-  repo.insert({ title: 'New Task' }),
+  repo(Task).insert({ title: 'New Task' }),
   toError,
 );
 
 // Save
 const result = await ResultAsync.fromPromise(
-  repo.save(task),
+  repo(Task).save(task),
   toError,
 );
 
 // Delete
 const result = await ResultAsync.fromPromise(
-  repo.delete(taskId),
+  repo(Task).delete(taskId),
   toError,
 );
 ```
@@ -61,8 +61,8 @@ const toAppError =
   });
 
 // Usage
-ResultAsync.fromPromise(repo.findId(id), toAppError('NOT_FOUND'));
-ResultAsync.fromPromise(repo.insert(data), toAppError('VALIDATION'));
+ResultAsync.fromPromise(repo(Task).findId(id), toAppError('NOT_FOUND'));
+ResultAsync.fromPromise(repo(Task).insert(data), toAppError('VALIDATION'));
 ```
 
 ---
@@ -74,11 +74,9 @@ export class TaskListComponent {
   protected readonly tasks = signal<Task[]>([]);
   protected readonly error = signal<string | null>(null);
 
-  private readonly taskRepo = remult.repo(Task);
-
   async loadTasks(): Promise<void> {
     const result = await ResultAsync.fromPromise(
-      this.taskRepo.find({ where: { completed: false } }),
+      repo(Task).find({ where: { completed: false } }),
       toError,
     );
 
@@ -93,7 +91,7 @@ export class TaskListComponent {
 
   async addTask(title: string): Promise<void> {
     const result = await ResultAsync.fromPromise(
-      this.taskRepo.insert({ title }),
+      repo(Task).insert({ title }),
       toError,
     );
 
@@ -118,7 +116,7 @@ boundary** — a `Result` cannot cross Remult's RPC boundary (it serialises to a
 static async escalate(fireId: string, newLevel: IncidentLevel): Promise<void> {
   const result = await safeTry(async function* () {
     // eslint-disable-next-line neverthrow/must-use-result -- yield* consumes the Result
-    const fire = yield* ResultAsync.fromPromise(remult.repo(FireIncident).findId(fireId), toError);
+    const fire = yield* ResultAsync.fromPromise(repo(FireIncident).findId(fireId), toError);
     if (!fire) {
       return err(new Error('Fire not found'));
     }
@@ -161,7 +159,7 @@ result.match(
 Use `andTee` for logging/metrics without affecting the value:
 
 ```typescript
-ResultAsync.fromPromise(repo.insert(data), toError)
+ResultAsync.fromPromise(repo(Task).insert(data), toError)
   .andTee((task) => console.log('Created task:', task.id))
   .match(
     (task) => tasks.update((prev) => [...prev, task]),
@@ -172,7 +170,7 @@ ResultAsync.fromPromise(repo.insert(data), toError)
 Use `orTee` for error logging without affecting the error:
 
 ```typescript
-ResultAsync.fromPromise(repo.find(), toError)
+ResultAsync.fromPromise(repo(Task).find(), toError)
   .orTee((err) => analytics.trackError('task_load_failed', err))
   .match(
     (tasks) => tasksSignal.set(tasks),

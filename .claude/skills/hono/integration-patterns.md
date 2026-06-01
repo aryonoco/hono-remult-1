@@ -53,7 +53,7 @@ getUser: async (c) => {
 app.post('/custom-endpoint', async (c) => {
   return api.withRemult(c, async () => {
     const user = remult.user;
-    const tasks = await remult.repo(Task).find({ where: { createdBy: user?.id } });
+    const tasks = await repo(Task).find({ where: { createdBy: user?.id } });
     return c.json(tasks);
   });
 });

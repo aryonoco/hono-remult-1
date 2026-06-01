@@ -15,7 +15,7 @@ as if they were local functions. Remult handles the HTTP transport transparently
 export class Task {
   @BackendMethod({ allowed: Roles.admin })
   static async archiveCompleted() {
-    await remult.repo(Task).updateMany({
+    await repo(Task).updateMany({
       where: { completed: true },
       set: { archived: true },
     });
@@ -23,11 +23,10 @@ export class Task {
 
   @BackendMethod({ allowed: Allow.authenticated })
   static async getStats() {
-    const repo = remult.repo(Task);
     return {
-      total: await repo.count(),
-      completed: await repo.count({ completed: true }),
-      pending: await repo.count({ completed: false }),
+      total: await repo(Task).count(),
+      completed: await repo(Task).count({ completed: true }),
+      pending: await repo(Task).count({ completed: false }),
     };
   }
 }
@@ -59,7 +58,7 @@ export class Task {
 }
 
 // Frontend call
-const task = await remult.repo(Task).findId('123');
+const task = await repo(Task).findId('123');
 await task.toggleCompleted();
 ```
 
@@ -132,15 +131,19 @@ const api = remultApi({
 
 ---
 
-## Security Warning
+## Security Warning — backend authority
 
-**BackendMethods bypass entity API restrictions.** Even if `allowApiUpdate: false` on a field, a BackendMethod can
-modify it. Always implement authorisation checks manually:
+The `allowed` option is the only gate the framework applies to a BackendMethod. **Once inside, every
+`repo()` call runs with full backend authority: it bypasses entity `allowApi*` rules, field
+`allowApiUpdate`/`includeInApi`, AND `apiPrefilter`.** So `{ allowed: Allow.authenticated }` plus an
+unchecked `repo(X).delete(...)` lets any logged-in user do anything the method does.
+
+Re-assert authorization (and validate referenced FKs) manually before mutating:
 
 ```typescript
 @BackendMethod({ allowed: Allow.authenticated })
 async changeOwner(newOwnerId: string) {
-  // MUST check manually — entity permissions don't apply here
+  // MUST check manually — entity permissions and prefilters do NOT apply here
   if (!remult.isAllowed(Roles.admin)) {
     throw new Error('Only admins can change ownership');
   }
@@ -149,7 +152,19 @@ async changeOwner(newOwnerId: string) {
 }
 ```
 
-**Avoid:** `@BackendMethod({ allowed: true })` on methods that modify sensitive data without internal auth checks.
+**Avoid:** relying on `{ allowed }` alone for per-row or conditional rules, and `{ allowed: true }` on
+anything that mutates. Because direct calls bypass the API rules, prove enforcement with
+`TestApiDataProvider`, not a plain `InMemoryDataProvider` call — see
+[server-and-testing.md](server-and-testing.md).
+
+---
+
+## Transactions
+
+A `@BackendMethod` runs inside a **database transaction by default** — it either completes fully or rolls
+back, so multi-step writes (children then parent, several `insert`s, etc.) are atomic without extra code.
+Disable with `@BackendMethod({ allowed, transactional: false })` only when you explicitly want partial
+commits. This is the right home for any operation that touches multiple rows/entities.
 
 ---
 

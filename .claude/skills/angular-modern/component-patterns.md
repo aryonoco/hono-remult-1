@@ -5,7 +5,7 @@
 ```typescript
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { ResultAsync } from 'neverthrow';
-import { remult } from 'remult';
+import { repo } from 'remult';
 import { Task } from '@workspace/shared-domain';
 
 @Component({
@@ -33,7 +33,6 @@ export class TaskListComponent {
   protected readonly error = signal<string | null>(null);
   protected readonly count = computed(() => this.tasks().length);
 
-  private readonly taskRepo = remult.repo(Task);
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
@@ -42,7 +41,7 @@ export class TaskListComponent {
 
   private async loadTasks(): Promise<void> {
     const result = await ResultAsync.fromPromise(
-      this.taskRepo.find({ orderBy: { createdAt: 'desc' } }),
+      repo(Task).find({ orderBy: { createdAt: 'desc' } }),
       (e) => (e instanceof Error ? e.message : String(e)),
     );
     result.match(
@@ -53,7 +52,7 @@ export class TaskListComponent {
 
   protected async toggleCompleted(task: Task): Promise<void> {
     const result = await ResultAsync.fromPromise(
-      this.taskRepo.update(task.id, { completed: !task.completed }),
+      repo(Task).update(task.id, { completed: !task.completed }),
       (e) => (e instanceof Error ? e.message : String(e)),
     );
     result.match(
@@ -100,7 +99,7 @@ export class MyComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
-    const unsubscribe = remult.repo(Task).liveQuery().subscribe(info => {
+    const unsubscribe = repo(Task).liveQuery().subscribe(info => {
       this.tasks.set(info.items);
     });
 
@@ -120,7 +119,7 @@ export class UserDetailComponent {
   protected readonly userResource = resource({
     request: () => ({ id: this.userId() }),
     loader: async ({ request }) =>
-      remult.repo(User).findFirst({ id: request.id }),
+      repo(User).findFirst({ id: request.id }),
   });
 
   // Template:
@@ -143,7 +142,7 @@ export class UserEditComponent {
   protected readonly userResource = resource({
     request: () => ({ id: this.userId() }),
     loader: async ({ request }) =>
-      remult.repo(User).findFirst({ id: request.id }),
+      repo(User).findFirst({ id: request.id }),
   });
 
   // Editable copy — resets when userResource changes
@@ -153,7 +152,7 @@ export class UserEditComponent {
     const current = this.draft();
     if (!current) return;
     await ResultAsync.fromPromise(
-      remult.repo(User).save(current),
+      repo(User).save(current),
       (e) => String(e),
     ).match(
       () => this.userResource.reload(),
@@ -173,7 +172,7 @@ export class TaskListComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
-    const unsubscribe = remult.repo(Task)
+    const unsubscribe = repo(Task)
       .liveQuery({ where: { completed: false } })
       .subscribe(info => {
         this.tasks.set(info.items);
