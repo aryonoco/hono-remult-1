@@ -48,6 +48,11 @@ import { IncidentMapComponent } from '../fire-incidents/incident-detail/incident
 
 const TICK_MS = 60_000; // re-run server aggregates each minute (active set is server-derived)
 const MAP_CAP = 500; // bounded map fetch (peak season can be hundreds active)
+// FIRE-AREA-7: overlay the N largest recent fire extents on the operational map so the mapped perimeters
+// are visible on the landing page even when the live active set is small and sub-hectare (a quiet winter).
+const SIGNIFICANT_CAP = 12; // max extent polygons to overlay
+const SIGNIFICANT_FETCH = 36; // over-fetch by area so ≥CAP rows still carry a perimeter after filtering
+const SIGNIFICANT_MIN_HA = 100; // floor: only genuinely significant extents, never 1-ha specks
 const ATTENTION_LIMIT = 10; // bounded live needs-attention list
 const SITREP_LIMIT = 8; // bounded live activity feed
 const FIRST_SEASON_FY = 2018; // earliest seeded financial year
@@ -66,8 +71,18 @@ interface RegionRow {
 // estimate circle, and `status` feeds the colour-independent label (FIRE-AREA-5 / FIRE-AREA-4 / MAP-3).
 type MapRow = Pick<
   FireIncident,
-  'name' | 'latitude' | 'longitude' | 'status' | 'fireAreaHectares' | 'firePerimeterGeo'
+  'id' | 'name' | 'latitude' | 'longitude' | 'status' | 'fireAreaHectares' | 'firePerimeterGeo'
 >;
+// The bounded map `find`s share one select projection (active set + the significant-extent overlay).
+const MAP_SELECT = {
+  id: true,
+  name: true,
+  latitude: true,
+  longitude: true,
+  status: true,
+  fireAreaHectares: true,
+  firePerimeterGeo: true,
+} as const;
 function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
   return rows
     .filter(
@@ -83,6 +98,17 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       perimeter: r.firePerimeterGeo ?? undefined,
       status: FIRE_STATUS_LABELS[r.status],
     }));
+}
+
+// FIRE-AREA-7: keep the largest fires that carry a mapped perimeter (up to SIGNIFICANT_CAP), excluding any
+// already plotted in the live active set so a fire is never drawn twice, projected onto the map shape.
+function significantMapPoints(rows: readonly MapRow[], activeRows: readonly MapRow[]): MapPoint[] {
+  const activeIds = new Set(activeRows.map((r) => r.id));
+  return toMapPoints(
+    rows
+      .filter((r) => r.firePerimeterGeo != null && !activeIds.has(r.id))
+      .slice(0, SIGNIFICANT_CAP),
+  );
 }
 
 @Component({
@@ -306,6 +332,12 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       color: var(--mat-sys-on-surface-variant);
     }
 
+    /* FIRE-AREA-7: a quiet caption above the map explaining the significant-extent overlay. */
+    .overview__map-note {
+      margin-block-end: 0.75rem;
+      font-size: 0.8125rem;
+    }
+
     /* DASH-5: the map-overflow note is an at-a-glance signal that the plotted set is truncated.
        Promote it to a contained-tone warning chip so it reads as advisory, not body copy. */
     .overview__note--warning {
@@ -395,6 +427,16 @@ export class OverviewComponent {
   protected readonly statusCounts = signal<Readonly<Record<FireStatus, number>>>(this.zeroCounts());
   protected readonly mapPoints = signal<readonly MapPoint[]>([]);
   protected readonly mapOverflow = signal(0);
+  // FIRE-AREA-7: the N largest recent fire extents — scope-aware (the apiPrefilter narrows reads to the
+  // viewer's district), bounded (top-N by area), now-bound (no future-dated seasons). Kept as its own
+  // signal so the active map-overflow note stays exclusively about the live active set.
+  protected readonly significantPoints = signal<readonly MapPoint[]>([]);
+  protected readonly significantCount = computed(() => this.significantPoints().length);
+  // Map input: extents drawn first (behind), the live active set last so its markers sit on top.
+  protected readonly mapAllPoints = computed<readonly MapPoint[]>(() => [
+    ...this.significantPoints(),
+    ...this.mapPoints(),
+  ]);
   protected readonly opsLoaded = signal(false);
 
   // Bounded LIVE sets.
@@ -561,21 +603,22 @@ export class OverviewComponent {
           where: ACTIVE,
           orderBy: { statusAsAt: 'desc' },
           limit: MAP_CAP,
-          select: {
-            id: true,
-            name: true,
-            latitude: true,
-            longitude: true,
-            status: true,
-            fireAreaHectares: true,
-            firePerimeterGeo: true,
-          },
+          select: MAP_SELECT,
+        }),
+        // FIRE-AREA-7: the largest recent fires that carry a mapped perimeter. Over-fetch by area (a
+        // handful of large fires are terminal-no-fire with no polygon) then keep the top CAP with one,
+        // excluding any already in the active set. Bound to `now` so future-dated seasons never surface.
+        repo.find({
+          where: { fireAreaHectares: { $gte: SIGNIFICANT_MIN_HA }, reportedAt: { $lte: now } },
+          orderBy: { fireAreaHectares: 'desc' },
+          limit: SIGNIFICANT_FETCH,
+          select: MAP_SELECT,
         }),
       ]),
       toErr,
     );
     result.match(
-      ([statusRows, areaAgg, major, overdue, active, rows]) => {
+      ([statusRows, areaAgg, major, overdue, active, rows, significantRows]) => {
         const counts = this.zeroCounts();
         let going = 0;
         for (const r of statusRows) {
@@ -592,6 +635,7 @@ export class OverviewComponent {
         this.totalActiveAreaHa.set(areaAgg.fireAreaHectares.sum ?? 0);
         this.mapPoints.set(toMapPoints(rows));
         this.mapOverflow.set(Math.max(0, active - rows.length));
+        this.significantPoints.set(significantMapPoints(significantRows, rows));
         this.errorMsg.set(null);
         this.opsLoaded.set(true);
       },

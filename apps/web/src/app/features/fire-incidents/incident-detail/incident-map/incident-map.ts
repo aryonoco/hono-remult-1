@@ -410,10 +410,14 @@ export class IncidentMapComponent {
     this.layer = this.addTileLayer(leafletMap, this.isDark());
     // Metric-only scale bar so distances on the map are legible (MAP-1).
     control.scale({ imperial: false }).addTo(leafletMap);
+    // Frame the view BEFORE adding vector layers: a freshly-created map has no view, so its SVG
+    // renderer has no pixel bounds yet — adding a Path first makes Leaflet's `_clipPoints` read an
+    // undefined `_bounds` and throw (only reliably hit by many/large extents, e.g. the statewide
+    // overview). Establishing the view first gives the renderer valid bounds before any path is drawn.
+    this.frame(leafletMap, pts, first);
     for (const p of pts) {
       this.drawPoint(leafletMap, p);
     }
-    this.frame(leafletMap, pts, first);
     leafletMap.invalidateSize();
   }
 
