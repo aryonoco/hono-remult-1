@@ -20,7 +20,9 @@ export interface ConfirmDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end" class="gap-2">
       <button matButton mat-dialog-close type="button">Cancel</button>
-      <button matButton="filled" type="button" (click)="dialogRef.close(true)">
+      <!-- This dialog has no input content, so the focus trap would otherwise land on Cancel (first
+           tabbable). cdkFocusInitial puts initial focus on the primary action instead (FORM-2). -->
+      <button matButton="filled" type="button" cdkFocusInitial (click)="dialogRef.close(true)">
         {{ data.confirmLabel }}
       </button>
     </mat-dialog-actions>
