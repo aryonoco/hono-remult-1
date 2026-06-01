@@ -1,14 +1,18 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   DestroyRef,
+  type ElementRef,
   effect,
+  Injector,
   inject,
   resource,
   signal,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -583,9 +587,15 @@ export class IncidentDetailComponent {
   private readonly title = inject(Title);
   private readonly breadcrumb = inject(BreadcrumbService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
 
   // A minute clock feeds the hero cadence countdown; cleared on destroy.
   protected readonly now = signal(new Date());
+
+  // The route-change focus target. The shell's `focusNewView()` runs right after first render — while the
+  // resource is still `loading`, before the `@if (fire())` block (and this h1) exist — so it lands on the
+  // #main fallback on a deep link. Once the fire resolves we move focus here ourselves (DETAIL: A11Y-2).
+  private readonly detailTitle = viewChild<ElementRef<HTMLElement>>('detailTitle');
 
   private readonly incidentId = toSignal(
     this.route.paramMap.pipe(map((params) => params.get('id') ?? '')),
@@ -630,6 +640,16 @@ export class IncidentDetailComponent {
   protected readonly fire = computed(() =>
     this.fireResource.hasValue() ? this.fireResource.value() : undefined,
   );
+  // Every drill-in targets the list, which always bounds `reportedAt <= now`. A future-dated fire (the
+  // seed runs out to FY2029) reached by a direct/shared URL would land on a list that EXCLUDES itself, so
+  // its drill-ins render as plain non-links — mirroring the list's own bound (DETAIL: FAITH-1). Reads the
+  // same minute `now` clock that drives the cadence, so it stays coherent with the rest of the view.
+  protected readonly isReported = computed(() => {
+    const reportedAt = this.fire()?.reportedAt;
+    // No `reportedAt` is also excluded by the list's `reportedAt <= now` bound (NULL fails the predicate),
+    // so an unreported fire's drill-ins stay plain non-links too.
+    return reportedAt !== undefined && reportedAt <= this.now();
+  });
   protected readonly sitreps = computed(() => {
     const list = this.fire()?.situationReports ?? [];
     return [...list].sort((a, b) => b.reportNumber - a.reportNumber);
@@ -753,6 +773,23 @@ export class IncidentDetailComponent {
         // Publish the loaded name so the shell breadcrumb shows it in place of the raw `:id` segment.
         this.breadcrumb.set(fire.name);
         this.announcedId = fire.id;
+        // The shell's route-change focus ran while the resource was still loading (before the title h1
+        // existed), so it fell back to #main. Now the title is in the DOM, move focus to it ourselves so
+        // a deep link lands on the dominant heading — once per loaded incident, never over a dialog
+        // (which owns focus), mirroring the shell's own open-dialog guard (DETAIL: A11Y-2).
+        this.focusDetailTitle();
+      }
+    });
+    // The `:id` route reuses this component across an id-only change, so detail A → detail B would show
+    // A's name in the breadcrumb until B resolves. When the id changes ahead of the new fire, clear the
+    // published label (and reset the announced-id tracking) so the crumb falls back to 'Incident' during
+    // the reload gap rather than showing the prior incident (DETAIL: FAITH-2/CORR-4).
+    effect(() => {
+      const id = this.incidentId();
+      const loaded = this.fire();
+      if (id && loaded?.id !== id) {
+        this.breadcrumb.set(null);
+        this.announcedId = null;
       }
     });
     const tick = setInterval(() => this.now.set(new Date()), TICK_MS);
@@ -762,6 +799,25 @@ export class IncidentDetailComponent {
       // fire has loaded (the shell falls back to the static 'Incident' label until the new name arrives).
       this.breadcrumb.set(null);
     });
+  }
+
+  // Move keyboard/AT focus to the freshly rendered detail title once the fire resolves. `afterNextRender`
+  // waits for the `@if (fire())` block (and the h1) to be in the DOM and is zoneless-safe; it needs an
+  // injection context, hence the explicit injector. Skipped while a Material dialog (or any role=dialog
+  // overlay) is open so we never steal focus out of a modal.
+  private focusDetailTitle(): void {
+    afterNextRender(
+      () => {
+        const dialogOpen = document.querySelector(
+          '.cdk-overlay-container .mat-mdc-dialog-container, .cdk-overlay-container [role=dialog]',
+        );
+        if (dialogOpen) {
+          return;
+        }
+        this.detailTitle()?.nativeElement.focus({ preventScroll: false });
+      },
+      { injector: this.injector },
+    );
   }
 
   protected authorName(id: string): string {

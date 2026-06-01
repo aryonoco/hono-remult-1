@@ -923,6 +923,23 @@ describe('IncidentListComponent (region filter)', () => {
     const ids = (instance(fixture).rows() as FireIncident[]).map((row) => row.id);
     expect(ids).toEqual(['r1-otway']);
   });
+
+  it('seeds the region filter from a deep-link URL and expands it to the in-region districts', async () => {
+    // The end-to-end deep-link path for an elevated user: `region=1` in the URL seeds filters().region
+    // AND must expand to the right districtId `$in` set once the districts load — not just via the
+    // programmatic setRegion above (TEST-2).
+    remult.user = { ...ADMIN };
+    await seedRegionFires();
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { region: 1 });
+    await settle(fixture);
+
+    // The signal seeds straight from the URL ...
+    expect(instance(fixture).filters().region).toBe(1);
+    // ... and region 1 expands to districts 12 + 14, so only those two fires remain (region 2 drops out).
+    expect(instance(fixture).total()).toBe(2);
+    const ids = (instance(fixture).rows() as FireIncident[]).map((row) => row.id).sort();
+    expect(ids).toEqual(['r1-fsw', 'r1-otway']);
+  });
 });
 
 describe('IncidentListComponent (deep-linkable URL filters)', () => {

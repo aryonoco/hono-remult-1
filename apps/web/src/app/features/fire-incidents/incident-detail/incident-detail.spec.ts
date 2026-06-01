@@ -23,7 +23,7 @@ import {
   statusTone,
 } from '@workspace/shared-domain';
 import { remult } from 'remult';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { findAxeViolations } from '../../../../testing/axe-helper';
 import { BreadcrumbService } from '../../../core/breadcrumb.service';
 import { DevAuthService } from '../../../core/dev-auth.service';
@@ -503,6 +503,66 @@ describe('IncidentDetailComponent (breadcrumb name)', () => {
     expect(breadcrumb.dynamicLabel()).toBe('Otway Ridge Fire');
     fixture.destroy();
     expect(breadcrumb.dynamicLabel()).toBeNull();
+  });
+
+  it('clears the prior name during a detail→detail reload so the crumb never shows incident A under B', async () => {
+    // The `:id` route reuses the component across an id-only change. Drive the param map so the id can be
+    // switched while the still-loaded fire is incident A: the crumb must fall back (null) until B loads,
+    // never showing A's name under B (FAITH-2/CORR-4).
+    const params = new BehaviorSubject(convertToParamMap({ id: 'fire-1' }));
+    const devAuthStub = {
+      currentUser: () => ADMIN,
+      currentUserId: ADMIN.id,
+      selectUser: async () => undefined,
+    };
+    TestBed.configureTestingModule({
+      imports: [IncidentDetailComponent],
+      deferBlockBehavior: DeferBlockBehavior.Manual,
+      providers: [
+        provideRouter([]),
+        { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
+        { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
+        { provide: DevAuthService, useValue: devAuthStub },
+        { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
+        { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },
+        {
+          provide: MatDialog,
+          useValue: { open: vi.fn(() => ({ afterClosed: () => of(undefined) })) },
+        },
+      ],
+    });
+    await TestBed.compileComponents();
+    const fixture = TestBed.createComponent(IncidentDetailComponent);
+    TestBed.tick();
+
+    // Incident A resolves and publishes its name to the crumb.
+    const fireA = Object.assign(new FireIncident(), {
+      id: 'fire-1',
+      name: 'Incident Alpha',
+      reportedAt: new Date('2026-01-15T03:30:00Z'),
+      situationReports: [] as SituationReport[],
+    });
+    instance(fixture).fireResource.set(fireA);
+    TestBed.tick();
+    const breadcrumb = TestBed.inject(BreadcrumbService);
+    expect(breadcrumb.dynamicLabel()).toBe('Incident Alpha');
+
+    // The route id flips to B while the resource still holds A: the crumb must clear, not show 'Incident
+    // Alpha' under fire-2.
+    params.next(convertToParamMap({ id: 'fire-2' }));
+    TestBed.tick();
+    expect(breadcrumb.dynamicLabel()).toBeNull();
+
+    // Once B resolves, the crumb shows B's name.
+    const fireB = Object.assign(new FireIncident(), {
+      id: 'fire-2',
+      name: 'Incident Bravo',
+      reportedAt: new Date('2026-01-15T03:30:00Z'),
+      situationReports: [] as SituationReport[],
+    });
+    instance(fixture).fireResource.set(fireB);
+    TestBed.tick();
+    expect(breadcrumb.dynamicLabel()).toBe('Incident Bravo');
   });
 });
 

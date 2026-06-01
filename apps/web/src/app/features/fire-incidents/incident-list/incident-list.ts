@@ -245,25 +245,30 @@ export class IncidentListComponent {
       const label = STATUS_GROUP_LABEL[filters.group];
       chips.push({ kind: 'group', label, ariaLabel: `Remove ${label} filter` });
     }
-    if (filters.districtId !== 'all') {
-      const name =
-        this.districtOptions().find((d) => d.id === filters.districtId)?.name ??
-        String(filters.districtId);
-      chips.push({
-        kind: 'district',
-        label: `District: ${name}`,
-        ariaLabel: `Remove district filter ${name}`,
-      });
-    }
-    if (filters.region !== 'all') {
-      const name =
-        this.regionOptions().find((r) => r.regionId === filters.region)?.regionName ??
-        String(filters.region);
-      chips.push({
-        kind: 'region',
-        label: `Region: ${name}`,
-        ariaLabel: `Remove region filter ${name}`,
-      });
+    // District/region are elevated-only scope widening. A mid-session elevated→viewer switch does not
+    // re-emit `queryParamMap`, so `parseScopeId` never re-clamps a stale scope filter — gate the chips on
+    // the live `showDistrictFilter()` so a non-elevated user never renders a misleading scope chip.
+    if (this.showDistrictFilter()) {
+      if (filters.districtId !== 'all') {
+        const name =
+          this.districtOptions().find((d) => d.id === filters.districtId)?.name ??
+          String(filters.districtId);
+        chips.push({
+          kind: 'district',
+          label: `District: ${name}`,
+          ariaLabel: `Remove district filter ${name}`,
+        });
+      }
+      if (filters.region !== 'all') {
+        const name =
+          this.regionOptions().find((r) => r.regionId === filters.region)?.regionName ??
+          String(filters.region);
+        chips.push({
+          kind: 'region',
+          label: `Region: ${name}`,
+          ariaLabel: `Remove region filter ${name}`,
+        });
+      }
     }
     return chips;
   });
@@ -323,9 +328,12 @@ export class IncidentListComponent {
     this.destroyRef.onDestroy(() => this.unsubscribe?.());
   }
 
-  // District options for the elevated district filter; re-fetched when the gate or user changes.
+  // District options for the elevated district filter; re-fetched when the gate or user changes. Also
+  // keys on `reloadTrigger` so the error-state Retry recovers the District/Region selectors after a
+  // transient District-fetch failure, not just the count + rows.
   private registerDistrictOptionsEffect(): void {
     effect(() => {
+      this.reloadTrigger();
       if (!(this.showDistrictFilter() && this.currentUser())) {
         this.districtOptions.set([]);
         return;

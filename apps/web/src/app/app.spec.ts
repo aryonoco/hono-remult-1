@@ -287,13 +287,14 @@ describe('App (breadcrumb trail)', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const router = TestBed.inject(Router);
-    // The detail page's fire load hangs under the stubbed transport, so publish the name directly as the
-    // detail component would once its fire resolves.
-    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
     // The mounted detail's `resource()` never resolves under the stubbed transport, so the app is never
     // "stable"; await the navigation (the lazy route + the breadcrumb's NavigationEnd) then flush a
     // synchronous render pass with `TestBed.tick()` rather than hanging on `whenStable()`.
     await router.navigateByUrl(DETAIL_URL);
+    TestBed.tick();
+    // Publish the name AFTER mount: the detail clears the crumb to null while its own fire is still
+    // loading (so a prior incident never bleeds through), then publishes the name once the fire resolves.
+    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
     TestBed.tick();
     const items = crumbs(fixture);
     const labels = items.map((li) => (li.textContent ?? '').replace(TRAILING_SEP, '').trim());
@@ -304,8 +305,10 @@ describe('App (breadcrumb trail)', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const router = TestBed.inject(Router);
-    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
     await router.navigateByUrl(DETAIL_URL);
+    TestBed.tick();
+    // The detail clears the crumb while loading, then publishes the name once its fire resolves.
+    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
     TestBed.tick();
     const current = (fixture.nativeElement as HTMLElement).querySelector(
       'nav.breadcrumb [aria-current="page"]',
@@ -339,8 +342,10 @@ describe('App (breadcrumb trail)', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const router = TestBed.inject(Router);
-    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
     await router.navigateByUrl(DETAIL_URL);
+    TestBed.tick();
+    // The detail clears the crumb while loading, then publishes the name once its fire resolves.
+    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
     TestBed.tick();
     expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
   });

@@ -16,13 +16,13 @@
     @if (fire(); as f) {
       <div class="detail">
         <div class="detail-head">
-          <h1 class="detail-title" tabindex="-1">{{ f.name }}</h1>
+          <h1 #detailTitle class="detail-title" tabindex="-1">{{ f.name }}</h1>
           <app-scope-indicator />
         </div>
 
         <header class="detail-hero" [class]="heroToneClass()">
           <div class="detail-hero__lead">
-            @if (statusListGroup(); as group) {
+            @if (isReported() && statusListGroup(); as group) {
               <a
                 class="detail-hero__badge-link"
                 data-testid="status-badge-link"
@@ -36,24 +36,37 @@
             }
             <span class="detail-hero__level">{{ levelLabel(f.incidentLevel) }}</span>
             @if (f.isMajor) {
-              <a
-                class="detail-hero__chip-link detail-hero__major"
-                data-testid="major-link"
-                [routerLink]="['/incidents']"
-                [queryParams]="{ group: 'major', fy: f.financialYear }"
-              >
-                <mat-icon aria-hidden="true">local_fire_department</mat-icon>
-                Major
-              </a>
+              @if (isReported()) {
+                <a
+                  class="detail-hero__chip-link detail-hero__major"
+                  data-testid="major-link"
+                  [routerLink]="['/incidents']"
+                  [queryParams]="{ group: 'major', fy: f.financialYear }"
+                >
+                  <mat-icon aria-hidden="true">local_fire_department</mat-icon>
+                  Major
+                </a>
+              } @else {
+                <span class="detail-hero__chip-link detail-hero__major">
+                  <mat-icon aria-hidden="true">local_fire_department</mat-icon>
+                  Major
+                </span>
+              }
             }
-            <a
-              class="detail-hero__chip-link detail-hero__season"
-              data-testid="season-link"
-              [routerLink]="['/incidents']"
-              [queryParams]="{ fy: f.financialYear }"
-            >
-              Season FY{{ f.financialYear }}
-            </a>
+            @if (isReported()) {
+              <a
+                class="detail-hero__chip-link detail-hero__season"
+                data-testid="season-link"
+                [routerLink]="['/incidents']"
+                [queryParams]="{ fy: f.financialYear }"
+              >
+                Season FY{{ f.financialYear }}
+              </a>
+            } @else {
+              <span class="detail-hero__chip-link detail-hero__season">
+                Season FY{{ f.financialYear }}
+              </span>
+            }
           </div>
 
           <dl class="detail-hero__meta">
@@ -133,7 +146,7 @@
               <dt>District</dt>
               <dd>
                 @if (f.district; as district) {
-                  @if (canSeeScope()) {
+                  @if (canSeeScope() && isReported()) {
                     <a
                       class="detail-link"
                       data-testid="district-link"
@@ -154,13 +167,17 @@
                 <div class="metric">
                   <dt>Region</dt>
                   <dd>
-                    <a
-                      class="detail-link"
-                      data-testid="region-link"
-                      [routerLink]="['/incidents']"
-                      [queryParams]="{ region: district.regionId, fy: f.financialYear }"
-                      >{{ district.regionName }}</a
-                    >
+                    @if (isReported()) {
+                      <a
+                        class="detail-link"
+                        data-testid="region-link"
+                        [routerLink]="['/incidents']"
+                        [queryParams]="{ region: district.regionId, fy: f.financialYear }"
+                        >{{ district.regionName }}</a
+                      >
+                    } @else {
+                      {{ district.regionName }}
+                    }
                   </dd>
                 </div>
               }
