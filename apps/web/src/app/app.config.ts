@@ -10,6 +10,7 @@ import { MatIconRegistry } from '@angular/material/icon';
 import { provideRouter, withViewTransitions } from '@angular/router';
 
 import { routes } from './app.routes';
+import { DensityService } from './core/density.service';
 import { provideRemult } from './core/remult.provider';
 
 export const appConfig: ApplicationConfig = {
@@ -28,6 +29,12 @@ export const appConfig: ApplicationConfig = {
     // Render <mat-icon> ligatures with the Material Symbols Outlined font loaded in index.html.
     provideEnvironmentInitializer(() => {
       inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');
+    }),
+    // Instantiate the app-wide density preference eagerly so `html[data-density]` is reflected from the
+    // first paint (default compact), before any density-aware view renders — the same role ThemeService
+    // fills for `data-theme`.
+    provideEnvironmentInitializer(() => {
+      inject(DensityService);
     }),
   ],
 };

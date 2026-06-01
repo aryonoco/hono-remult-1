@@ -193,8 +193,8 @@
   [data-density='comfortable'] {
     @include mat.table-overrides(
       (
-        header-container-height: 48px,
-        row-item-container-height: 48px,
+        header-container-height: 56px,
+        row-item-container-height: 56px,
       )
     );
   }

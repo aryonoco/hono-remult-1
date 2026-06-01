@@ -263,6 +263,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
+  // The global DensityService effect reflects onto document.documentElement; clear it so the
+  // attribute never leaks between tests.
+  document.documentElement.removeAttribute('data-density');
 });
 
 describe('IncidentListComponent (anonymous)', () => {
@@ -551,40 +554,42 @@ describe('IncidentListComponent (persisted density toggle)', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('defaults to comfortable, switches to compact and persists the choice', async () => {
+  it('defaults to compact, switches to comfortable and persists the choice', async () => {
     remult.user = { ...ADMIN };
     await seedThirtyFires();
     const fixture = await createComponent({ ...ADMIN });
     await settle(fixture);
 
-    // Default density.
-    expect(instance(fixture).density()).toBe('comfortable');
+    // Default density is the app-wide compact preference (DensityService).
+    expect(instance(fixture).density()).toBe('compact');
     const wrapper = host(fixture).querySelector('.table-panel');
-    expect(wrapper?.getAttribute('data-density')).toBe('comfortable');
+    expect(wrapper?.getAttribute('data-density')).toBe('compact');
 
-    // Selecting Compact via the toggle harness updates the wrapper and persists to localStorage.
+    // Selecting Comfortable via the toggle harness updates the wrapper and persists to localStorage.
     const loader = TestbedHarnessEnvironment.loader(fixture);
-    const compact = await loader.getHarness(MatButtonToggleHarness.with({ text: 'Compact' }));
-    await compact.toggle();
+    const comfortable = await loader.getHarness(
+      MatButtonToggleHarness.with({ text: 'Comfortable' }),
+    );
+    await comfortable.toggle();
     await settle(fixture);
 
-    expect(instance(fixture).density()).toBe('compact');
+    expect(instance(fixture).density()).toBe('comfortable');
     expect(host(fixture).querySelector('.table-panel')?.getAttribute('data-density')).toBe(
-      'compact',
+      'comfortable',
     );
-    expect(localStorage.getItem('fire-list-density')).toBe('compact');
+    expect(localStorage.getItem('fire-density')).toBe('comfortable');
   });
 
   it('reads the persisted density back on a fresh component', async () => {
-    localStorage.setItem('fire-list-density', 'compact');
+    localStorage.setItem('fire-density', 'comfortable');
     remult.user = { ...ADMIN };
     await seedThirtyFires();
     const fixture = await createComponent({ ...ADMIN });
     await settle(fixture);
 
-    expect(instance(fixture).density()).toBe('compact');
+    expect(instance(fixture).density()).toBe('comfortable');
     expect(host(fixture).querySelector('.table-panel')?.getAttribute('data-density')).toBe(
-      'compact',
+      'comfortable',
     );
   });
 });
@@ -693,7 +698,8 @@ describe('IncidentListComponent (handset severity cards)', () => {
     // The table is replaced by cards; each card is a routerLink to the incident.
     expect(root.querySelector('table')).toBeNull();
     // The cards honour the density signal so the toggle is consistent across layouts (LIST-9).
-    expect(root.querySelector('.cards')?.getAttribute('data-density')).toBe('comfortable');
+    // Default is the app-wide compact preference (DensityService).
+    expect(root.querySelector('.cards')?.getAttribute('data-density')).toBe('compact');
     const cards = root.querySelectorAll('a.card');
     expect(cards.length).toBe(2);
     expect((cards[0] as HTMLAnchorElement).getAttribute('href')).toContain('/incidents/');

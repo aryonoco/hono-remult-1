@@ -34,6 +34,7 @@ import { ResultAsync } from 'neverthrow';
 import { type EntityFilter, type EntityOrderBy, type LiveQueryChangeInfo, remult } from 'remult';
 import { map } from 'rxjs';
 
+import { type Density, DensityService } from '../../../core/density.service';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { canCreateIncident, canViewDistrictRollup } from '../../../shared/auth/permissions';
 import { CadenceCountdownComponent } from '../../../shared/components/cadence-countdown/cadence-countdown';
@@ -59,15 +60,10 @@ interface PageState {
   pageSize: number;
 }
 type ViewState = 'anonymous' | 'loading' | 'error' | 'empty' | 'content';
-type Density = 'comfortable' | 'compact';
 interface DistrictOption {
   id: number;
   name: string;
 }
-
-const DENSITY_KEY = 'fire-list-density';
-const readDensity = (): Density =>
-  localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'comfortable';
 
 const DEFAULT_PAGE_SIZE = 25;
 const LARGE_PAGE_SIZE = 50;
@@ -118,6 +114,7 @@ export class IncidentListComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly breakpoints = inject(BreakpointObserver);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly densityService = inject(DensityService);
 
   // Template-facing references: the terminal-status guard (gates the cadence countdown on closed fires)
   // and the shared status-spine tone map (whole literal classes — never interpolated).
@@ -125,8 +122,9 @@ export class IncidentListComponent {
   protected readonly spineTone = SPINE_TONE;
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
   protected readonly skeletonRows = SKELETON_ROWS;
-  // Row density persists across sessions so a controller's preferred information density is remembered.
-  protected readonly density = signal<Density>(readDensity());
+  // Row density is the app-wide, persisted preference (default compact) — the same source the form
+  // pages' density toggle reads/writes, so changing it anywhere updates the whole console at once.
+  protected readonly density = this.densityService.density;
 
   protected readonly displayedColumns = [
     'name',
@@ -326,8 +324,7 @@ export class IncidentListComponent {
   }
 
   protected setDensity(density: Density): void {
-    this.density.set(density);
-    localStorage.setItem(DENSITY_KEY, density);
+    this.densityService.setDensity(density);
   }
 
   // Re-run the count + live query after a transient failure (the error-state Retry button, LIST-6/8).
