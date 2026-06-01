@@ -5,5 +5,18 @@
     "feature-dev@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
     "serena@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(bun run check:ci*)",
+      "Bash(bunx nx test *)",
+      "Bash(bunx tsc *)",
+      "Bash(bunx vitest run *)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_snapshot"
+    ]
   }
 }
