@@ -54,7 +54,7 @@ Raw audit detail (root cause + verbose fix per issue) is at `.superpowers/qa-aud
 - [x] **DASH-3 (major): Every active incident reads as overdue ("−Nd")** — FIXED via the FIXTURES campaign (commit `f5d66aa`): the seed now overlays a real-clock rolling-active set whose `nextReportDue` is mostly in the future, so overdue is the exception. Browser-verified at `/overview` as Sarah Admin (statewide): Active=4, Overdue=1, needs-attention cadence reads "1d overdue", "in 2h 59m", "in 2d", "in 3d" (3 upcoming : 1 overdue). (`seed data`)
 - [x] **DASH-4 (minor): KPI tiles render as links with no hover/affordance** — plain `no-underline` `<a>`. Fix: `hover:bg-surface-container-high transition-colors` + visible focus ring on the tile anchor. (`kpi-tile.ts`)
 - [x] **DASH-5 (polish): Map overflow note "+N more not plotted" lacks priority** — muted text. Fix: promote to an inline warning chip (contained-tone bg + icon). (`overview.html`, `overview.ts`)
-- [ ] **DASH-6 (polish): Live-dot pulse relies solely on the reduced-motion guard** — verify the dot is static under `prefers-reduced-motion` on first paint (browser check; likely no code change). (`overview.ts`)
+- [x] **DASH-6 (polish): Live-dot pulse relies solely on the reduced-motion guard** — verify the dot is static under `prefers-reduced-motion` on first paint (browser check; likely no code change). (`overview.ts`) — **DONE, browser-verified**: under `prefers-reduced-motion: reduce` the live-dot's computed `animation-name` is `none` (static); under `no-preference` it is the `overview-pulse` keyframe (animates). No code change needed; the existing guard is correct.
 
 ### Incident Detail
 

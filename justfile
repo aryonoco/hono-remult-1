@@ -39,7 +39,7 @@ typecheck:
 spell:
     cspell --no-progress "**/*.{ts,html,md,json}"
 markdownlint:
-    markdownlint-cli2 "**/*.md" "#node_modules" "#.nx" "#.angular" "#dist" "#coverage" "#tmp" "#docs/superpowers"
+    markdownlint-cli2 "**/*.md" "#node_modules" "#.nx" "#.angular" "#dist" "#coverage" "#tmp" "#docs/superpowers" "#.superpowers"
 # Static analysis of all tracked shell scripts at the strictest setting
 # (every optional check enabled; style-level severity and above).
 shellcheck:
