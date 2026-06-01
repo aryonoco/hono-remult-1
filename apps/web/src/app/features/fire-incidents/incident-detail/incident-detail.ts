@@ -18,7 +18,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  FIRE_STATUS_LABELS,
   FinalReport,
   FireIncident,
   INCIDENT_LEVEL_LABELS,
@@ -58,7 +57,7 @@ import {
   type ConfirmReasonDialogData,
   type ConfirmReasonDialogResult,
 } from '../../../shared/dialogs/confirm-reason-dialog';
-import type { MapPoint } from '../../../shared/ui/tone-classes';
+import { fireToMapPoint, type MapPoint } from '../../../shared/ui/tone-classes';
 import { isTerminalStatus } from '../../../shared/util/fire-status';
 import { toErrorMessage } from '../../../shared/util/to-error-message';
 import { EscalateDialogComponent, type EscalateDialogData } from '../dialogs/escalate-dialog';
@@ -614,25 +613,12 @@ export class IncidentDetailComponent {
     return this.canViewFinal() && report !== undefined && !report.isSignedOff;
   });
 
-  // One map point for the detail view (the map component fits a single-incident view); empty when the fire
-  // has no recorded coordinates, which the map renders as its empty state. `perimeter` (the true mapped
-  // extent) takes precedence over the `areaHa` estimate circle; `status` feeds the colour-independent
-  // marker text (FIRE-AREA-5 / FIRE-AREA-4 / MAP-3).
+  // One map point for the detail view (the map fits a single-incident view), via the shared projection;
+  // empty when the fire has no recorded coordinates, which the map renders as its empty state.
   protected readonly detailMapPoints = computed<MapPoint[]>(() => {
     const fire = this.fire();
-    return fire?.latitude != null && fire?.longitude != null
-      ? [
-          {
-            lat: fire.latitude,
-            lng: fire.longitude,
-            tone: statusTone(fire.status),
-            name: fire.name,
-            areaHa: fire.fireAreaHectares ?? 0,
-            perimeter: fire.firePerimeterGeo ?? undefined,
-            status: FIRE_STATUS_LABELS[fire.status],
-          },
-        ]
-      : [];
+    const point = fire ? fireToMapPoint(fire) : null;
+    return point ? [point] : [];
   });
 
   // Hero tone follows the fire's status tone (a whole literal class on the hero element).

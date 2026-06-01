@@ -1,4 +1,11 @@
-import type { FirePerimeter, StatusTone } from '@workspace/shared-domain';
+import {
+  FIRE_STATUS_LABELS,
+  type FireIncident,
+  type FirePerimeter,
+  LEVEL_ORDER,
+  type StatusTone,
+  statusTone,
+} from '@workspace/shared-domain';
 
 // Status-spine fill classes (the thin accent rail on tiles/rows). Each value is a whole static literal so
 // Tailwind keeps the utility in the build — never interpolate `bg-status-${tone}`.
@@ -45,6 +52,9 @@ export const POLYGON_TONE_CLASS: Readonly<Record<StatusTone, string>> = {
 
 // Shared map-point shape consumed by OverviewComponent and IncidentMapComponent.
 export interface MapPoint {
+  // The incident id. When present, the map marker links to that incident's detail page. Optional so
+  // non-incident callers/tests may omit it (the marker then renders but is not a link).
+  id?: string;
   lat: number;
   lng: number;
   tone: StatusTone;
@@ -57,7 +67,52 @@ export interface MapPoint {
   // and the bare pin in the render fallback chain (FIRE-AREA-5). Explicitly `| undefined` so callers can
   // project `firePerimeterGeo ?? undefined` under `exactOptionalPropertyTypes`.
   perimeter?: FirePerimeter | undefined;
-  // The fire's status label, surfaced in the marker title/alt and the SVG-fallback list so colour is
-  // never the sole signal (MAP-3).
+  // The fire's status label, surfaced in the marker title and the SVG-fallback list so colour is never
+  // the sole signal (MAP-3).
   status?: string;
+  // The incident level as a numeral (1 | 2 | 3). Drives the pin's graduated size — a pre-attentive,
+  // colour-independent severity channel — and is stated in the marker's text label. Optional so non-fire
+  // callers/tests may omit it (the marker then renders at the level-1 size).
+  level?: number;
+  // Whether the incident is declared Major. Drives the pin's heavier casing and qualifies it for the
+  // capped beacon pulse, and is stated in the text label. Optional; absent is treated as false.
+  major?: boolean;
+}
+
+// The fields a map marker needs from a fire incident — the single source both the overview list and the
+// detail page derive their MapPoint from, so the projection lives in exactly one place (define-once at
+// the projection seam, type-checked against the entity).
+export type MapPointSource = Pick<
+  FireIncident,
+  | 'id'
+  | 'name'
+  | 'latitude'
+  | 'longitude'
+  | 'status'
+  | 'fireAreaHectares'
+  | 'firePerimeterGeo'
+  | 'incidentLevel'
+  | 'isMajor'
+>;
+
+// Project a fire onto the shared MapPoint shape, or `null` when it has no coordinates (the map then renders
+// its empty state). `perimeter` (the true mapped extent) takes precedence over the `areaHa` estimate
+// circle; `status` feeds the colour-independent marker label; `level`/`major` drive the pin's size, casing
+// and pulse; `id` makes the marker a link to the incident (FIRE-AREA-5 / FIRE-AREA-4 / MAP-3).
+export function fireToMapPoint(fire: MapPointSource): MapPoint | null {
+  if (fire.latitude == null || fire.longitude == null) {
+    return null;
+  }
+  return {
+    id: fire.id,
+    lat: fire.latitude,
+    lng: fire.longitude,
+    tone: statusTone(fire.status),
+    name: fire.name,
+    areaHa: fire.fireAreaHectares ?? 0,
+    perimeter: fire.firePerimeterGeo ?? undefined,
+    status: FIRE_STATUS_LABELS[fire.status],
+    level: LEVEL_ORDER[fire.incidentLevel],
+    major: fire.isMajor,
+  };
 }

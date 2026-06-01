@@ -1,5 +1,4 @@
 import {
-  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -9,9 +8,11 @@ import {
   inject,
   input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
+import { Router } from '@angular/router';
 import type { FirePerimeter, StatusTone } from '@workspace/shared-domain';
 import {
   control,
@@ -21,10 +22,12 @@ import {
   geoJSON,
   type LatLngBounds,
   type LatLngTuple,
-  type Layer,
+  type LayerGroup,
   type Map as LeafletMap,
   latLng,
   latLngBounds,
+  layerGroup,
+  type Marker,
   marker,
   type TileLayer,
   type TileLayerOptions,
@@ -37,15 +40,27 @@ import {
   POLYGON_TONE_CLASS,
   SPINE_TONE,
 } from '../../../../shared/ui/tone-classes';
+import {
+  GLYPH_TONE,
+  markerClassName,
+  markerHtml,
+  markerStackOffset,
+  pulseTargets,
+} from './marker-symbology';
 
 const LIGHT_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const DARK_TILES = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const MAX_ZOOM = 20;
-const MARKER_ICON_PX = 24;
-const MARKER_ANCHOR_PX = 12;
+// "Planted pin" marker geometry. The marker is one cohesive SVG tag-pin — a rounded glyph head tapering
+// to a pointer whose tip sits exactly on the coordinate — so there is no gap or detached dot: the symbol
+// points at its own location. The pin is bottom-anchored in a fixed box (it scales by incident level via
+// a modifier class, growing upward from the tip), so the anchor is one value: the bottom centre, where
+// the pin's tip lands. The box is tall enough for the largest (level-3) pin.
+const MARKER_BOX_W = 40;
+const MARKER_BOX_H = 48;
+const MARKER_BOX_SIZE: [number, number] = [MARKER_BOX_W, MARKER_BOX_H];
+const MARKER_BOX_ANCHOR: [number, number] = [MARKER_BOX_W / 2, MARKER_BOX_H];
 const FIT_BOUNDS_PAD_PX = 24;
-const MARKER_ICON_SIZE: [number, number] = [MARKER_ICON_PX, MARKER_ICON_PX];
-const MARKER_ICON_ANCHOR: [number, number] = [MARKER_ANCHOR_PX, MARKER_ANCHOR_PX];
 const FIT_BOUNDS_PADDING: [number, number] = [FIT_BOUNDS_PAD_PX, FIT_BOUNDS_PAD_PX];
 // Extent-circle styling: a toned outline over a translucent toned fill (the colour comes from the
 // `.fire-circle--<tone>` class so it stays token-driven; opacity/weight are geometry, not colour).
@@ -120,8 +135,11 @@ const CIRCLE_TONE_CLASS: Readonly<Record<StatusTone, string>> = {
 interface LegendEntry {
   tone: StatusTone;
   label: string;
-  // Whole-literal swatch class (from SPINE_TONE) so Tailwind keeps the utility — never composed at runtime.
-  swatch: string;
+  // The status glyph path (Material Symbols geometry) so the legend draws the very symbol used on the
+  // map's pins — the legend then says exactly what each marker means, not just its colour.
+  glyph: string;
+  // The whole-literal global tone class (`fire-marker--<tone>`) that colours the legend chip.
+  toneClass: string;
 }
 
 // Radius in metres of a circle whose area equals `areaHa` hectares (r = √(area / π)). A 50,000 ha fire
@@ -150,13 +168,6 @@ const EXTENT_KIND_LABEL: Readonly<Record<ExtentKind, string>> = {
   circle: 'area estimate',
   pin: 'point only',
 };
-// The 3-way symbology key, in fidelity order — each entry pairs an extent kind with its legend phrase
-// (FIRE-AREA-6). `shapeKey()` joins the entries whose kind is actually drawn so the key stays accurate.
-const SHAPE_KEY_ORDER: readonly (readonly [ExtentKind, string])[] = [
-  ['polygon', 'Filled shape = mapped extent'],
-  ['circle', 'Circle = area estimate'],
-  ['pin', 'Pin = point only'],
-];
 
 function hasArea(areaHa: number | undefined): areaHa is number {
   return areaHa !== undefined && areaHa > 0;
@@ -175,9 +186,11 @@ function extentKind(p: MapPoint): ExtentKind {
 // FIRE-AREA-6).
 function pointLabel(p: MapPoint): string {
   const status = p.status ? ` — ${p.status}` : '';
+  const level = p.level ? ` — Level ${p.level}` : '';
+  const major = p.major ? ' — Major' : '';
   const area = hasArea(p.areaHa) ? ` — ${p.areaHa.toLocaleString()} ha` : '';
   const extent = ` — ${EXTENT_KIND_LABEL[extentKind(p)]}`;
-  return `${p.name}${status}${area}${extent}`;
+  return `${p.name}${status}${level}${major}${area}${extent}`;
 }
 
 // One SVG-fallback row: the projected centroid (x/y), the projected outer-ring `points` string for a
@@ -232,8 +245,8 @@ function projectRing(
           </svg>
           <p class="incident-map__note">Map tiles unavailable — showing plotted coordinates.</p>
           <ul class="incident-map__fallback-list" data-testid="map-fallback-list">
-            @for (p of points(); track $index) {
-              <li>{{ p.name }}@if (p.status) { — {{ p.status }} }@if (p.areaHa) { — {{ p.areaHa.toLocaleString() }} ha } — {{ extentLabel(p) }} <span class="font-mono tabular-nums">({{ p.lat.toFixed(coordDp) }}, {{ p.lng.toFixed(coordDp) }})</span></li>
+            @for (p of points(); track p.id ?? $index) {
+              <li>{{ p.name }}@if (p.status) { — {{ p.status }} }@if (p.level) { — Level {{ p.level }} }@if (p.major) { — Major }@if (p.areaHa) { — {{ p.areaHa.toLocaleString() }} ha } — {{ extentLabel(p) }} <span class="font-mono tabular-nums">({{ p.lat.toFixed(coordDp) }}, {{ p.lng.toFixed(coordDp) }})</span></li>
             }
           </ul>
         } @else {
@@ -243,12 +256,16 @@ function projectRing(
           <ul class="incident-map__legend-tones">
             @for (entry of legend(); track entry.tone) {
               <li class="incident-map__legend-item">
-                <span class="incident-map__swatch" [class]="entry.swatch" aria-hidden="true"></span>
+                <span class="incident-map__legend-symbol" [class]="entry.toneClass" aria-hidden="true">
+                  <svg viewBox="0 -960 960 960"><path [attr.d]="entry.glyph"></path></svg>
+                </span>
                 <span>{{ entry.label }}</span>
               </li>
             }
           </ul>
-          <p class="incident-map__legend-shapes" data-testid="map-legend-shapes">{{ shapeKey() }}</p>
+          @if (channelKey(); as channels) {
+            <p class="incident-map__legend-shapes" data-testid="map-legend-channels">{{ channels }}</p>
+          }
         </div>
         @if (single(); as s) {
           <dl class="incident-map__coords">
@@ -288,7 +305,10 @@ function projectRing(
     .incident-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin-block: .625rem 0; }
     .incident-map__legend-tones { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: 0; padding: 0; list-style: none; }
     .incident-map__legend-item { display: inline-flex; align-items: center; gap: .375rem; font-size: .8125rem; color: var(--mat-sys-on-surface); }
-    .incident-map__swatch { width: .75rem; height: .75rem; border-radius: 0.1875rem; border: 1px solid var(--mat-sys-outline); flex: none; }
+    /* The legend chip mirrors the map pin's head: a tone-filled square (color comes from the global
+       .fire-marker--<tone> class) carrying the same status glyph in the surface token. */
+    .incident-map__legend-symbol { display: inline-grid; place-items: center; inline-size: 1.25rem; block-size: 1.25rem; border-radius: .3125rem; background: currentColor; flex: none; }
+    .incident-map__legend-symbol svg { inline-size: .8125rem; block-size: .8125rem; fill: var(--mat-sys-surface); }
     .incident-map__legend-shapes { flex-basis: 100%; margin: 0; font-size: .75rem; color: var(--mat-sys-on-surface-variant); }
     .incident-map__coords { display: grid; grid-template-columns: auto 1fr; gap: .125rem 1rem; margin-block: .75rem 0; font-size: .8125rem; }
     .incident-map__coords dt { color: var(--mat-sys-on-surface-variant); }
@@ -305,8 +325,12 @@ export class IncidentMapComponent {
   readonly points = input.required<readonly MapPoint[]>();
   readonly locationDescription = input('');
   readonly singleZoom = input(DEFAULT_SINGLE_ZOOM);
+  // Whether a marker links to its incident's detail page. True on the overview (navigate to the fire);
+  // false on the detail page itself, where the lone marker would otherwise be a no-op self-link.
+  readonly linkable = input(true);
   protected readonly coordDp = COORD_DP;
   private readonly theme = inject(ThemeService);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly mapEl = viewChild<ElementRef<HTMLElement>>('mapEl');
   protected readonly tilesFailed = signal(false);
@@ -314,22 +338,31 @@ export class IncidentMapComponent {
   protected readonly single = computed<MapPoint | null>(() =>
     this.points().length === 1 ? (this.points()[0] ?? null) : null,
   );
-  // Legend keys only the tones actually present, in a stable severity order.
+  // Legend keys only the tones actually present, in a stable severity order. Each entry carries the glyph
+  // and tone class so the legend renders the very pin symbol next to its label.
   protected readonly legend = computed<LegendEntry[]>(() => {
     const present = new Set(this.points().map((p) => p.tone));
     return TONE_ORDER.filter((tone) => present.has(tone)).map((tone) => ({
       tone,
       label: TONE_LABEL[tone],
-      swatch: SPINE_TONE[tone],
+      glyph: GLYPH_TONE[tone],
+      toneClass: MARKER_TONE_CLASS[tone],
     }));
   });
-  // 3-way shape key (FIRE-AREA-6): explains the extent symbology so colour is never the sole signal.
-  // Only the geometries actually drawn are listed, in fidelity order (polygon → circle → pin).
-  protected readonly shapeKey = computed<string>(() => {
-    const present = new Set(this.points().map((p) => extentKind(p)));
-    return SHAPE_KEY_ORDER.filter(([kind]) => present.has(kind))
-      .map(([, text]) => text)
-      .join(' · ');
+  // Explains the two extra non-colour channels the pin uses — graduated size (incident level) and a
+  // heavier casing (Major) — but only when those channels actually vary in the plotted set, so the legend
+  // documents exactly the cues on screen and stays quiet otherwise.
+  protected readonly channelKey = computed<string>(() => {
+    const pts = this.points();
+    const levels = new Set(pts.map((p) => p.level).filter((l): l is number => l != null));
+    const hints: string[] = [];
+    if (levels.size > 1) {
+      hints.push('Bigger pin = higher level');
+    }
+    if (pts.some((p) => p.major === true)) {
+      hints.push('Bold outline = Major');
+    }
+    return hints.join(' · ');
   });
   protected readonly ariaLabel = computed(() => {
     const pts = this.points();
@@ -366,6 +399,12 @@ export class IncidentMapComponent {
   });
   private map: LeafletMap | null = null;
   private layer: TileLayer | null = null;
+  // All per-point vector layers live in one group so a live `points()` change rebuilds them by clearing
+  // and redrawing; the view is framed only once so updates never yank the user's pan/zoom.
+  private markersLayer: LayerGroup | null = null;
+  private framed = false;
+  // Native keydown listeners on link markers, torn down on every rebuild and on destroy.
+  private readonly markerCleanups: Array<() => void> = [];
   private readonly isDark = computed(() => {
     const m = this.theme.theme();
     return (
@@ -379,7 +418,21 @@ export class IncidentMapComponent {
   }
 
   constructor() {
-    afterNextRender({ write: () => this.initMap() });
+    // Create the Leaflet map when its canvas appears and tear it down when it leaves. The canvas lives
+    // inside `@if (hasPoints())`, so it is added/removed as the active set gains/loses points; an effect on
+    // the `mapEl()` viewChild covers the first mount AND every re-mount (a single afterNextRender would not
+    // rebuild the map after the empty state). Only `mapEl()` is tracked — the rest runs untracked.
+    effect(() => {
+      const el = this.mapEl()?.nativeElement;
+      untracked(() => {
+        if (el && this.map?.getContainer() !== el) {
+          this.createMap(el);
+        } else if (!el && this.map) {
+          this.teardownMap();
+        }
+      });
+    });
+    // Re-tile on theme change (a no-op until the map exists).
     effect(() => {
       const dark = this.isDark();
       const map = this.map;
@@ -389,36 +442,75 @@ export class IncidentMapComponent {
       this.layer?.remove();
       this.layer = this.addTileLayer(map, dark);
     });
-    this.destroyRef.onDestroy(() => {
-      this.map?.remove();
-      this.map = null;
-      this.layer = null;
+    // Keep the live map in step with its data: rebuild the markers/extents whenever `points()` changes
+    // (an escalation, a status flip, the active set changing, or the dev-user switching scope). The map's
+    // creation does the first render; this guard makes pre-map runs no-ops.
+    effect(() => {
+      const pts = this.points();
+      if (this.map && this.markersLayer) {
+        this.renderPoints(pts);
+      }
     });
+    this.destroyRef.onDestroy(() => this.teardownMap());
   }
 
-  // Build the Leaflet map once the canvas exists: base tiles, metric scale, per-fire extent/pin geometry,
-  // then frame the view. A no-op when there is no canvas (empty/fallback states) or no points.
-  private initMap(): void {
-    const el = this.mapEl()?.nativeElement;
-    const pts = this.points();
-    const first = pts[0];
-    if (!(el && first)) {
-      return;
-    }
+  // Build the Leaflet map on the given canvas: base tiles, a metric scale bar (MAP-1), a marker layer
+  // group, then the first point render (untracked — the points effect owns every subsequent render).
+  private createMap(el: HTMLElement): void {
     const leafletMap = createMap(el, { attributionControl: true, keyboard: true });
     this.map = leafletMap;
     this.layer = this.addTileLayer(leafletMap, this.isDark());
-    // Metric-only scale bar so distances on the map are legible (MAP-1).
     control.scale({ imperial: false }).addTo(leafletMap);
-    // Frame the view BEFORE adding vector layers: a freshly-created map has no view, so its SVG
-    // renderer has no pixel bounds yet — adding a Path first makes Leaflet's `_clipPoints` read an
-    // undefined `_bounds` and throw (only reliably hit by many/large extents, e.g. the statewide
-    // overview). Establishing the view first gives the renderer valid bounds before any path is drawn.
-    this.frame(leafletMap, pts, first);
-    for (const p of pts) {
-      this.drawPoint(leafletMap, p);
-    }
+    this.markersLayer = layerGroup().addTo(leafletMap);
+    this.framed = false;
+    untracked(() => this.renderPoints(this.points()));
     leafletMap.invalidateSize();
+  }
+
+  // Dispose the map and its markers — on destroy, and whenever the canvas leaves the DOM (the empty state),
+  // so the next canvas gets a fresh map rather than a stale one bound to a detached element.
+  private teardownMap(): void {
+    this.clearMarkers();
+    this.map?.remove();
+    this.map = null;
+    this.layer = null;
+    this.markersLayer = null;
+  }
+
+  // Rebuild every per-point layer from the current `points()`: drop the previous markers (and their
+  // listeners), then frame ONCE (the first non-empty render) before drawing so the SVG renderer has a
+  // view — a view-less map throws in `_clipPoints` when a Path is added first. Subsequent live updates
+  // skip framing so the user's pan/zoom is preserved.
+  private renderPoints(pts: readonly MapPoint[]): void {
+    const map = this.map;
+    const group = this.markersLayer;
+    if (!(map && group)) {
+      return;
+    }
+    this.clearMarkers();
+    const first = pts[0];
+    if (!first) {
+      return;
+    }
+    if (!this.framed) {
+      this.frame(map, pts, first);
+      this.framed = true;
+    }
+    // Reserve the animated beacon pulse for the capped, highest-priority "loud" set so the overview never
+    // animates hundreds of markers at once; every other marker is a static pin.
+    const pulseSet = pulseTargets(pts);
+    for (const p of pts) {
+      this.drawPoint(group, p, pulseSet);
+    }
+  }
+
+  // Tear down the previous render: run each link marker's listener cleanup, then empty the layer group.
+  private clearMarkers(): void {
+    for (const cleanup of this.markerCleanups) {
+      cleanup();
+    }
+    this.markerCleanups.length = 0;
+    this.markersLayer?.clearLayers();
   }
 
   private addTileLayer(map: LeafletMap, dark: boolean): TileLayer {
@@ -429,15 +521,18 @@ export class IncidentMapComponent {
   }
 
   // Per-fire extent geometry in fidelity order — polygon → area-circle → none (FIRE-AREA-5) — plus the
-  // always-present centroid pin. A `perimeter` draws the true mapped extent; otherwise an `areaHa>0` fire
-  // draws an area-estimate circle; otherwise the pin alone marks the point. Both fills are token-driven via
-  // their `.fire-polygon--`/`.fire-circle--` class; opacity/weight are geometry. Marker title/alt carry
-  // name+status+area+extent kind so colour is never the sole signal (MAP-3 / FIRE-AREA-6).
-  private drawPoint(map: LeafletMap, p: MapPoint): Layer[] {
+  // always-present "tag pin" marker. A `perimeter` draws the true mapped extent; otherwise an `areaHa>0`
+  // fire draws an area-estimate circle; otherwise the pin alone marks the point. Both fills are token-driven
+  // via their `.fire-polygon--`/`.fire-circle--` class; opacity/weight are geometry. The marker is a
+  // status-toned glyph pin (graduated by level, Major-cased, beacon-pulsed when loud) whose tip sits on the
+  // exact coordinate; its `aria-label` carries name+status+level+area+extent kind so colour is never the
+  // sole signal (MAP-3 / FIRE-AREA-6). Layers go into the shared group so a live update can clear them; the
+  // pin is stacked above the extent path, rises on hover so the most important fire wins overlaps, and
+  // (when linkable and the point carries an id) links to that incident's detail page.
+  private drawPoint(group: LayerGroup, p: MapPoint, pulseSet: ReadonlySet<MapPoint>): void {
     const center: LatLngTuple = [p.lat, p.lng];
-    const layers: Layer[] = [];
     if (p.perimeter) {
-      const polygon = geoJSON(p.perimeter, {
+      geoJSON(p.perimeter, {
         // `className`/fill go in `style` (a PathOptions); Leaflet applies them to the rendered SVG path.
         style: {
           className: POLYGON_TONE_CLASS[p.tone],
@@ -445,35 +540,62 @@ export class IncidentMapComponent {
           weight: POLYGON_STROKE_WEIGHT,
         },
         interactive: false,
-      });
-      polygon.addTo(map);
-      layers.push(polygon);
+      }).addTo(group);
     } else if (hasArea(p.areaHa)) {
-      const extent = createCircle(center, {
+      createCircle(center, {
         radius: areaRadiusMetres(p.areaHa),
         className: CIRCLE_TONE_CLASS[p.tone],
         fillOpacity: CIRCLE_FILL_OPACITY,
         weight: CIRCLE_STROKE_WEIGHT,
         interactive: false,
-      });
-      extent.addTo(map);
-      layers.push(extent);
+      }).addTo(group);
     }
     const label = pointLabel(p);
+    const pulse = pulseSet.has(p);
     const pin = marker(center, {
       icon: divIcon({
-        className: `fire-marker ${MARKER_TONE_CLASS[p.tone]}`,
-        html: '<span class="fire-marker__dot"></span>',
-        iconSize: MARKER_ICON_SIZE,
-        iconAnchor: MARKER_ICON_ANCHOR,
+        className: markerClassName(p, pulse),
+        html: markerHtml(p, pulse),
+        iconSize: MARKER_BOX_SIZE,
+        iconAnchor: MARKER_BOX_ANCHOR,
       }),
       keyboard: true,
+      // `title` shows a hover tooltip; the accessible name is set as `aria-label` on the element below
+      // (Leaflet's `alt` option only applies to <img> icons, not a divIcon's <div>).
       title: label,
-      alt: label,
+      riseOnHover: true,
+      zIndexOffset: markerStackOffset(p),
     });
-    pin.addTo(map);
-    layers.push(pin);
-    return layers;
+    pin.addTo(group);
+    const el = pin.getElement();
+    el?.setAttribute('aria-label', label);
+    if (this.linkable() && p.id) {
+      this.makeNavigable(pin, p.id, el);
+    }
+  }
+
+  // Make a marker a link to its incident: navigate on click and on Enter while focused. `role="link"` (in-app
+  // navigation, not a button) over Leaflet's default; Space is intentionally NOT bound (link semantics —
+  // Space scrolls). The native keydown listener is registered for cleanup so a live rebuild leaves none behind.
+  private makeNavigable(pin: Marker, id: string, el: HTMLElement | undefined): void {
+    const go = (): void => {
+      this.router.navigate(['/incidents', id]).catch(() => {
+        /* navigation errors are non-actionable here (e.g. a concurrent navigation) */
+      });
+    };
+    pin.on('click', go);
+    if (!el) {
+      return;
+    }
+    el.setAttribute('role', 'link');
+    const onKeydown = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        go();
+      }
+    };
+    el.addEventListener('keydown', onKeydown);
+    this.markerCleanups.push(() => el.removeEventListener('keydown', onKeydown));
   }
 
   // Frame the drawn geometry. A lone bare pin (no polygon, no area) uses the suburb-scale zoom; anything

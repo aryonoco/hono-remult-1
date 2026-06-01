@@ -443,12 +443,16 @@ describe('IncidentDetailComponent (map points + author names)', () => {
     const points = instance(fixture).detailMapPoints();
     expect(points).toEqual([
       {
+        id: expect.any(String),
         lat: -38.1,
         lng: 143.5,
         tone: statusTone(FireStatus.going),
         name: 'Coastal Fire',
         areaHa: 1200,
         status: FIRE_STATUS_LABELS[FireStatus.going],
+        // The pin links to the incident via its id, and reads level (size) + Major (casing + pulse).
+        level: 1,
+        major: false,
       },
     ]);
   });

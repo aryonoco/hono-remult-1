@@ -13,7 +13,6 @@ import {
   DEV_USERS,
   District,
   FireIncident,
-  type FirePerimeter,
   FireStatus,
   IncidentLevel,
   SituationReport,
@@ -84,22 +83,7 @@ interface FireSeed {
   longitude?: number;
   nextReportDue?: Date | null;
   financialYear?: number;
-  firePerimeterGeo?: FirePerimeter;
 }
-
-// A small, valid closed WGS84 ring near the Otway coast (first vertex repeated to close it).
-const OTWAY_PERIMETER: FirePerimeter = {
-  type: 'Polygon',
-  coordinates: [
-    [
-      [143.5, -38.5],
-      [143.55, -38.5],
-      [143.55, -38.45],
-      [143.5, -38.45],
-      [143.5, -38.5],
-    ],
-  ],
-};
 
 // Insert via the repo (lifecycle hook sets server-managed defaults), then patch the few server-managed
 // fields the dashboard reads (`nextReportDue`/`financialYear`/coordinates/`isMajor`) to exact test values.
@@ -127,9 +111,6 @@ async function seedFire(seed: FireSeed): Promise<void> {
   if (seed.isMajor) {
     insert.declaredBySource = 'Regional Controller';
     insert.declaredByTimestamp = new Date('2026-01-10T01:00:00Z');
-  }
-  if (seed.firePerimeterGeo !== undefined) {
-    insert.firePerimeterGeo = seed.firePerimeterGeo;
   }
   const created = await repo.insert(insert);
   await repo.update(created.id, {
@@ -431,46 +412,6 @@ describe('OverviewComponent — operational surface (Task 3.2)', () => {
     expect(livePill?.getAttribute('data-live-state')).toBe('offline');
     expect(livePill?.textContent).not.toContain('Live');
     expect(livePill?.textContent).toContain('Reconnecting');
-
-    expect(await findAxeViolations(html(fixture))).toEqual([]);
-  });
-
-  it('overlays the largest recent fire extents on the map, scope-aware (FIRE-AREA-7)', async () => {
-    remult.user = { ...ADMIN };
-    await seedDistricts();
-    // A large, terminal (historical) fire carrying a mapped perimeter — the kind FIRE-AREA-7 surfaces so
-    // the showcase's extents are visible on the landing map even when the live active set is small.
-    await seedFire({
-      id: 'big-historical',
-      name: 'Otway Megafire',
-      status: FireStatus.safe,
-      fireAreaHectares: 5000,
-      latitude: -38.47,
-      longitude: 143.52,
-      firePerimeterGeo: OTWAY_PERIMETER,
-    });
-    // A sub-threshold fire with no perimeter must NOT appear in the extent overlay.
-    await seedFire({
-      id: 'tiny',
-      name: 'Spot Fire',
-      status: FireStatus.safe,
-      fireAreaHectares: 3,
-      latitude: -38.4,
-      longitude: 143.4,
-    });
-    const fixture = await setup({ ...ADMIN });
-    setNow(fixture, NOW);
-    await settle(fixture);
-
-    // The perimeter fire is surfaced as a significant extent even though it is terminal (not active).
-    expect(instance(fixture).significantCount()).toBe(1);
-    expect(instance(fixture).activeCount()).toBe(0);
-    // The map is fed active points + the extent overlay (here: 0 active + 1 extent).
-    expect(instance(fixture).mapAllPoints()).toHaveLength(1);
-    // The caption states the overlay honestly, and the heading is no longer "Active"-only.
-    const note = html(fixture).querySelector('.overview__map-note');
-    expect(note?.textContent).toContain('largest recent fire extents');
-    expect(html(fixture).querySelector('#map-h')?.textContent).toContain('Incident map');
 
     expect(await findAxeViolations(html(fixture))).toEqual([]);
   });

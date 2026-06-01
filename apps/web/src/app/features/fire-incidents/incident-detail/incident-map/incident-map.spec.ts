@@ -1,9 +1,11 @@
 import { ANIMATION_MODULE_TYPE, type WritableSignal } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import type { FirePerimeter } from '@workspace/shared-domain';
 import { findAxeViolations } from '../../../../../testing/axe-helper';
 import type { MapPoint } from '../../../../shared/ui/tone-classes';
 import { IncidentMapComponent } from './incident-map';
+import { markerClassName, markerHtml, pulseTargets } from './marker-symbology';
 
 // Splits an SVG polygon `points` attribute into its vertex tokens (whitespace-separated "x,y" pairs).
 const POINTS_SEPARATOR = /\s+/;
@@ -75,7 +77,10 @@ describe('IncidentMapComponent', () => {
       removeEventListener: vi.fn(),
     }) as unknown as typeof window.matchMedia;
     TestBed.configureTestingModule({
-      providers: [{ provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' }],
+      providers: [
+        { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
+        provideRouter([]),
+      ],
     });
   });
 
@@ -114,22 +119,6 @@ describe('IncidentMapComponent', () => {
     ].map((n) => n.textContent?.trim());
     // 'going' sorts ahead of 'safe'; 'controlled' is absent so it is not keyed.
     expect(labels).toEqual(['Going', 'Safe']);
-    // Both fires here are bare points, so the 3-way key shows only the pin row (FIRE-AREA-6).
-    const shapes = legend?.querySelector('[data-testid=map-legend-shapes]')?.textContent ?? '';
-    expect(shapes).toBe('Pin = point only');
-  });
-
-  it('keys all three extent shapes when polygon, circle and pin fires are present', async () => {
-    const el = host(
-      await renderFallback([
-        { lat: 1, lng: 2, tone: 'going', name: 'Mapped', status: 'Going', perimeter: square(2, 1) },
-        { lat: 3, lng: 4, tone: 'safe', name: 'Estimate', status: 'Safe', areaHa: 100 },
-        { lat: 5, lng: 6, tone: 'neutral', name: 'Point', status: 'Resolved', areaHa: 0 },
-      ]),
-    );
-    const shapes = el.querySelector('[data-testid=map-legend-shapes]')?.textContent?.trim() ?? '';
-    // Fidelity order: polygon → circle → pin.
-    expect(shapes).toBe('Filled shape = mapped extent · Circle = area estimate · Pin = point only');
   });
 
   it('exposes a colour-independent label (name, status, area) in the region aria-label', async () => {
@@ -149,6 +138,93 @@ describe('IncidentMapComponent', () => {
     expect(label).toContain('Ridge Fire');
     expect(label).toContain('Going');
     expect(label).toContain('50,000 ha');
+  });
+
+  it('states incident level and Major in the colour-independent label so they are never colour-only', async () => {
+    const region = host(
+      await render([
+        {
+          lat: -37.8,
+          lng: 144.96,
+          tone: 'going',
+          name: 'Ridge Fire',
+          status: 'Going',
+          level: 3,
+          major: true,
+          areaHa: 4200,
+        },
+      ]),
+    ).querySelector('[role=region]');
+    const label = region?.getAttribute('aria-label') ?? '';
+    expect(label).toContain('Level 3');
+    expect(label).toContain('Major');
+  });
+
+  it('renders each marker as a named link and navigates on Enter (not Space)', async () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const el = host(
+      await render([
+        { id: 'fire-42', lat: 0, lng: 0, tone: 'going', name: 'Ridge', status: 'Going' },
+      ]),
+    );
+    const markerEl = el.querySelector('.fire-marker');
+    expect(markerEl).not.toBeNull();
+    expect(markerEl?.getAttribute('role')).toBe('link');
+    // Accessible name comes from aria-label (a divIcon is a <div>, so Leaflet's alt option does nothing).
+    expect(markerEl?.getAttribute('aria-label')).toContain('Ridge');
+    // Space must NOT activate a link (link semantics — Space scrolls); Enter does.
+    markerEl?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    expect(navSpy).not.toHaveBeenCalled();
+    markerEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(navSpy).toHaveBeenCalledWith(['/incidents', 'fire-42']);
+  });
+
+  it('does not link the marker when linkable is false (the detail page)', async () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(IncidentMapComponent);
+    fixture.componentRef.setInput('points', [
+      { id: 'fire-1', lat: 0, lng: 0, tone: 'going', name: 'X', status: 'Going' },
+    ]);
+    fixture.componentRef.setInput('linkable', false);
+    await fixture.whenStable();
+    const markerEl = host(fixture).querySelector('.fire-marker');
+    expect(markerEl?.getAttribute('role')).not.toBe('link');
+    markerEl?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(navSpy).not.toHaveBeenCalled();
+  });
+
+  it('pulses only the loud markers on the live map — going/major, not calm ones', async () => {
+    const el = host(
+      await render([
+        { id: 'a', lat: 0, lng: 0, tone: 'going', name: 'G', status: 'Going' },
+        { id: 'b', lat: 1, lng: 1, tone: 'contained', name: 'C', status: 'Contained' },
+      ]),
+    );
+    expect(el.querySelector('.fire-marker--going')?.classList.contains('fire-marker--pulse')).toBe(
+      true,
+    );
+    expect(
+      el.querySelector('.fire-marker--contained')?.classList.contains('fire-marker--pulse'),
+    ).toBe(false);
+  });
+
+  it('lists incident level and Major in the SVG fallback list text', async () => {
+    const fixture = await renderFallback([
+      {
+        lat: -37.8,
+        lng: 144.96,
+        tone: 'going',
+        name: 'Ridge Fire',
+        status: 'Going',
+        level: 2,
+        major: true,
+      },
+    ]);
+    const text = host(fixture).querySelector('[data-testid=map-fallback-list]')?.textContent ?? '';
+    expect(text).toContain('Level 2');
+    expect(text).toContain('Major');
   });
 
   it('renders an area-sized extent ring in the SVG fallback only when area is present', async () => {
@@ -308,5 +384,80 @@ describe('IncidentMapComponent', () => {
       },
     ]);
     expect(await findAxeViolations(host(fixture))).toEqual([]);
+  });
+});
+
+describe('planted marker symbology', () => {
+  it('builds the whole marker class string: base + tone + graduated level, plus major and pulse', () => {
+    expect(
+      markerClassName({ lat: 0, lng: 0, tone: 'going', name: 'A', level: 3, major: true }, true),
+    ).toBe(
+      'fire-marker fire-marker--going fire-marker--lvl3 fire-marker--major fire-marker--pulse',
+    );
+  });
+
+  it('defaults to the level-1 chip size and omits major/pulse when absent', () => {
+    expect(markerClassName({ lat: 0, lng: 0, tone: 'safe', name: 'B' }, false)).toBe(
+      'fire-marker fire-marker--safe fire-marker--lvl1',
+    );
+  });
+
+  it('renders a single cohesive SVG pin: a glyph nested in a tone-filled shape', () => {
+    const html = markerHtml({ lat: 0, lng: 0, tone: 'going', name: 'A' }, true);
+    expect(html).toContain('<svg class="fire-marker__pin"');
+    expect(html).toContain('fire-marker__pin-shape');
+    expect(html).toContain('<svg class="fire-marker__pin-glyph"');
+    expect(html).toContain('viewBox="0 -960 960 960"');
+    // The pin is one element — no detached chip/stem/ground from the earlier design.
+    expect(html).not.toContain('fire-marker__stem');
+    expect(html).not.toContain('fire-marker__ground');
+  });
+
+  it('places the pin tip at the bottom of its viewBox so the bottom anchor is exact at every level', () => {
+    // The box is bottom-anchored on the coordinate (MARKER_BOX_ANCHOR = box bottom), so the pin's tip must
+    // reach the viewBox bottom edge (y = 42 of "0 0 34 42") at the centre x (17) for the tip to land on it.
+    const html = markerHtml({ lat: 0, lng: 0, tone: 'going', name: 'A' }, false);
+    expect(html).toContain('viewBox="0 0 34 42"');
+    expect(html).toContain('L17 42');
+  });
+
+  it('includes the beacon-pulse ring only for the loud set', () => {
+    expect(markerHtml({ lat: 0, lng: 0, tone: 'going', name: 'A' }, true)).toContain(
+      'fire-marker__pulse',
+    );
+    expect(markerHtml({ lat: 0, lng: 0, tone: 'safe', name: 'B' }, false)).not.toContain(
+      'fire-marker__pulse',
+    );
+  });
+
+  it('reserves the pulse for going OR major fires and never for calm ones', () => {
+    expect(pulseTargets([{ lat: 1, lng: 1, tone: 'contained', name: 'C' }]).size).toBe(0);
+    expect(pulseTargets([{ lat: 1, lng: 1, tone: 'going', name: 'G' }]).size).toBe(1);
+    expect(pulseTargets([{ lat: 1, lng: 1, tone: 'safe', name: 'M', major: true }]).size).toBe(1);
+  });
+
+  it('caps the animated loud set so the overview never pulses hundreds of markers', () => {
+    const going = Array.from({ length: 20 }, (_, i) => ({
+      lat: 0,
+      lng: i,
+      tone: 'going' as const,
+      name: `G${i}`,
+    }));
+    expect(pulseTargets(going).size).toBe(16);
+  });
+
+  it('ranks Major fires ahead of merely-going ones when the cap bites', () => {
+    const going = Array.from({ length: 16 }, (_, i) => ({
+      lat: 0,
+      lng: i,
+      tone: 'going' as const,
+      name: `G${i}`,
+      level: 1,
+    }));
+    const major = { lat: 9, lng: 9, tone: 'safe' as const, name: 'Major', major: true };
+    const targets = pulseTargets([...going, major]);
+    expect(targets.size).toBe(16);
+    // The Major fire displaces a going one at the cap boundary.
+    expect(targets.has(major)).toBe(true);
   });
 });

@@ -134,14 +134,8 @@
         <h3 id="map-h" class="overview__panel-heading">
           Incident map<span class="overview__scope">{{ scopeSuffix() }}</span>
         </h3>
-        @if (significantCount()) {
-          <p class="overview__note overview__map-note">
-            Active incidents, plus the {{ significantCount() }} largest recent fire extents (filled
-            shapes) for geographic context.
-          </p>
-        }
         @defer (on viewport; prefetch on idle) {
-          <app-incident-map [points]="mapAllPoints()" />
+          <app-incident-map [points]="mapPoints()" />
         } @placeholder {
           <div data-testid="overview-map-placeholder" class="overview__map-placeholder">
             Map — scroll to load.

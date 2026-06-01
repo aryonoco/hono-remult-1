@@ -382,3 +382,7 @@ unstub
 
 # liveQuery SSE keep-alive — X-Accel-Buffering proxy header
 Accel
+
+# Map marker symbology — CSS/typography terms
+FOUT
+unlayered

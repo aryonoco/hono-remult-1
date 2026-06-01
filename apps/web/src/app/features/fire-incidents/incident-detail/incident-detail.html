@@ -164,7 +164,11 @@
           <section class="panel" aria-labelledby="detail-map-h">
             <h2 id="detail-map-h" class="section-title">Location</h2>
             @defer (on viewport; prefetch on idle) {
-              <app-incident-map [points]="detailMapPoints()" [locationDescription]="f.locationDescription" />
+              <app-incident-map
+                [points]="detailMapPoints()"
+                [linkable]="false"
+                [locationDescription]="f.locationDescription"
+              />
             } @placeholder {
               <div class="panel" data-testid="map-placeholder">Map — scroll to load.</div>
             }

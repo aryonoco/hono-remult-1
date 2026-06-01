@@ -231,35 +231,126 @@
 }
 
 @layer utilities {
-  // Leaflet `divIcon` map markers — a status-toned dot ringed in the themed surface so it reads on
-  // any tile. The per-tone fill comes from the fire-status tokens defined in tailwind.css.
+  // Leaflet `divIcon` markers — an ArcGIS-style "tag pin": one cohesive SVG pin (a rounded glyph head
+  // tapering to a pointer whose tip lands ON the coordinate), filled with the status tone and cased in the
+  // surface token so it reads on any basemap. Leaflet renders markers in its own overlay pane — outside any
+  // Angular component's encapsulated DOM — so these styles are global, mirroring the extent fills below.
+  // Tone drives `currentColor` (the pin fill); the glyph uses the surface token (the AA-guarded
+  // surface-on-tone pairing). Depth is token-only — a restrained `--mat-sys-shadow` drop-shadow shaped to
+  // the pin — and the whole pin is a link to the incident, so the cursor is a pointer.
   .fire-marker {
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    cursor: pointer;
   }
-  .fire-marker__dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 9999px;
-    border: 2px solid var(--mat-sys-surface);
+  .fire-marker--going {
+    color: var(--color-status-going);
   }
-  .fire-marker--going .fire-marker__dot {
-    background: var(--color-status-going);
+  .fire-marker--contained {
+    color: var(--color-status-contained);
   }
-  .fire-marker--contained .fire-marker__dot {
-    background: var(--color-status-contained);
+  .fire-marker--controlled {
+    color: var(--color-status-controlled);
   }
-  .fire-marker--controlled .fire-marker__dot {
-    background: var(--color-status-controlled);
+  .fire-marker--safe {
+    color: var(--color-status-safe);
   }
-  .fire-marker--safe .fire-marker__dot {
-    background: var(--color-status-safe);
+  .fire-marker--neutral {
+    color: var(--color-status-neutral);
   }
-  .fire-marker--neutral .fire-marker__dot {
-    background: var(--color-status-neutral);
+  .fire-marker--missing {
+    color: var(--color-status-missing);
   }
-  .fire-marker--missing .fire-marker__dot {
-    background: var(--color-status-missing);
+
+  // The pin SVG. Graduated in width by incident level (a pre-attentive, colour-independent severity
+  // channel); height follows the viewBox aspect ratio. `overflow: visible` lets the beacon pulse expand
+  // beyond the pin; the drop-shadow is shaped to the pin silhouette, not a box.
+  .fire-marker__pin {
+    inline-size: 1.875rem;
+    block-size: auto;
+    aspect-ratio: 34 / 42;
+    overflow: visible;
+    filter: drop-shadow(
+      0 0.125rem 0.125rem color-mix(in srgb, var(--mat-sys-shadow) 35%, transparent)
+    );
+  }
+  .fire-marker--lvl2 .fire-marker__pin {
+    inline-size: 2.125rem;
+  }
+  .fire-marker--lvl3 .fire-marker__pin {
+    inline-size: 2.375rem;
+  }
+
+  // The pin silhouette: tone fill, surface casing. `paint-order: stroke` puts the casing OUTSIDE the fill
+  // so it reads as a clean outline on any basemap; a round join keeps the tip clean. Major fires get a
+  // heavier casing — a non-colour escalation cue that reads even in greyscale.
+  .fire-marker__pin-shape {
+    fill: currentColor;
+    stroke: var(--mat-sys-surface);
+    stroke-width: 4;
+    stroke-linejoin: round;
+    paint-order: stroke;
+  }
+  .fire-marker--major .fire-marker__pin-shape {
+    stroke-width: 6;
+  }
+
+  // Glyph: an inline Material Symbols path nested in the head, surface-toned (the AA-guarded
+  // surface-on-tone pairing). No icon font is involved, so there is no unlayered font rule to fight.
+  .fire-marker__pin-glyph {
+    fill: var(--mat-sys-surface);
+  }
+
+  // Beacon pulse — going + Major only, capped in the component. An expanding, fading ring behind the head
+  // that says "live right now". Motion lives only under no-preference; reduced-motion users get a static
+  // halo (the W3C-recommended inverse pattern). aria-hidden decoration — status is the glyph + label.
+  .fire-marker__pulse {
+    fill: currentColor;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(1.15);
+    opacity: 0.3;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .fire-marker__pulse {
+      // Promote only the (capped) animated pulses to their own layer so the surrounding drop-shadowed pins
+      // are not re-rastered each frame; the static pins pay nothing.
+      will-change: transform, opacity;
+      animation: fire-beacon 2.2s ease-out infinite;
+    }
+  }
+  @keyframes fire-beacon {
+    0% {
+      transform: scale(0.5);
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  // Keyboard focus: the focusable host is Leaflet's marker div (`.fire-marker`). Draw the app focus-ring on
+  // the pin's box — a clear double ring, consistent with the rest of the app.
+  .fire-marker:focus-visible {
+    outline: none;
+  }
+  .fire-marker:focus-visible .fire-marker__pin {
+    border-radius: 0.375rem;
+    box-shadow: var(--app-focus-ring);
+  }
+  // Hover/focus lift — a subtle raise reinforcing the pin's depth; motion-gated. The resting state is
+  // already a grounded pin, so reduced-motion loses nothing.
+  @media (prefers-reduced-motion: no-preference) {
+    .fire-marker__pin {
+      transition: transform 120ms ease;
+    }
+    .fire-marker:hover .fire-marker__pin,
+    .fire-marker:focus-visible .fire-marker__pin {
+      transform: translateY(-0.125rem);
+    }
   }
 
   // Leaflet `L.circle` extent overlays (FIRE-AREA-4). Leaflet renders the circle as an SVG `<path>` in
