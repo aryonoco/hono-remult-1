@@ -1,5 +1,35 @@
 # Handoff to the next agent — Fire-incidents redesign (branch `feat/fire-incidents-tactical-redesign`)
 
+> ## 🔧 IN-FLIGHT (updated 2026-06-01, session 3) — CSS modernisation running; read before acting
+> HEAD was clean at **`75c276e`** when the **CSS/SCSS modernisation workflow was launched** (run
+> `wf_45f5112f-c97`, task `wuxwb1nsd`, via `Workflow({name:'css-modernisation'})`). The workflow agents
+> **EDIT styling files only — they do NOT commit.** While it runs, do NOT launch another workflow or edit/commit
+> styling files (git-index + file races). If you are resuming and it is no longer running, check
+> `git status` for its uncommitted edits and `/workflows` (run `wf_45f5112f-c97`) for results.
+>
+> **A deterministic appearance-equality gate is set up** (this is the proof that the refactor preserves exact
+> pixels — do NOT skip it):
+> - Harness: `/tmp/pwcap/` (`capture.mjs` + `diff.mjs`, using `playwright-core` + the bundled Chromium at
+>   `/ms-playwright/chromium-1223/chrome-linux/chrome`). Run with `MISE_BUN_VERSION=1.3.14 bun …` (mise has no
+>   bun pinned outside the repo). If `/tmp` was wiped, re-create: `cd /tmp/pwcap && echo '{}' > package.json &&
+>   MISE_BUN_VERSION=1.3.14 bun add playwright-core` then re-author the two scripts (design below).
+> - It captures, per **route × theme × width** (overview/incidents/detail[Bairnsdale `50a5abbd-…`]/new ×
+>   light+dark × 1320, plus light×390), each element's **bounding rect + paint props** (colour/border/radius/
+>   shadow/font/outline) — deliberately NOT margin/padding/gap, so legitimate refactors (px→rem, physical→logical,
+>   margin→gap) yield ZERO diff while any real pixel shift (incl. a `clamp()` that diverges at 390px) is caught.
+> - The **wall clock is frozen** (`page.clock.setFixedTime('2026-06-01T03:30:00Z')`) so cadence chips / relative
+>   times are byte-identical across runs. **Verified noise floor = 0 diffs** across all 12 captures (baseline vs
+>   a second baseline, same code). Trusted baseline lives at **`/tmp/css-baseline/`**.
+> - **VERIFY PROTOCOL after the workflow returns:** (a) restart `bunx nx serve web` (global SCSS changed —
+>   component TS/HTML hot-reloads but styles.scss/tailwind.css need a restart); (b)
+>   `cd /tmp/pwcap && MISE_BUN_VERSION=1.3.14 bun capture.mjs /tmp/css-after` then
+>   `… bun diff.mjs /tmp/css-baseline /tmp/css-after` → **expect 0 real appearance diffs**; investigate EVERY
+>   non-zero diff (a legit refactor should produce none — a diff means a regression to fix or revert). (c) run
+>   `bun run check:ci` + `bunx nx test web` + the AA guard `apps/web/src/app/shared/ui/rose-pine-contrast.spec.ts`;
+>   (d) fix any workflow `needsWork` area + any appearance diff; (e) commit (per area or one cohesive
+>   `style: modernise … (CSS-1..6)` commit) — Linux-kernel msg, NO AI attribution; (f) tick CSS-1..6 + log in the
+>   tracker. THEN proceed to FIRE-AREA-7, then the finish steps.
+>
 > ## ⚡ CURRENT STATUS (updated 2026-06-01, session 2) — read this first
 > Since this doc was first written, **FIXTURES, FORMS and SCOPE are now genuinely DONE, committed and
 > browser-verified** (see the tracker's Verified-fixed log; commits `f5d66aa`→`e65897a`). Also fixed: the
