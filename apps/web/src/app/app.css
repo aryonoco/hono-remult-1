@@ -32,11 +32,15 @@
   border-bottom: var(--app-grid-border);
 }
 
-/* Tighten the app-bar gap on small screens so the dev-user switcher and theme toggle fit without
-   truncation at handset widths (~390px). */
+/* Tighten the app-bar gap on small screens, and drop the "Fire Incidents" wordmark (the fire logo
+   still identifies the app), so the dev-user switcher and theme toggle fit without truncation or
+   horizontal overflow at handset widths (~390px). */
 @media (max-width: 512px) {
   .appbar {
     gap: 0.5rem;
+  }
+  .appbar__title {
+    display: none;
   }
 }
 
