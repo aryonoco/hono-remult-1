@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import {
   FIRE_STATUS_LABELS,
   FIRE_STATUS_VALUES,
@@ -16,7 +17,7 @@ async function renderSpan(status: FireStatus): Promise<HTMLSpanElement> {
 
 describe('StatusBadgeComponent', () => {
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
   });
 
   it('renders the label plus the tone surface/text classes for a status', async () => {
@@ -34,5 +35,30 @@ describe('StatusBadgeComponent', () => {
       expect(span.textContent?.trim()).toBe(FIRE_STATUS_LABELS[status]);
       expect(span.classList.contains(`bg-status-${statusTone(status)}-bg`)).toBe(true);
     });
+  });
+
+  it('defaults to a span (no anchor) when link is omitted', async () => {
+    const span = await renderSpan(FireStatus.going);
+    expect(span).not.toBeNull();
+    const host = span.parentElement as HTMLElement;
+    expect(host.querySelector('a')).toBeNull();
+  });
+
+  it('renders an anchor with the tone classes, routerLink and queryParams when link is set', async () => {
+    const fixture = TestBed.createComponent(StatusBadgeComponent);
+    fixture.componentRef.setInput('status', FireStatus.going);
+    fixture.componentRef.setInput('link', '/incidents');
+    fixture.componentRef.setInput('queryParams', { tone: 'going' });
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('span')).toBeNull();
+    const anchor = host.querySelector('a') as HTMLAnchorElement;
+    expect(anchor).not.toBeNull();
+    expect(anchor.textContent?.trim()).toBe(FIRE_STATUS_LABELS.going);
+    expect(anchor.getAttribute('href')).toBe('/incidents?tone=going');
+    const tone = statusTone(FireStatus.going);
+    expect(anchor.classList.contains(`bg-status-${tone}-bg`)).toBe(true);
+    expect(anchor.classList.contains(`text-status-${tone}`)).toBe(true);
   });
 });

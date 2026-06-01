@@ -20,3 +20,15 @@ export const STATUS_TONES: Readonly<Record<FireStatus, StatusTone>> = {
 export function statusTone(status: FireStatus): StatusTone {
   return STATUS_TONES[status];
 }
+
+// Human-readable label for each visual tone — the single source of truth shared by the UI (the status
+// mix bar legend, tone drill-in links). Framework-free, mirroring STATUS_TONES. The neutral tone reads
+// as "Resolved" and the missing tone as "Not found" since those are how operators speak of them.
+export const STATUS_TONE_LABELS: Readonly<Record<StatusTone, string>> = {
+  going: 'Going',
+  contained: 'Contained',
+  controlled: 'Under control',
+  safe: 'Safe',
+  neutral: 'Resolved',
+  missing: 'Not found',
+};
