@@ -112,12 +112,13 @@
         // outlines
         outline: light-dark(hsl(248 12% 52%), hsl(249 12% 47%)), // component 1.4.11 (4.02 / 3.03)
         outline-variant: light-dark(hsl(10 9% 86%), hsl(247 16% 30%)), // decorative
-        // primary = iris
-        primary: light-dark(hsl(268 21% 52%), hsl(267 57% 78%)), // on-primary 4.60 / 7.47
+        // primary = iris. Dawn L=50% (was 52%) so iris-as-text — outlined/text-button labels and links —
+        // clears AA on surface (4.85, was 4.46); on-primary improves to 5.00. Moon unchanged (7.47).
+        primary: light-dark(hsl(268 21% 50%), hsl(267 57% 78%)), // primary-on-surface 4.85 / on-primary 5.00
         on-primary: light-dark(hsl(0 0% 100%), hsl(246 24% 17%)),
         primary-container: light-dark(hsl(268 30% 88%), hsl(267 26% 34%)),
         on-primary-container: light-dark(hsl(268 30% 30%), hsl(267 57% 88%)),
-        inverse-primary: light-dark(hsl(267 57% 78%), hsl(268 21% 52%)),
+        inverse-primary: light-dark(hsl(267 57% 78%), hsl(268 21% 50%)),
         // secondary = foam
         secondary: light-dark(hsl(189 30% 40%), hsl(189 43% 73%)),
         on-secondary: light-dark(hsl(0 0% 100%), hsl(246 24% 17%)),

@@ -17,7 +17,10 @@ const SURFACE: Pair = ['hsl(32 57% 95%)', 'hsl(246 24% 17%)'];
 const TEXT_PAIRS: ReadonlyArray<readonly [string, Pair, Pair]> = [
   ['on-surface', ['hsl(248 19% 40%)', 'hsl(245 50% 91%)'], SURFACE],
   ['on-surface-variant', ['hsl(248 12% 48%)', 'hsl(248 15% 61%)'], SURFACE],
-  ['on-primary', ['hsl(0 0% 100%)', 'hsl(246 24% 17%)'], ['hsl(268 21% 52%)', 'hsl(267 57% 78%)']],
+  ['on-primary', ['hsl(0 0% 100%)', 'hsl(246 24% 17%)'], ['hsl(268 21% 50%)', 'hsl(267 57% 78%)']],
+  // primary used AS TEXT on the page surface — outlined/text-button labels, links. Dawn iris is
+  // tuned to L=50% so this clears AA (4.5+) and never silently regresses below it again.
+  ['primary (label/link on surface)', ['hsl(268 21% 50%)', 'hsl(267 57% 78%)'], SURFACE],
   [
     'on-secondary',
     ['hsl(0 0% 100%)', 'hsl(246 24% 17%)'],

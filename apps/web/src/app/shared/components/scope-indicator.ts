@@ -37,7 +37,9 @@ import { currentScope } from '../auth/scope';
       border: 1px solid var(--mat-sys-outline-variant);
       border-radius: 999px;
       background: var(--mat-sys-surface-container-high);
-      color: var(--mat-sys-on-surface-variant);
+      /* Full-emphasis on-surface (not the muted variant): on surface-container-high the variant text
+         drops to ~4.2:1 (light) / 3.7:1 (dark) — below AA — for the district badge. */
+      color: var(--mat-sys-on-surface);
       font-family: var(--font-sans);
       font-size: 0.8125rem;
       font-weight: 600;
