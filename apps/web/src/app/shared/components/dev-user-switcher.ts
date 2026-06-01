@@ -14,7 +14,7 @@ import { DevAuthService } from '../../core/dev-auth.service';
   imports: [MatFormFieldModule, MatSelectModule],
   template: `
     <div class="flex items-center gap-2 text-xs">
-      <mat-form-field subscriptSizing="dynamic" class="switcher">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="switcher">
         <mat-select
           aria-label="Dev user"
           [value]="selectedUserId()"
