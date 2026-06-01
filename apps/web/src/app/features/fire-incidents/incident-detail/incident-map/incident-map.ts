@@ -273,7 +273,7 @@ function projectRing(
     :host { display: block; }
     .incident-map__canvas, .incident-map__svg { display: block; width: 100%; height: 14rem; border-radius: var(--app-radius-card); border: 1px solid var(--mat-sys-outline); }
     .incident-map__canvas { outline: none; }
-    .incident-map__canvas:focus-visible { outline: 3px solid var(--mat-sys-secondary); outline-offset: 3px; }
+    .incident-map__canvas:focus-visible { outline: 0.1875rem solid var(--mat-sys-secondary); outline-offset: 0.1875rem; }
     .incident-map__svg { background: var(--mat-sys-surface-container-low); }
     .map-dot.bg-status-going { fill: var(--color-status-going); } .map-dot.bg-status-contained { fill: var(--color-status-contained); }
     .map-dot.bg-status-controlled { fill: var(--color-status-controlled); } .map-dot.bg-status-safe { fill: var(--color-status-safe); }
@@ -282,15 +282,15 @@ function projectRing(
     .map-area.bg-status-going, .map-extent.bg-status-going { fill: var(--color-status-going); stroke: var(--color-status-going); } .map-area.bg-status-contained, .map-extent.bg-status-contained { fill: var(--color-status-contained); stroke: var(--color-status-contained); }
     .map-area.bg-status-controlled, .map-extent.bg-status-controlled { fill: var(--color-status-controlled); stroke: var(--color-status-controlled); } .map-area.bg-status-safe, .map-extent.bg-status-safe { fill: var(--color-status-safe); stroke: var(--color-status-safe); }
     .map-area.bg-status-neutral, .map-extent.bg-status-neutral { fill: var(--color-status-neutral); stroke: var(--color-status-neutral); } .map-area.bg-status-missing, .map-extent.bg-status-missing { fill: var(--color-status-missing); stroke: var(--color-status-missing); }
-    .incident-map__note { margin: .5rem 0 0; font-size: .8125rem; color: var(--mat-sys-on-surface-variant); }
-    .incident-map__fallback-list { margin: .375rem 0 0; padding-left: 1.1rem; font-size: .8125rem; color: var(--mat-sys-on-surface-variant); }
-    .incident-map__fallback-list li { padding: .0625rem 0; }
-    .incident-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: .625rem 0 0; }
+    .incident-map__note { margin-block: .5rem 0; font-size: .8125rem; color: var(--mat-sys-on-surface-variant); }
+    .incident-map__fallback-list { margin-block: .375rem 0; padding-inline-start: 1.1rem; font-size: .8125rem; color: var(--mat-sys-on-surface-variant); }
+    .incident-map__fallback-list li { padding-block: .0625rem; }
+    .incident-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin-block: .625rem 0; }
     .incident-map__legend-tones { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: 0; padding: 0; list-style: none; }
     .incident-map__legend-item { display: inline-flex; align-items: center; gap: .375rem; font-size: .8125rem; color: var(--mat-sys-on-surface); }
-    .incident-map__swatch { width: .75rem; height: .75rem; border-radius: 3px; border: 1px solid var(--mat-sys-outline); flex: none; }
+    .incident-map__swatch { width: .75rem; height: .75rem; border-radius: 0.1875rem; border: 1px solid var(--mat-sys-outline); flex: none; }
     .incident-map__legend-shapes { flex-basis: 100%; margin: 0; font-size: .75rem; color: var(--mat-sys-on-surface-variant); }
-    .incident-map__coords { display: grid; grid-template-columns: auto 1fr; gap: .125rem 1rem; margin: .75rem 0 0; font-size: .8125rem; }
+    .incident-map__coords { display: grid; grid-template-columns: auto 1fr; gap: .125rem 1rem; margin-block: .75rem 0; font-size: .8125rem; }
     .incident-map__coords dt { color: var(--mat-sys-on-surface-variant); }
     /* Map empty state (DETAIL-4): a polished status panel mirroring the detail page's .panel--empty —
        a centred dashed-hairline placeholder with a muted glyph and copy, announced as role="status". */

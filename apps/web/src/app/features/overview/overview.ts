@@ -120,12 +120,13 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
     }
 
     .overview__title {
-      margin: 0;
+      margin-block: 0;
+      margin-inline: 0;
       font-family: var(--font-display);
       font-size: 1.75rem;
       font-weight: 800;
       letter-spacing: -0.01em;
-      scroll-margin-top: 5rem;
+      scroll-margin-block-start: 5rem;
     }
 
     .overview__section {
@@ -136,7 +137,7 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
     }
 
     .overview__section + .overview__section {
-      margin-top: 1.5rem;
+      margin-block-start: 1.5rem;
     }
 
     .overview__section-head {
@@ -147,7 +148,8 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
     }
 
     .overview__heading {
-      margin: 0;
+      margin-block: 0;
+      margin-inline: 0;
       font-family: var(--font-display);
       font-size: 1.125rem;
       font-weight: 700;
@@ -215,7 +217,8 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
     }
 
     .overview__panel {
-      padding: 1rem 1.25rem;
+      padding-block: 1rem;
+      padding-inline: 1.25rem;
       border: var(--app-grid-border);
       border-radius: var(--app-radius-card);
       background: var(--mat-sys-surface-container-low);
@@ -223,7 +226,8 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
     }
 
     .overview__panel-heading {
-      margin: 0 0 0.75rem;
+      margin-block: 0 0.75rem;
+      margin-inline: 0;
       font-size: 0.8125rem;
       font-weight: 600;
       letter-spacing: 0.04em;
@@ -246,8 +250,10 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       display: flex;
       flex-direction: column;
       gap: 0.375rem;
-      margin: 0;
-      padding: 0;
+      margin-block: 0;
+      margin-inline: 0;
+      padding-block: 0;
+      padding-inline: 0;
       list-style: none;
     }
 
@@ -255,7 +261,8 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.5rem 0.625rem;
+      padding-block: 0.5rem;
+      padding-inline: 0.625rem;
       border-radius: var(--app-radius-card);
       color: inherit;
       text-decoration: none;
@@ -274,7 +281,7 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       display: flex;
       flex-direction: column;
       min-width: 0;
-      margin-right: auto;
+      margin-inline-end: auto;
     }
 
     .overview__row-name {
@@ -293,7 +300,8 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
     }
 
     .overview__note {
-      margin: 0;
+      margin-block: 0;
+      margin-inline: 0;
       font-size: 0.875rem;
       color: var(--mat-sys-on-surface-variant);
     }
@@ -304,8 +312,9 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-      margin-top: 0.75rem;
-      padding: 0.375rem 0.625rem;
+      margin-block-start: 0.75rem;
+      padding-block: 0.375rem;
+      padding-inline: 0.625rem;
       border-radius: var(--app-radius-card);
       background: var(--color-status-contained-bg);
       color: var(--color-status-contained);
@@ -340,7 +349,8 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       display: flex;
       flex-direction: column;
       gap: 0.375rem;
-      margin: 0;
+      margin-block: 0;
+      margin-inline: 0;
     }
 
     .overview__rollup-row {
@@ -348,12 +358,13 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       align-items: baseline;
       justify-content: space-between;
       gap: 1rem;
-      padding: 0.25rem 0;
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
+      padding-block: 0.25rem;
+      padding-inline: 0;
+      border-block-end: 1px solid var(--mat-sys-outline-variant);
     }
 
     .overview__rollup-row:last-child {
-      border-bottom: none;
+      border-block-end: none;
     }
 
     .overview__rollup dt {

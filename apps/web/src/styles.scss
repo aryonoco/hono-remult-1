@@ -63,7 +63,10 @@
   :root {
     --app-grid-border: 1px solid var(--mat-sys-outline-variant);
     --app-focus-ring: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px var(--mat-sys-primary);
-    --app-radius-card: 0.5rem;
+    /* Track the single source of truth for the squared card radius (`--radius-card`,
+       defined in tailwind.css `@theme`) instead of duplicating the literal, so Material
+       overrides and app chrome stay in lock-step. Same computed value (0.5rem). */
+    --app-radius-card: var(--radius-card);
     --app-space-section: 1.5rem;
   }
 }

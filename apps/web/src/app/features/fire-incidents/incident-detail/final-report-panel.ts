@@ -35,7 +35,7 @@ import {
             class="inline-flex items-center gap-1 rounded-md border bg-status-safe-bg px-2 py-0.5 text-xs font-semibold text-status-safe"
             [style.border-color]="safeBorder"
           >
-            <mat-icon class="h-4! w-4! text-[1rem]!" aria-hidden="true">verified</mat-icon>
+            <mat-icon class="badge-icon" aria-hidden="true">verified</mat-icon>
             Signed off by {{ signedOffByName() }} · {{ r.signedOffAt | date: 'dd/MM/yy, HH:mm' }}
           </span>
         } @else if (r.signOffRemovedBy) {
@@ -43,7 +43,7 @@ import {
             class="inline-flex items-center gap-1 rounded-md border bg-status-neutral-bg px-2 py-0.5 text-xs font-semibold text-status-neutral"
             [style.border-color]="neutralBorder"
           >
-            <mat-icon class="h-4! w-4! text-[1rem]!" aria-hidden="true">lock_open</mat-icon>
+            <mat-icon class="badge-icon" aria-hidden="true">lock_open</mat-icon>
             Sign-off removed by {{ signOffRemovedByName() }}
             @if (r.signOffRemovedAt) {
               · {{ r.signOffRemovedAt | date: 'dd/MM/yy, HH:mm' }}
@@ -166,6 +166,18 @@ import {
         }
       </div>
     </mat-card>
+  `,
+  // Shrink the decorative sign-off badge icons to match the 0.75rem badge text (Material's default
+  // mat-icon is 1.5rem). A scoped single-class selector carries enough specificity through Angular's
+  // view encapsulation to win over Material's component CSS — no !important needed (the same approach
+  // scope-indicator uses). Logical inline-/block-size keep it RTL-safe; matches the former
+  // h-4!/w-4!/text-[1rem]! exactly (all 1rem).
+  styles: `
+    .badge-icon {
+      inline-size: 1rem;
+      block-size: 1rem;
+      font-size: 1rem;
+    }
   `,
 })
 export class FinalReportPanelComponent {

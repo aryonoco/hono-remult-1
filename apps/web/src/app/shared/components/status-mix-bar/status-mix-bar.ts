@@ -47,7 +47,7 @@ const PERCENT: number = 100;
         <div class="flex items-center gap-1.5">
           <span class="h-3 w-3 rounded-sm" [class]="s.class" aria-hidden="true"></span>
           <dt>{{ s.label }}</dt>
-          <dd class="ml-auto font-mono text-on-surface">{{ s.count }}</dd>
+          <dd class="ms-auto font-mono text-on-surface">{{ s.count }}</dd>
         </div>
       }
     </dl>

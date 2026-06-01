@@ -118,7 +118,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
 
     .panel {
       margin: 0;
-      padding: 1.25rem 1.5rem;
+      padding-block: 1.25rem;
+      padding-inline: 1.5rem;
       border: var(--app-grid-border);
       border-radius: var(--app-radius-card);
       background: var(--mat-sys-surface-container-low);
@@ -137,7 +138,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       flex-direction: column;
       align-items: center;
       gap: 0.5rem;
-      padding: 2rem 1.5rem;
+      padding-block: 2rem;
+      padding-inline: 1.5rem;
       border-style: dashed;
       background: var(--mat-sys-surface-container-low);
       color: var(--mat-sys-on-surface-variant);
@@ -145,8 +147,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .panel--empty mat-icon {
-      width: 2rem;
-      height: 2rem;
+      inline-size: 2rem;
+      block-size: 2rem;
       font-size: 2rem;
       opacity: 0.7;
     }
@@ -171,7 +173,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       font-weight: 800;
       letter-spacing: -0.01em;
       outline: none;
-      scroll-margin-top: 4rem;
+      scroll-margin-block-start: 4rem;
     }
 
     /* The title is the route-change focus target (tabindex="-1"). Keep it ring-free on a pointer/landing
@@ -190,7 +192,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       align-items: center;
       justify-content: space-between;
       gap: 1rem 1.5rem;
-      padding: 1rem 1.5rem;
+      padding-block: 1rem;
+      padding-inline: 1.5rem;
       border-radius: var(--app-radius-card);
       background: var(--mat-sys-surface-container-high);
       color: var(--mat-sys-on-surface);
@@ -251,8 +254,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .detail-hero__major mat-icon {
-      width: 1.125rem;
-      height: 1.125rem;
+      inline-size: 1.125rem;
+      block-size: 1.125rem;
       font-size: 1.125rem;
     }
 
@@ -279,7 +282,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .detail-hero__cell dd {
-      margin: 0.125rem 0 0;
+      margin-block: 0.125rem 0;
       font-size: 0.9375rem;
       font-weight: 600;
     }
@@ -294,7 +297,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-      padding: 0.25rem 0.625rem;
+      padding-block: 0.25rem;
+      padding-inline: 0.625rem;
       border-radius: var(--app-radius-card);
       border: 1px solid color-mix(in srgb, var(--mat-sys-surface) 35%, transparent);
       font-weight: 700;
@@ -302,8 +306,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .detail-hero__cadence mat-icon {
-      width: 1.125rem;
-      height: 1.125rem;
+      inline-size: 1.125rem;
+      block-size: 1.125rem;
       font-size: 1.125rem;
     }
 
@@ -332,7 +336,8 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .stat {
-      padding: 0.75rem 0.875rem;
+      padding-block: 0.75rem;
+      padding-inline: 0.875rem;
       border: var(--app-grid-border);
       border-radius: var(--app-radius-card);
       background: var(--mat-sys-surface-container);
@@ -357,7 +362,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .stat dd {
-      margin: 0.25rem 0 0;
+      margin-block: 0.25rem 0;
       font-size: 1.375rem;
       font-weight: 600;
       line-height: 1.1;
@@ -371,7 +376,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
 
     .stat__none {
       display: block;
-      margin-top: 0.25rem;
+      margin-block-start: 0.25rem;
       font-size: 0.6875rem;
       font-weight: 500;
       color: var(--mat-sys-on-surface-variant);
@@ -389,9 +394,9 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
       gap: 0.75rem 1.5rem;
-      margin: 1.25rem 0 0;
-      padding-top: 1rem;
-      border-top: var(--app-grid-border);
+      margin-block: 1.25rem 0;
+      padding-block-start: 1rem;
+      border-block-start: var(--app-grid-border);
     }
 
     .metric dt {
@@ -403,7 +408,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .metric dd {
-      margin: 0.125rem 0 0;
+      margin-block: 0.125rem 0;
       font-size: 0.9375rem;
     }
 
@@ -417,9 +422,9 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       flex-wrap: wrap;
       align-items: center;
       gap: 0.5rem;
-      margin-top: 1.25rem;
-      padding-top: 1rem;
-      border-top: var(--app-grid-border);
+      margin-block-start: 1.25rem;
+      padding-block-start: 1rem;
+      border-block-start: var(--app-grid-border);
     }
 
     .detail-actions__spacer {
@@ -432,7 +437,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     }
 
     .section-title {
-      margin: 0 0 0.625rem;
+      margin-block: 0 0.625rem;
       font-size: 1.125rem;
       font-weight: 600;
     }
@@ -463,7 +468,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
 
     /* Mobile (DETAIL-6/8): stack the hero, tighten the page rhythm and section paddings so the layout is
        not desktop-first padded at handset widths. */
-    @media (max-width: 640px) {
+    @media (max-width: 40rem) {
       .detail {
         gap: 1rem;
       }
@@ -471,15 +476,17 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       .detail-hero {
         flex-direction: column;
         align-items: stretch;
-        padding: 0.875rem 1rem;
+        padding-block: 0.875rem;
+        padding-inline: 1rem;
       }
 
       .panel {
-        padding: 1rem 1.125rem;
+        padding-block: 1rem;
+        padding-inline: 1.125rem;
       }
 
       .metrics {
-        margin-top: 1rem;
+        margin-block-start: 1rem;
       }
 
       .detail-grid {
@@ -489,7 +496,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
 
     /* Handset (DETAIL-7): force a tidy two-up stat grid and trim the readout size so the tiles do not
        oversize on a narrow viewport. */
-    @media (max-width: 480px) {
+    @media (max-width: 30rem) {
       .detail-stats {
         grid-template-columns: 1fr 1fr;
       }

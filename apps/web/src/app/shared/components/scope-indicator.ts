@@ -63,8 +63,8 @@ import { currentScope } from '../auth/scope';
     /* The "Scope:" prefix orients screen-reader users without adding visual noise. */
     .scope__prefix {
       position: absolute;
-      width: 1px;
-      height: 1px;
+      inline-size: 1px;
+      block-size: 1px;
       padding: 0;
       margin: -1px;
       overflow: hidden;

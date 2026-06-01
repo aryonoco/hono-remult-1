@@ -151,7 +151,7 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
        of the band when scrolled into view. */
     .actions {
       position: sticky;
-      bottom: 0;
+      inset-block-end: 0;
       z-index: 5;
       display: flex;
       align-items: center;
@@ -161,7 +161,7 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
          flush against them. */
       padding-block: 0.875rem;
       padding-inline: 1.25rem;
-      scroll-margin-bottom: 5rem;
+      scroll-margin-block-end: 5rem;
       background: var(--mat-sys-surface-container-low);
       border: 1px solid var(--mat-sys-outline-variant);
       border-radius: var(--app-radius-card);

@@ -7,35 +7,36 @@
 /* Keyboard skip link — themed (was hard-coded white, invisible in dark mode). */
 .skip-link {
   position: absolute;
-  left: 0.5rem;
-  top: -3rem;
+  inset-inline-start: 0.5rem;
+  inset-block-start: -3rem;
   z-index: 100;
-  padding: 0.5rem 0.75rem;
+  padding-block: 0.5rem;
+  padding-inline: 0.75rem;
   border-radius: var(--app-radius-card);
   background: var(--mat-sys-primary);
   color: var(--mat-sys-on-primary);
   font-weight: 600;
-  transition: top 120ms ease;
+  transition: inset-block-start 120ms ease;
 }
 .skip-link:focus {
-  top: 0.5rem;
+  inset-block-start: 0.5rem;
 }
 
 /* ── App bar ─────────────────────────────────────────────────────────────── */
 .appbar {
   position: sticky;
-  top: 0;
+  inset-block-start: 0;
   z-index: 10;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border-bottom: var(--app-grid-border);
+  border-block-end: var(--app-grid-border);
 }
 
 /* Tighten the app-bar gap on small screens, and drop the "Fire Incidents" wordmark (the fire logo
    still identifies the app), so the dev-user switcher and theme toggle fit without truncation or
    horizontal overflow at handset widths (~390px). */
-@media (max-width: 512px) {
+@media (width <= 32rem) {
   .appbar {
     gap: 0.5rem;
   }
@@ -74,17 +75,19 @@
   display: flex;
   flex-direction: column;
   width: 15rem;
-  border-right: var(--app-grid-border);
+  border-inline-end: var(--app-grid-border);
   background: var(--mat-sys-surface-container-low);
 }
 
 .nav {
   flex: 1 1 auto;
-  padding: 0.25rem 0.5rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
 }
 
 .nav__section {
-  margin: 0.75rem 0.75rem 0.25rem;
+  margin-block: 0.75rem 0.25rem;
+  margin-inline: 0.75rem;
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -102,8 +105,9 @@
   align-items: center;
   gap: 0.625rem;
   margin: 0.5rem;
-  padding: 0.625rem 0.75rem;
-  border-top: var(--app-grid-border);
+  padding-block: 0.625rem;
+  padding-inline: 0.75rem;
+  border-block-start: var(--app-grid-border);
 }
 
 .userchip__avatar {
@@ -145,10 +149,11 @@
 
 /* ── Content column ──────────────────────────────────────────────────────── */
 .main {
-  padding: 1.25rem clamp(1rem, 4vw, 2rem) 3rem;
+  padding-block: 1.25rem 3rem;
+  padding-inline: clamp(1rem, 4vw, 2rem);
   outline: none;
   /* SC 2.4.11: keep the programmatic focus target clear of the sticky app bar when scrolled into view. */
-  scroll-margin-top: 4rem;
+  scroll-margin-block-start: 4rem;
 }
 
 .content {

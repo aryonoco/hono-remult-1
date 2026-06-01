@@ -163,14 +163,14 @@ function nextDueEvent(fire: FireIncident, now: Date): TimelineEvent | null {
   styles: [
     `
     .incident-timeline { list-style: none; margin: 0; padding: 0; }
-    .incident-timeline li { display: grid; grid-template-columns: auto 1fr auto; gap: .75rem; padding: .55rem 0; position: relative; }
-    .incident-timeline li:not(:last-child)::before { content: ''; position: absolute; left: 6px; top: 1.4rem; bottom: -.55rem; width: 2px; background: var(--mat-sys-outline-variant); }
-    .incident-timeline__dot { width: 14px; height: 14px; margin-top: .2rem; border-radius: 9999px; border: 2px solid var(--mat-sys-surface); z-index: 1; }
+    .incident-timeline li { display: grid; grid-template-columns: auto 1fr auto; gap: .75rem; padding-block: .55rem; position: relative; }
+    .incident-timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 6px; inset-block: 1.4rem -.55rem; inline-size: 2px; background: var(--mat-sys-outline-variant); }
+    .incident-timeline__dot { inline-size: 14px; block-size: 14px; margin-block-start: .2rem; border-radius: 50%; border: 2px solid var(--mat-sys-surface); z-index: 1; }
     .incident-timeline__label { font-weight: 600; display: inline-flex; align-items: center; gap: .5rem; }
     .incident-timeline__detail { display: block; font-size: .8125rem; color: var(--mat-sys-on-surface-variant); }
     .incident-timeline__time { font-size: .8125rem; color: var(--mat-sys-on-surface-variant); white-space: nowrap; }
     .is-overdue .incident-timeline__time { color: var(--color-status-going); }
-    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
   `,
   ],
 })

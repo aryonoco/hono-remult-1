@@ -50,8 +50,9 @@ import { DevAuthService } from '../../core/dev-auth.service';
     }
 
     /* On handset widths shrink the switcher so it and the theme toggle both fit the app bar at ~390px
-       without truncating. */
-    @media (max-width: 640px) {
+       without truncating. 40rem is Tailwind's sm breakpoint (640px at the default 16px root); using rem
+       lets the guard scale with the user's root font size. */
+    @media (max-width: 40rem) {
       .switcher {
         width: 10rem;
         max-width: 40vw;

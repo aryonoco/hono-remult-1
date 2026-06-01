@@ -274,7 +274,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
     .cell .datetime,
     .cell app-datetime-field {
       display: block;
-      width: 100%;
+      inline-size: 100%;
     }
 
     @container (min-width: 30rem) {
@@ -340,7 +340,8 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
         gap: 2rem;
       }
       .section {
-        padding: 1.5rem 1.75rem;
+        padding-block: 1.5rem;
+        padding-inline: 1.75rem;
       }
       .grid {
         column-gap: 1.5rem;
@@ -359,7 +360,8 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
         gap: 0.75rem;
       }
       .section {
-        padding: 0.875rem 1rem;
+        padding-block: 0.875rem;
+        padding-inline: 1rem;
       }
       .grid {
         column-gap: 0.875rem;
