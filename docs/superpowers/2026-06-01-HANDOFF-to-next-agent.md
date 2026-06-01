@@ -1,23 +1,33 @@
 # Handoff to the next agent — Fire-incidents redesign (branch `feat/fire-incidents-tactical-redesign`)
 
-> ## ✅ SESSION 3 (2026-06-01) — CSS modernisation + FIRE-AREA-7 DONE; only the FINISH step remains
-> **CSS-1..6 complete** (`c3e5596`; workflow hardening `75c276e`; in-flight doc `e2e21d3`) — 14 styling files
-> modernised via the `css-modernisation` Workflow (run `wf_45f5112f-c97`), **proven appearance byte-identical** by
-> the frozen-clock fingerprint gate below. **FIRE-AREA-7 complete** (`aad6f28`) — the `/overview` map overlays the
-> 12 largest recent fires that carry a perimeter (scope-aware via the apiPrefilter, bounded, `reportedAt<=now`,
-> deduped vs the active set), heading → "Incident map" + honest caption; also fixed a latent Leaflet
-> `_clipPoints`/undefined-bounds crash (frame the view before adding vector layers). Browser-verified as admin
-> (statewide, 13 polygons) AND Otway viewer (12 district extents), light + dark, 0 console errors; detail map
-> unchanged. `check:ci` + 293 web tests + AA guard green. See the tracker's Verified-fixed log for both.
-> **REMAINING — the FINISH step (tracker open items: DASH-6 only, folded in here):**
-> (1) DETAIL follow-ups: move the empty-state CTA out of its `role="status"` region; add soon/upcoming/none
-> cadence-chip variant tests. (2) Final holistic real-browser sweep — every screen × light+dark × 1320/820/390 +
-> reduced-motion + keyboard, as admin AND a district viewer; DASH-6 (live-dot static under reduced-motion) folds in.
-> (3) `just ci` genuinely green (NOT just check:ci — the full gate adds cspell/markdownlint/test/build).
-> (4) `superpowers:finishing-a-development-branch` — the user previously chose "leave the branch for my review", so
-> **re-confirm with the user** how to finish; do not merge/PR without asking.
+> ## ✅ SESSION 3 (2026-06-01) — ALL QA COMPLETE; tracker 0-open; `just ci` GREEN; awaiting the finish decision
+> Every tracked item is done, committed and browser-verified, and the **full `just ci` gate passes end-to-end**
+> (pre-commit + check + HTML-format + cspell + markdownlint + shellcheck + 298 web tests + build; build emits only
+> two pre-existing non-failing component-style-budget warnings on the two most-complex screens, and the leaflet-CJS
+> note). Session-3 work:
+> - **CSS-1..6** (`c3e5596`; hardening `75c276e`) — 14 styling files modernised via the `css-modernisation`
+>   Workflow (run `wf_45f5112f-c97`), **proven appearance byte-identical** by the frozen-clock fingerprint gate below.
+> - **FIRE-AREA-7** (`aad6f28`) — `/overview` overlays the 12 largest recent perimeter fires (scope-aware via the
+>   apiPrefilter, bounded, `reportedAt<=now`, deduped); heading → "Incident map" + honest caption; fixed a latent
+>   Leaflet `_clipPoints` crash (frame the view before adding vector layers). Admin (13 polygons) + Otway viewer
+>   (12), light+dark, 0 console errors; detail map unchanged.
+> - **DETAIL follow-ups** (`050c432`) — empty-state CTA moved out of the `role="status"` region; soon/upcoming/none
+>   cadence-chip variant tests added.
+> - **Final holistic real-browser sweep** — overview/list/detail/new/sitrep/final × admin+Otway × light+dark ×
+>   1320/820/390 via real axe-core: **0 serious/critical violations, 0 horizontal overflow, 0 fatal errors**.
+>   **DASH-6** verified (live-dot `animation-name: none` under reduced-motion, pulses otherwise).
+> - **Two AA contrast fixes** (`4cbe5df`) the sweep surfaced — district scope badge → on-surface; Dawn primary
+>   L52%→50% so iris-as-text clears AA on surface; added a `primary on surface` pair to the contrast guard.
+> - **`just ci` fix** (`899b381`) — excluded the gitignored `.superpowers/` briefs from markdownlint (CI never sees
+>   them; they were failing the local full gate only).
 >
-> **The deterministic appearance-equality gate (reuse it for any further appearance-preserving refactor + the sweep):**
+> **THE ONLY REMAINING ACTION — the user's call:** `superpowers:finishing-a-development-branch`. The user previously
+> chose **"leave the branch for my review"**, and merging/opening a PR is outward-facing — so **do NOT merge or open
+> a PR without explicit user authorization.** Branch `feat/fire-incidents-tactical-redesign`, HEAD `899b381`, tree
+> clean. If the user wants to finalize, follow the skill (rebase/squash/PR/merge per their choice; CLAUDE.md commit
+> rules — NO AI attribution).
+>
+> **The deterministic appearance-equality gate (reuse it for any further appearance-preserving refactor):**
 > - Harness: `/tmp/pwcap/` (`capture.mjs` + `diff.mjs`, using `playwright-core` + the bundled Chromium at
 >   `/ms-playwright/chromium-1223/chrome-linux/chrome`). Run with `MISE_BUN_VERSION=1.3.14 bun …` (mise has no
 >   bun pinned outside the repo). If `/tmp` was wiped, re-create: `cd /tmp/pwcap && echo '{}' > package.json &&
