@@ -106,9 +106,12 @@
                     [class]="spineTone[tone(incident.status)]"
                     aria-hidden="true"
                   ></span>
-                  <a class="row-link" [routerLink]="['/incidents', incident.id]">{{
-                    incident.name
-                  }}</a>
+                  <a
+                    class="row-link"
+                    [routerLink]="['/incidents', incident.id]"
+                    [queryParams]="filterParams()"
+                    >{{ incident.name }}</a
+                  >
                   @if (incident.isMajor) {
                     <span class="major-chip">Major</span>
                   }
@@ -126,7 +129,18 @@
               >
                 District
               </th>
-              <td mat-cell *matCellDef="let incident">{{ incident.district?.name ?? '—' }}</td>
+              <td mat-cell *matCellDef="let incident">
+                @if (showDistrictFilter() && incident.districtId != null) {
+                  <a
+                    class="district-link"
+                    [routerLink]="['/incidents']"
+                    [queryParams]="{ districtId: incident.districtId, fy: filters().fy }"
+                    >{{ incident.district?.name ?? '—' }}</a
+                  >
+                } @else {
+                  {{ incident.district?.name ?? '—' }}
+                }
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="fireNumber">
@@ -232,7 +246,7 @@
     } @else {
       <div class="cards" [attr.data-density]="density()">
         @for (incident of rows(); track incident.id) {
-          <a class="card" [routerLink]="['/incidents', incident.id]">
+          <a class="card" [routerLink]="['/incidents', incident.id]" [queryParams]="filterParams()">
             <app-severity-tile
               [level]="incident.incidentLevel"
               [tone]="tone(incident.status)"
@@ -347,4 +361,27 @@
     >
     <mat-button-toggle value="compact" aria-label="Compact density">Compact</mat-button-toggle>
   </mat-button-toggle-group>
+
+  <!-- Active-filter chips: one removable chip per non-default filter, so deep-linked filters with no
+       dedicated toggle (a region rollup, or major/overdue/district arriving via the URL) are visible and
+       can each be removed on their own. Chips are buttons, never anchors, so there is no nested-anchor
+       risk. -->
+  @if (activeFilterChips().length > 0) {
+    <div class="filter-chips">
+      <span class="filter-chips__label">Filters:</span>
+      <mat-chip-set aria-label="Active filters">
+        @for (chip of activeFilterChips(); track chip.kind) {
+          <mat-chip-row (removed)="removeChip(chip)">
+            {{ chip.label }}
+            <button matChipRemove [attr.aria-label]="chip.ariaLabel" type="button">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </mat-chip-row>
+        }
+      </mat-chip-set>
+      <button matButton class="filter-chips__clear" type="button" (click)="resetFilters()">
+        Clear all
+      </button>
+    </div>
+  }
 </ng-template>

@@ -14,6 +14,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -94,6 +95,14 @@ interface ListQueryParams {
   page?: number;
   size?: number;
 }
+// One removable chip per non-default, active filter. `kind` selects the reset handler so the template
+// never interpolates class names or branches on a string — it renders a fixed @for + @switch.
+type ChipKind = 'fy' | 'group' | 'district' | 'region';
+interface ActiveFilterChip {
+  kind: ChipKind;
+  label: string;
+  ariaLabel: string;
+}
 
 const DEFAULT_PAGE_SIZE = 25;
 const LARGE_PAGE_SIZE = 50;
@@ -117,6 +126,15 @@ const SORT_LABEL: Readonly<Record<string, string>> = {
   district: 'District',
 };
 
+// Display labels for the status-group chip (the 'all' default never produces a chip).
+const STATUS_GROUP_LABEL: Readonly<Record<Exclude<StatusGroup, 'all'>, string>> = {
+  active: 'Active',
+  going: 'Going',
+  major: 'Major',
+  overdue: 'Overdue',
+  resolved: 'Resolved',
+};
+
 @Component({
   selector: 'app-incident-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -126,6 +144,7 @@ const SORT_LABEL: Readonly<Record<string, string>> = {
     RouterLink,
     MatButtonModule,
     MatButtonToggleModule,
+    MatChipsModule,
     MatIconModule,
     MatPaginatorModule,
     MatProgressBarModule,
@@ -205,6 +224,48 @@ export class IncidentListComponent {
     return [...seen.entries()]
       .map(([regionId, regionName]) => ({ regionId, regionName }))
       .sort((a, b) => a.regionName.localeCompare(b.regionName));
+  });
+
+  // The non-default query-param object the list writes to its own URL. Row/card links forward it so
+  // list → detail → Back round-trips the exact view state. `writeUrl` navigates with the same object.
+  protected readonly filterParams = computed<ListQueryParams>(() => this.buildQueryParams());
+  // One removable chip per non-default active filter, so deep-linked filters with no dedicated toggle
+  // (a region from a KPI rollup, or major/overdue/district arriving via the URL) stay visible and can
+  // each be removed on their own. Each entry carries its own labels; the template renders a fixed
+  // @for + @switch and never interpolates a class name (styling conventions).
+  protected readonly activeFilterChips = computed<ActiveFilterChip[]>(() => {
+    const filters = this.filters();
+    const currentFy = computeFinancialYear(new Date());
+    const chips: ActiveFilterChip[] = [];
+    if (filters.fy !== currentFy) {
+      const label = this.fyLabel(filters.fy);
+      chips.push({ kind: 'fy', label, ariaLabel: `Remove ${label} filter` });
+    }
+    if (filters.group !== 'all') {
+      const label = STATUS_GROUP_LABEL[filters.group];
+      chips.push({ kind: 'group', label, ariaLabel: `Remove ${label} filter` });
+    }
+    if (filters.districtId !== 'all') {
+      const name =
+        this.districtOptions().find((d) => d.id === filters.districtId)?.name ??
+        String(filters.districtId);
+      chips.push({
+        kind: 'district',
+        label: `District: ${name}`,
+        ariaLabel: `Remove district filter ${name}`,
+      });
+    }
+    if (filters.region !== 'all') {
+      const name =
+        this.regionOptions().find((r) => r.regionId === filters.region)?.regionName ??
+        String(filters.region);
+      chips.push({
+        kind: 'region',
+        label: `Region: ${name}`,
+        ariaLabel: `Remove region filter ${name}`,
+      });
+    }
+    return chips;
   });
 
   protected readonly rows = signal<FireIncident[]>([]);
@@ -413,6 +474,27 @@ export class IncidentListComponent {
     this.densityService.setDensity(density);
   }
 
+  // Remove a single active-filter chip: reset just that one filter to its default (each setter writes the
+  // URL) and announce the removal, mirroring the sort announcements (§A.10). The FY default is the current
+  // financial year — removing the FY chip resets to it (NOT 'all', which is itself a non-default widening).
+  protected removeChip(chip: ActiveFilterChip): void {
+    switch (chip.kind) {
+      case 'fy':
+        this.setFy(computeFinancialYear(new Date()));
+        break;
+      case 'group':
+        this.setStatusGroup('all');
+        break;
+      case 'district':
+        this.setDistrict('all');
+        break;
+      case 'region':
+        this.setRegion('all');
+        break;
+    }
+    this.announcer.announce(`${chip.label} filter removed`, 'polite');
+  }
+
   // Re-run the count + live query after a transient failure (the error-state Retry button, LIST-6/8).
   protected retry(): void {
     this.error.set(null);
@@ -574,8 +656,14 @@ export class IncidentListComponent {
 
   // WRITE: navigate with ONLY the non-default keys (no `queryParamsHandling`, so cleared defaults drop out
   // of the URL). The subscription then reconciles the signals — a no-op via the `readUrl` equality guard.
-  // A precise (non-index-signature) shape so the keys are real properties, not bracket-indexed lookups.
   private writeUrl(): void {
+    this.router.navigate([], { relativeTo: this.route, queryParams: this.buildQueryParams() });
+  }
+
+  // Build the non-default query-param object — the single shape the list writes to its URL AND the row/
+  // card links forward (via `filterParams`). A precise (non-index-signature) shape so the keys are real
+  // properties, not bracket-indexed lookups.
+  private buildQueryParams(): ListQueryParams {
     const filters = this.filters();
     const sort = this.sortState();
     const page = this.pageState();
@@ -605,6 +693,6 @@ export class IncidentListComponent {
     if (page.pageSize !== DEFAULT_PAGE_SIZE) {
       queryParams.size = page.pageSize;
     }
-    this.router.navigate([], { relativeTo: this.route, queryParams });
+    return queryParams;
   }
 }

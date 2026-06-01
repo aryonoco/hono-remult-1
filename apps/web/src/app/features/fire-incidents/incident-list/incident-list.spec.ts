@@ -6,6 +6,7 @@ import {
   MatButtonToggleGroupHarness,
   MatButtonToggleHarness,
 } from '@angular/material/button-toggle/testing';
+import { MatChipSetHarness } from '@angular/material/chips/testing';
 import { MatPaginatorHarness } from '@angular/material/paginator/testing';
 import { MatSortHarness } from '@angular/material/sort/testing';
 import { MatTableHarness } from '@angular/material/table/testing';
@@ -298,8 +299,9 @@ async function createComponent(
 async function createComponentWithQuery(
   user: CurrentUser | undefined,
   queryParams: Record<string, string | number>,
+  matches = false,
 ): Promise<ComponentFixture<IncidentListComponent>> {
-  configure(user, false);
+  configure(user, matches);
   await TestBed.compileComponents();
   const router = TestBed.inject(Router);
   await router.navigate([], { queryParams });
@@ -980,5 +982,192 @@ describe('IncidentListComponent (deep-linkable URL filters)', () => {
     // A viewer cannot widen scope from the URL: both scope params clamp back to 'all'.
     expect(instance(fixture).filters().region).toBe('all');
     expect(instance(fixture).filters().districtId).toBe('all');
+  });
+});
+
+describe('IncidentListComponent (active-filter chips)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('renders no chip row when only the default filters are active', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    // Defaults (current FY, all statuses, no district/region) produce zero chips, so the row is hidden.
+    expect(instance(fixture).activeFilterChips()).toEqual([]);
+    expect(host(fixture).querySelector('.filter-chips')).toBeNull();
+  });
+
+  it('renders one removable chip per non-default filter', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponentWithQuery(
+      { ...ADMIN },
+      { group: 'going', fy: 'all', districtId: 12 },
+    );
+    await settle(fixture);
+
+    // FY (≠ current), status group, and district each surface a chip; region stays default → no chip.
+    const chips = instance(fixture).activeFilterChips() as { kind: string; label: string }[];
+    expect(chips.map((chip) => chip.kind)).toEqual(['fy', 'group', 'district']);
+    expect(chips.map((chip) => chip.label)).toEqual(['All years', 'Going', 'District: Otway']);
+
+    // The chips render as a Material chip set (buttons, never anchors → no nested-anchor risk).
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const chipSet = await loader.getHarness(MatChipSetHarness);
+    const chipHarnesses = await chipSet.getChips();
+    expect(chipHarnesses).toHaveLength(3);
+  });
+
+  it('removes a single filter when its chip is removed, and rewrites the URL', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { group: 'going', fy: 'all' });
+    await settle(fixture);
+
+    const router = TestBed.inject(Router);
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const chipSet = await loader.getHarness(MatChipSetHarness);
+    // Remove just the status-group chip (the second one) via the harness's accessible remove path.
+    const [, groupChip] = await chipSet.getChips();
+    await groupChip!.remove();
+    await settle(fixture);
+
+    // Only the group resets to its default; the widened FY chip survives.
+    expect(instance(fixture).filters().group).toBe('all');
+    expect(instance(fixture).filters().fy).toBe('all');
+    // The setter rewrote the URL: group dropped out, fy=all remains.
+    expect(router.url).not.toContain('group=going');
+    expect(router.url).toContain('fy=all');
+    const remaining = instance(fixture).activeFilterChips() as { kind: string }[];
+    expect(remaining.map((chip) => chip.kind)).toEqual(['fy']);
+  });
+
+  it('removing the FY chip resets to the current financial year, not all years', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { fy: PRIOR_FY });
+    await settle(fixture);
+
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const chipSet = await loader.getHarness(MatChipSetHarness);
+    const [fyChip] = await chipSet.getChips();
+    await fyChip!.remove();
+    await settle(fixture);
+
+    // The FY default is the current financial year — removing the chip lands there, not on 'all'.
+    expect(instance(fixture).filters().fy).toBe(CURRENT_FY);
+    expect(instance(fixture).activeFilterChips()).toEqual([]);
+  });
+
+  it('clears the status and scope filters from the chip row Clear all action', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponentWithQuery(
+      { ...ADMIN },
+      { group: 'going', fy: PRIOR_FY, districtId: 12 },
+    );
+    await settle(fixture);
+
+    // The trailing Clear all reuses resetFilters(): status + scope reset, and FY is deliberately
+    // widened to 'all' (a documented widening, not the current-FY default), so an "All years" chip
+    // remains — the row stays visible with just that one chip.
+    instance(fixture).resetFilters();
+    await settle(fixture);
+
+    expect(instance(fixture).filters().group).toBe('all');
+    expect(instance(fixture).filters().districtId).toBe('all');
+    expect(instance(fixture).filters().region).toBe('all');
+    expect(instance(fixture).filters().fy).toBe('all');
+    const remaining = instance(fixture).activeFilterChips() as { kind: string; label: string }[];
+    expect(remaining.map((chip) => chip.kind)).toEqual(['fy']);
+    expect(remaining[0]!.label).toBe('All years');
+  });
+});
+
+describe('IncidentListComponent (filter-preserving row links)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('forwards the active filters as query params on the desktop row link', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { group: 'going', fy: 'all' });
+    await settle(fixture);
+
+    // filterParams() mirrors the list's own non-default URL params.
+    expect(instance(fixture).filterParams()).toEqual({ group: 'going', fy: 'all' });
+    // The single row anchor carries them, so list → detail → Back round-trips the view state.
+    const rowLink = host(fixture).querySelector('a.row-link') as HTMLAnchorElement | null;
+    expect(rowLink).not.toBeNull();
+    const href = rowLink!.getAttribute('href') ?? '';
+    expect(href).toContain('group=going');
+    expect(href).toContain('fy=all');
+  });
+
+  it('forwards the active filters as query params on the handset card link', async () => {
+    remult.user = { ...ADMIN };
+    await seedThirtyFires();
+    // Force the handset breakpoint (matches=true) so the cards render instead of the table.
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { group: 'going' }, true);
+    await settle(fixture);
+
+    expect(instance(fixture).filterParams()).toEqual({ group: 'going' });
+    // The single card anchor carries the filters; the table (and its row link) is absent on handset.
+    expect(host(fixture).querySelector('table')).toBeNull();
+    const card = host(fixture).querySelector('a.card') as HTMLAnchorElement | null;
+    expect(card).not.toBeNull();
+    expect(card!.getAttribute('href')).toContain('group=going');
+  });
+});
+
+describe('IncidentListComponent (district drill-in cell)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  async function seedDistrictRow(): Promise<void> {
+    await seedDistrict();
+    await seedFire({
+      id: 'otway-going',
+      name: 'Otway Going',
+      status: FireStatus.going,
+      districtId: 12,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+  }
+
+  it('renders the district cell as a drill-in link for an elevated user', async () => {
+    remult.user = { ...ADMIN };
+    await seedDistrictRow();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    const link = host(fixture).querySelector('a.district-link') as HTMLAnchorElement | null;
+    expect(link).not.toBeNull();
+    expect(link!.textContent).toContain('Otway');
+    // The drill-in carries the district id and the current FY filter.
+    const href = link!.getAttribute('href') ?? '';
+    expect(href).toContain('districtId=12');
+
+    expect(await findAxeViolations(host(fixture))).toEqual([]);
+  });
+
+  it('renders plain district text (no link) for a viewer', async () => {
+    // Seed as admin, then view as a viewer — the drill-in is elevated-only.
+    remult.user = { ...ADMIN };
+    await seedDistrictRow();
+    remult.user = { ...VIEWER };
+    const fixture = await createComponent({ ...VIEWER });
+    await settle(fixture);
+
+    expect(host(fixture).querySelector('a.district-link')).toBeNull();
+    // The viewer's own-district row still shows the district name as plain text.
+    expect(text(fixture)).toContain('Otway');
   });
 });

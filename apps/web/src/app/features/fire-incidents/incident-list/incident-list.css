@@ -169,6 +169,29 @@
   min-inline-size: 8rem;
 }
 
+/* Active-filter chips sit on their own row beneath the controls (full-basis flex child so it always
+   wraps below). One removable chip per non-default filter, plus a trailing "Clear all" affordance —
+   the discoverable, per-filter-removable mirror of the deep-link query params. */
+.filter-chips {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-chips__label {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.filter-chips__clear {
+  margin-inline-start: 0.25rem;
+}
+
 /* Tablet/handset: the bar becomes a single responsive column. The spacer collapses so the density
    toggle no longer fights the selects for the row, fields stretch to fill, and the toggle groups
    wrap as whole units rather than truncating their labels. (48rem === the 768px handset breakpoint
@@ -297,6 +320,18 @@ td.mat-mdc-cell.cell-center {
 
 .row-link {
   font-weight: 500;
+}
+
+/* District drill-in (desktop only): a link to that district's list. Colour is never the sole signal —
+   it carries a hover/focus underline on top of the app-wide :focus-visible ring (styles.scss base). */
+.district-link {
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+}
+
+.district-link:hover,
+.district-link:focus-visible {
+  text-decoration: underline;
 }
 
 .major-flag {
