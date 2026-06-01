@@ -132,7 +132,13 @@ async function seed(
       createdBy: EDITOR.id,
       reportedAt: new Date('2026-01-15T03:30:00Z'),
       statusAsAt: new Date('2026-01-15T03:30:00Z'),
-      district: Object.assign(new District(), { id: 12, name: 'Otway' }),
+      district: Object.assign(new District(), {
+        id: 12,
+        name: 'Otway',
+        regionId: 4,
+        regionName: 'Barwon South West',
+      }),
+      financialYear: 2026,
       situationReports: [] as SituationReport[],
       finalReport: undefined as FinalReport | undefined,
     },
@@ -658,6 +664,135 @@ describe('IncidentDetailComponent (hero, stats, map + timeline)', () => {
       longitude: 143.5,
       situationReports: [sampleSitrep()],
     });
+    expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
+  });
+});
+
+describe('IncidentDetailComponent (drill-in links)', () => {
+  function anchor(
+    fixture: ComponentFixture<IncidentDetailComponent>,
+    testid: string,
+  ): HTMLAnchorElement | null {
+    return (fixture.nativeElement as HTMLElement).querySelector(`a[data-testid="${testid}"]`);
+  }
+
+  function href(fixture: ComponentFixture<IncidentDetailComponent>, testid: string): string {
+    return anchor(fixture, testid)?.getAttribute('href') ?? '';
+  }
+
+  it('renders the district + region metrics as drill-ins for an elevated user', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, {});
+
+    const district = anchor(fixture, 'district-link');
+    expect(district).not.toBeNull();
+    expect(district!.textContent).toContain('Otway');
+    // The district drill-in carries the district id and this fire's financial year.
+    expect(href(fixture, 'district-link')).toContain('districtId=12');
+    expect(href(fixture, 'district-link')).toContain('fy=2026');
+
+    const region = anchor(fixture, 'region-link');
+    expect(region).not.toBeNull();
+    expect(region!.textContent).toContain('Barwon South West');
+    expect(href(fixture, 'region-link')).toContain('region=4');
+    expect(href(fixture, 'region-link')).toContain('fy=2026');
+  });
+
+  it('shows district as plain text and omits the region metric for a viewer', async () => {
+    const fixture = await setup(VIEWER);
+    await seed(fixture, {});
+    // The district name still reads as plain text, but neither metric is a drill-in.
+    expect(anchor(fixture, 'district-link')).toBeNull();
+    expect(anchor(fixture, 'region-link')).toBeNull();
+    expect(text(fixture)).toContain('Otway');
+    // A dead region label must not appear at all for a non-elevated viewer.
+    expect(text(fixture)).not.toContain('Barwon South West');
+  });
+
+  it('links the status badge to the going group for a going fire', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { status: FireStatus.going });
+    const link = anchor(fixture, 'status-badge-link');
+    expect(link).not.toBeNull();
+    expect(href(fixture, 'status-badge-link')).toContain('group=going');
+    expect(href(fixture, 'status-badge-link')).toContain('fy=2026');
+    // The presentational badge stays wrapped, never nested inside another anchor.
+    expect(link!.querySelector('app-status-badge')).not.toBeNull();
+  });
+
+  it('links the status badge to the resolved group for a terminal fire', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { status: FireStatus.safe });
+    expect(anchor(fixture, 'status-badge-link')).not.toBeNull();
+    expect(href(fixture, 'status-badge-link')).toContain('group=resolved');
+  });
+
+  it('leaves the status badge a plain non-link for an intermediate status', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { status: FireStatus.contained });
+    // contained / under-control have no exact list group, so the badge must not be a drill-in.
+    expect(anchor(fixture, 'status-badge-link')).toBeNull();
+    const badge = (fixture.nativeElement as HTMLElement).querySelector('app-status-badge');
+    expect(badge).not.toBeNull();
+    expect(badge!.closest('a')).toBeNull();
+  });
+
+  it('always offers a Season FY drill-in in the hero', async () => {
+    const fixture = await setup(VIEWER);
+    await seed(fixture, {});
+    // The Season chip is not scope-gated — it filters to a year a viewer can already see.
+    expect(anchor(fixture, 'season-link')).not.toBeNull();
+    expect(href(fixture, 'season-link')).toContain('fy=2026');
+  });
+
+  it('links the Major chip to the major group when the fire is major', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { isMajor: true });
+    expect(anchor(fixture, 'major-link')).not.toBeNull();
+    expect(href(fixture, 'major-link')).toContain('group=major');
+    expect(href(fixture, 'major-link')).toContain('fy=2026');
+  });
+
+  it('omits the Major chip when the fire is not major', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { isMajor: false });
+    expect(anchor(fixture, 'major-link')).toBeNull();
+  });
+
+  it('shows the View overdue link only when the cadence is overdue', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, {
+      status: FireStatus.going,
+      nextReportDue: new Date('2026-01-15T00:00:00Z'),
+    });
+    instance(fixture).now.set(new Date('2026-01-15T03:30:00Z')); // past due → overdue
+    TestBed.tick();
+    expect(anchor(fixture, 'overdue-link')).not.toBeNull();
+    // The overdue drill-in spans all years (group=overdue, fy=all), unlike the other status drill-ins.
+    expect(href(fixture, 'overdue-link')).toContain('group=overdue');
+    expect(href(fixture, 'overdue-link')).toContain('fy=all');
+  });
+
+  it('hides the View overdue link when the cadence is not overdue', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, {
+      status: FireStatus.going,
+      nextReportDue: new Date('2026-01-15T07:30:00Z'),
+    });
+    instance(fixture).now.set(new Date('2026-01-15T03:30:00Z')); // due in 4 h → upcoming
+    TestBed.tick();
+    expect(anchor(fixture, 'overdue-link')).toBeNull();
+  });
+
+  it('has no structural accessibility violations with the drill-in links rendered', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, {
+      status: FireStatus.going,
+      isMajor: true,
+      nextReportDue: new Date('2026-01-15T00:00:00Z'),
+    });
+    instance(fixture).now.set(new Date('2026-01-15T03:30:00Z'));
+    TestBed.tick();
     expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
   });
 });

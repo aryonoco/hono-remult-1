@@ -20,6 +20,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   FinalReport,
   FireIncident,
+  FireStatus,
   INCIDENT_LEVEL_LABELS,
   type IncidentLevel,
   MS_PER_MINUTE,
@@ -43,6 +44,7 @@ import {
   canRemoveSignOff,
   canSignOff,
   canSoftDelete,
+  canViewDistrictRollup,
   canViewFinalReport,
 } from '../../../shared/auth/permissions';
 import { CadenceCountdownComponent } from '../../../shared/components/cadence-countdown/cadence-countdown';
@@ -416,6 +418,69 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
       font-variant-numeric: tabular-nums;
     }
 
+    /* Drill-in links (metrics + overdue): a link to the filtered list. Colour is never the sole signal —
+       each carries a hover/focus underline on top of the app-wide :focus-visible ring (styles.scss base),
+       mirroring the list's .district-link affordance. Region/district names wrap so a long name (e.g.
+       "Barwon South West") never overflows the metrics grid. */
+    .detail-link {
+      color: var(--mat-sys-primary);
+      text-decoration: none;
+      overflow-wrap: anywhere;
+    }
+
+    .detail-link:hover,
+    .detail-link:focus-visible {
+      text-decoration: underline;
+    }
+
+    /* The 'View overdue' link sits beside the live cadence pill (it is NOT inside it, so the ticking
+       clock never becomes a link). A small, urgency-toned text link in the same surface foreground. */
+    .detail-hero__overdue-link {
+      align-self: center;
+      color: inherit;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 0.15em;
+    }
+
+    .detail-hero__overdue-link:hover,
+    .detail-hero__overdue-link:focus-visible {
+      text-decoration-thickness: 2px;
+    }
+
+    /* Hero drill-in chips (status badge / Major / Season FY): wrap a presentational chip in a link without
+       changing the chip's own paint. The link is a plain inline-flex with NO underline of its own (the chip
+       carries the visual), but it shows a clear focus ring (app-wide :focus-visible) and a hover affordance
+       so colour is never the sole signal. The badge anchor inherits the chip's own colour. */
+    .detail-hero__badge-link,
+    .detail-hero__chip-link {
+      display: inline-flex;
+      align-items: center;
+      border-radius: var(--app-radius-card);
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .detail-hero__badge-link:hover app-status-badge,
+    .detail-hero__badge-link:focus-visible app-status-badge,
+    .detail-hero__chip-link:hover,
+    .detail-hero__chip-link:focus-visible {
+      text-decoration: underline;
+    }
+
+    /* Season chip: a small ringed pill in the hero lead, echoing the cadence-chip ring so it reads as a
+       sibling chip; the link's hover/focus underline is the colour-independent signal. */
+    .detail-hero__season {
+      gap: 0.25rem;
+      padding-block: 0.125rem;
+      padding-inline: 0.5rem;
+      border: 1px solid color-mix(in srgb, var(--mat-sys-surface) 35%, transparent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
     .detail-actions {
       display: flex;
       flex-wrap: wrap;
@@ -599,6 +664,9 @@ export class IncidentDetailComponent {
     return fire ? canSoftDelete(fire, this.currentUser(), this.isSignedOff()) : false;
   });
   protected readonly canViewFinal = computed(() => canViewFinalReport(this.currentUser()));
+  // Drill-ins into a district's / region's list are a cross-scope (state-wide) view, so the District and
+  // Region metrics only become links for elevated users; everyone else sees the plain text fallback.
+  protected readonly canSeeScope = computed(() => canViewDistrictRollup(this.currentUser()));
   protected readonly canSign = computed(() => {
     const fire = this.fire();
     const report = this.finalReport();
@@ -627,6 +695,21 @@ export class IncidentDetailComponent {
     return fire ? `detail-hero--${statusTone(fire.status)}` : '';
   });
 
+  // The status badge only becomes a drill-in when the list group it would land on EXACTLY equals this
+  // fire's status: a going fire maps to the `going` group, and any terminal status maps to `resolved`.
+  // The intermediate statuses (contained / under-control) have no exact group — mapping them to `active`
+  // would over-select, so they stay a plain non-link badge (returns null). Mirrors isTerminalStatus.
+  protected readonly statusListGroup = computed<'going' | 'resolved' | null>(() => {
+    const fire = this.fire();
+    if (!fire) {
+      return null;
+    }
+    if (fire.status === FireStatus.going) {
+      return 'going';
+    }
+    return isTerminalStatus(fire.status) ? 'resolved' : null;
+  });
+
   // Cadence urgency drives the hero chip's highlight + icon: overdue and soon are escalated so the
   // reporting clock is the hero's primary status signal (DETAIL-1). Mirrors the cadence-countdown's own
   // state thresholds so chip and figure stay in lock-step; a terminal fire has no live cadence.
@@ -649,6 +732,9 @@ export class IncidentDetailComponent {
     () => `detail-hero__cadence--${this.cadenceState()}`,
   );
   protected readonly cadenceIcon = computed(() => CADENCE_ICONS[this.cadenceState()]);
+  // Drives the adjacent 'View overdue' drill-in beside the cadence pill (DETAIL-1): shown only while the
+  // live clock is past due, so the link tracks the same minute tick as the pill it sits next to.
+  protected readonly isOverdue = computed(() => this.cadenceState() === 'overdue');
 
   private announcedId: string | null = null;
 

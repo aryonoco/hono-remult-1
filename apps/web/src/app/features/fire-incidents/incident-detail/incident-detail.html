@@ -22,14 +22,38 @@
 
         <header class="detail-hero" [class]="heroToneClass()">
           <div class="detail-hero__lead">
-            <app-status-badge [status]="f.status" />
+            @if (statusListGroup(); as group) {
+              <a
+                class="detail-hero__badge-link"
+                data-testid="status-badge-link"
+                [routerLink]="['/incidents']"
+                [queryParams]="{ group, fy: f.financialYear }"
+              >
+                <app-status-badge [status]="f.status" />
+              </a>
+            } @else {
+              <app-status-badge [status]="f.status" />
+            }
             <span class="detail-hero__level">{{ levelLabel(f.incidentLevel) }}</span>
             @if (f.isMajor) {
-              <span class="detail-hero__major">
+              <a
+                class="detail-hero__chip-link detail-hero__major"
+                data-testid="major-link"
+                [routerLink]="['/incidents']"
+                [queryParams]="{ group: 'major', fy: f.financialYear }"
+              >
                 <mat-icon aria-hidden="true">local_fire_department</mat-icon>
                 Major
-              </span>
+              </a>
             }
+            <a
+              class="detail-hero__chip-link detail-hero__season"
+              data-testid="season-link"
+              [routerLink]="['/incidents']"
+              [queryParams]="{ fy: f.financialYear }"
+            >
+              Season FY{{ f.financialYear }}
+            </a>
           </div>
 
           <dl class="detail-hero__meta">
@@ -40,6 +64,16 @@
                   <mat-icon aria-hidden="true">{{ cadenceIcon() }}</mat-icon>
                   <app-cadence-countdown [due]="cadenceDue(f)" [now]="now()" appearance="inverse" />
                 </span>
+                @if (isOverdue()) {
+                  <a
+                    class="detail-hero__overdue-link"
+                    data-testid="overdue-link"
+                    [routerLink]="['/incidents']"
+                    [queryParams]="{ group: 'overdue', fy: 'all' }"
+                  >
+                    View overdue
+                  </a>
+                }
               </dd>
             </div>
             <div class="detail-hero__cell">
@@ -97,8 +131,40 @@
             </div>
             <div class="metric">
               <dt>District</dt>
-              <dd>{{ f.district?.name ?? '—' }}</dd>
+              <dd>
+                @if (f.district; as district) {
+                  @if (canSeeScope()) {
+                    <a
+                      class="detail-link"
+                      data-testid="district-link"
+                      [routerLink]="['/incidents']"
+                      [queryParams]="{ districtId: district.id, fy: f.financialYear }"
+                      >{{ district.name }}</a
+                    >
+                  } @else {
+                    {{ district.name }}
+                  }
+                } @else {
+                  —
+                }
+              </dd>
             </div>
+            @if (f.district; as district) {
+              @if (canSeeScope()) {
+                <div class="metric">
+                  <dt>Region</dt>
+                  <dd>
+                    <a
+                      class="detail-link"
+                      data-testid="region-link"
+                      [routerLink]="['/incidents']"
+                      [queryParams]="{ region: district.regionId, fy: f.financialYear }"
+                      >{{ district.regionName }}</a
+                    >
+                  </dd>
+                </div>
+              }
+            }
             <div class="metric">
               <dt>Last report</dt>
               <dd class="mono">{{ f.statusAsAt | date: 'dd/MM/yy, HH:mm' }}</dd>
