@@ -319,6 +319,40 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
       color: var(--mat-sys-error);
       font-size: 0.75rem;
     }
+
+    /* Density is more than field height on a form — the breathing room between fields and sections
+       carries most of the perceived difference. React to the global html[data-density] (set by
+       DensityService) via :host-context so Comfortable is genuinely airy and Compact genuinely tight,
+       on top of the scoped Material field-height density in styles.scss. */
+    :host-context([data-density='comfortable']) {
+      .form {
+        gap: 2rem;
+      }
+      .section {
+        padding: 1.5rem 1.75rem;
+      }
+      .grid {
+        column-gap: 1.5rem;
+        row-gap: 1.5rem;
+        margin-block-start: 1.25rem;
+        padding-block-start: 1.25rem;
+      }
+    }
+
+    :host-context([data-density='compact']) {
+      .form {
+        gap: 0.75rem;
+      }
+      .section {
+        padding: 0.875rem 1rem;
+      }
+      .grid {
+        column-gap: 0.875rem;
+        row-gap: 0.5rem;
+        margin-block-start: 0.75rem;
+        padding-block-start: 0.75rem;
+      }
+    }
   `,
 })
 export class DynamicFormComponent {

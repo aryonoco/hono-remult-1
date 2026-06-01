@@ -208,7 +208,7 @@
   }
 
   [data-density='compact'] {
-    @include mat.theme((density: -3));
+    @include mat.theme((density: -4));
     @include mat.table-overrides(
       (
         header-container-height: 36px,
