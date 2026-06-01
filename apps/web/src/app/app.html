@@ -78,6 +78,27 @@
 
   <mat-sidenav-content>
     <main id="main" class="main" tabindex="-1">
+      @if (breadcrumbs().length >= 2) {
+        <nav aria-label="Breadcrumb" class="breadcrumb">
+          <ol class="breadcrumb__list">
+            @for (crumb of breadcrumbs(); track crumb.label; let last = $last) {
+              <li class="breadcrumb__item">
+                @if (!last) {
+                  <a
+                    class="breadcrumb__link"
+                    [routerLink]="crumb.commands"
+                    [queryParamsHandling]="crumb.preserveFilters ? 'preserve' : ''"
+                    >{{ crumb.label }}</a
+                  >
+                  <span class="breadcrumb__sep" aria-hidden="true">/</span>
+                } @else {
+                  <span class="breadcrumb__current" aria-current="page">{{ crumb.label }}</span>
+                }
+              </li>
+            }
+          </ol>
+        </nav>
+      }
       <div class="content content--{{ contentWidth() }}">
         <router-outlet />
       </div>

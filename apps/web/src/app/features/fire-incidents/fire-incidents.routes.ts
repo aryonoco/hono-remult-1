@@ -12,40 +12,52 @@ import { SituationReportFormComponent } from './sitrep-form/situation-report-for
 // longer path wins. Every form route carries the unsaved-changes guard; the two final-report routes pass
 // their `mode` through route data.
 export const fireIncidentRoutes: Routes = [
+  // The bare list carries no breadcrumb of its own: the 'Incidents' section crumb lives on the parent
+  // route (app.routes.ts), so it would only duplicate here. The list is therefore a single-crumb route
+  // (Overview is its home, but the shell suppresses the lone-section trail).
   { path: '', title: 'Incidents', component: IncidentListComponent },
   {
     path: 'new',
     title: 'New incident',
     component: IncidentFormComponent,
+    data: { breadcrumb: 'New incident' },
     canDeactivate: [unsavedChangesGuard],
   },
   {
     path: ':id/edit',
     title: 'Edit incident',
     component: IncidentFormComponent,
+    data: { breadcrumb: 'Edit' },
     canDeactivate: [unsavedChangesGuard],
   },
   {
     path: ':id/sitrep',
     title: 'Situation report',
     component: SituationReportFormComponent,
+    data: { breadcrumb: 'Situation report' },
     canDeactivate: [unsavedChangesGuard],
   },
   {
     path: ':id/final/edit',
     title: 'Edit final report',
     component: FinalReportFormComponent,
-    data: { mode: 'edit' },
+    data: { mode: 'edit', breadcrumb: 'Edit final report' },
     canDeactivate: [unsavedChangesGuard],
   },
   {
     path: ':id/final',
     title: 'Final report',
     component: FinalReportFormComponent,
-    data: { mode: 'create' },
+    data: { mode: 'create', breadcrumb: 'Final report' },
     canDeactivate: [unsavedChangesGuard],
   },
   // `:id` resolves the 'Incident' fallback title; IncidentDetailComponent overrides it with the
-  // incident name once the fire loads.
-  { path: ':id', title: 'Incident', component: IncidentDetailComponent },
+  // incident name once the fire loads. `dynamicBreadcrumb` flags the shell to substitute the
+  // BreadcrumbService's published incident name for this crumb (falling back to 'Incident').
+  {
+    path: ':id',
+    title: 'Incident',
+    component: IncidentDetailComponent,
+    data: { breadcrumb: 'Incident', dynamicBreadcrumb: true },
+  },
 ];

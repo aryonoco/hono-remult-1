@@ -11,6 +11,7 @@ import { of } from 'rxjs';
 import { findAxeViolations } from '../testing/axe-helper';
 import { App } from './app';
 import { routes } from './app.routes';
+import { BreadcrumbService } from './core/breadcrumb.service';
 import { DevAuthService } from './core/dev-auth.service';
 import { NotificationService } from './core/notification.service';
 import { AppTitleStrategy } from './core/title-strategy';
@@ -59,6 +60,15 @@ const openConnectionSpy = vi.fn(() =>
   Promise.resolve({ subscribe: () => Promise.resolve(() => undefined), close: () => undefined }),
 );
 const notificationStub = { success: () => undefined, error: () => undefined };
+
+// A detail URL carrying the list's forwarded filters, assembled from parts (a single literal trips the
+// high-entropy `noSecrets` heuristic). `INCIDENT_FILTERS` is the query string the 'Incidents' crumb must
+// preserve back to the filtered list.
+const INCIDENT_FILTERS = ['fy=all', 'group=overdue'].join('&');
+const DETAIL_URL = `/incidents/${['fire', '7'].join('-')}?${INCIDENT_FILTERS}`;
+const INCIDENT_NAME = 'Otway Ridge Fire';
+// Trailing separator stripped from a crumb's text so the visible label can be compared cleanly.
+const TRAILING_SEP = /\s*\/\s*$/;
 
 describe('App', () => {
   beforeEach(async () => {
@@ -169,6 +179,107 @@ describe('App (route titles + focus management)', () => {
     await fixture.whenStable();
     // The incidents list has no `h1[tabindex="-1"]`, so focus lands on the `#main` landmark fallback.
     expect(document.activeElement).toBe(document.getElementById('main'));
+  });
+});
+
+describe('App (breadcrumb trail)', () => {
+  beforeEach(async () => {
+    localStorage.clear();
+    stubBrowserApis();
+    remult.apiClient.httpClient = httpStub;
+    remult.apiClient.subscriptionClient = { openConnection: openConnectionSpy };
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter(routes),
+        { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' },
+        { provide: BreakpointObserver, useValue: breakpointStub },
+        { provide: NotificationService, useValue: notificationStub },
+      ],
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    vi.unstubAllGlobals();
+  });
+
+  function crumbs(fixture: ReturnType<typeof TestBed.createComponent<App>>): HTMLElement[] {
+    const nav = (fixture.nativeElement as HTMLElement).querySelector('nav.breadcrumb');
+    return nav ? [...nav.querySelectorAll<HTMLElement>('li.breadcrumb__item')] : [];
+  }
+
+  it('shows no breadcrumb on the single-crumb overview page', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/overview');
+    await fixture.whenStable();
+    // A lone 'Overview' crumb is suppressed — the trail renders only at depth >= 2.
+    expect((fixture.nativeElement as HTMLElement).querySelector('nav.breadcrumb')).toBeNull();
+  });
+
+  it('renders an Overview / Incidents / name trail on an incident detail URL', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    // The detail page's fire load hangs under the stubbed transport, so publish the name directly as the
+    // detail component would once its fire resolves.
+    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
+    // The mounted detail's `resource()` never resolves under the stubbed transport, so the app is never
+    // "stable"; await the navigation (the lazy route + the breadcrumb's NavigationEnd) then flush a
+    // synchronous render pass with `TestBed.tick()` rather than hanging on `whenStable()`.
+    await router.navigateByUrl(DETAIL_URL);
+    TestBed.tick();
+    const items = crumbs(fixture);
+    const labels = items.map((li) => (li.textContent ?? '').replace(TRAILING_SEP, '').trim());
+    expect(labels).toEqual(['Overview', 'Incidents', INCIDENT_NAME]);
+  });
+
+  it('marks the last crumb aria-current and renders it as plain text, not a link', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
+    await router.navigateByUrl(DETAIL_URL);
+    TestBed.tick();
+    const current = (fixture.nativeElement as HTMLElement).querySelector(
+      'nav.breadcrumb [aria-current="page"]',
+    );
+    expect(current?.textContent?.trim()).toBe(INCIDENT_NAME);
+    expect(current?.tagName).toBe('SPAN');
+    // The final crumb is not a link.
+    expect(crumbs(fixture).at(-1)?.querySelector('a')).toBeNull();
+  });
+
+  it('preserves the forwarded list filters on the Incidents back-link only', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl(DETAIL_URL);
+    TestBed.tick();
+    const links = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>(
+        'nav.breadcrumb a.breadcrumb__link',
+      ),
+    ];
+    const incidents = links.find((a) => a.textContent?.trim() === 'Incidents');
+    const overview = links.find((a) => a.textContent?.trim() === 'Overview');
+    // queryParamsHandling="preserve" carries the forwarded fy/group back to the filtered list.
+    expect(incidents?.getAttribute('href')).toBe(`/incidents?${INCIDENT_FILTERS}`);
+    // Every other crumb is a clean link with no forwarded query params.
+    expect(overview?.getAttribute('href')).toBe('/overview');
+  });
+
+  it('has no structural accessibility violations with the breadcrumb rendered', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    TestBed.inject(BreadcrumbService).set(INCIDENT_NAME);
+    await router.navigateByUrl(DETAIL_URL);
+    TestBed.tick();
+    expect(await findAxeViolations(fixture.nativeElement)).toEqual([]);
   });
 });
 

@@ -25,6 +25,7 @@ import {
 import { remult } from 'remult';
 import { of } from 'rxjs';
 import { findAxeViolations } from '../../../../testing/axe-helper';
+import { BreadcrumbService } from '../../../core/breadcrumb.service';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { NotificationService } from '../../../core/notification.service';
 import { IncidentDetailComponent } from './incident-detail';
@@ -484,6 +485,24 @@ describe('IncidentDetailComponent (document title)', () => {
     await seed(fixture, { name: 'Otway Ridge Fire' });
     // Overrides the route's 'Incident' fallback title with the loaded incident name + wordmark suffix.
     expect(TestBed.inject(Title).getTitle()).toBe('Otway Ridge Fire — Fire Incidents');
+  });
+});
+
+describe('IncidentDetailComponent (breadcrumb name)', () => {
+  it('publishes the incident name to the breadcrumb service when the fire loads', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { name: 'Otway Ridge Fire' });
+    // The shell breadcrumb reads this to show the name in place of the raw `:id` segment.
+    expect(TestBed.inject(BreadcrumbService).dynamicLabel()).toBe('Otway Ridge Fire');
+  });
+
+  it('clears the published name on destroy so it never bleeds into the next incident', async () => {
+    const fixture = await setup(ADMIN);
+    await seed(fixture, { name: 'Otway Ridge Fire' });
+    const breadcrumb = TestBed.inject(BreadcrumbService);
+    expect(breadcrumb.dynamicLabel()).toBe('Otway Ridge Fire');
+    fixture.destroy();
+    expect(breadcrumb.dynamicLabel()).toBeNull();
   });
 });
 

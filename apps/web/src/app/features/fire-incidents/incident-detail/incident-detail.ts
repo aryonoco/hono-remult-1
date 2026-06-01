@@ -35,6 +35,7 @@ import { ResultAsync } from 'neverthrow';
 import { remult } from 'remult';
 import { firstValueFrom, map } from 'rxjs';
 
+import { BreadcrumbService } from '../../../core/breadcrumb.service';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { NotificationService } from '../../../core/notification.service';
 import {
@@ -580,6 +581,7 @@ export class IncidentDetailComponent {
   private readonly dialog = inject(MatDialog);
   private readonly announcer = inject(LiveAnnouncer);
   private readonly title = inject(Title);
+  private readonly breadcrumb = inject(BreadcrumbService);
   private readonly destroyRef = inject(DestroyRef);
 
   // A minute clock feeds the hero cadence countdown; cleared on destroy.
@@ -748,11 +750,18 @@ export class IncidentDetailComponent {
         // Replace the route's 'Incident' fallback title with the loaded incident name so the browser
         // tab / history reflects which incident is open (matches AppTitleStrategy's wordmark suffix).
         this.title.setTitle(`${fire.name} — Fire Incidents`);
+        // Publish the loaded name so the shell breadcrumb shows it in place of the raw `:id` segment.
+        this.breadcrumb.set(fire.name);
         this.announcedId = fire.id;
       }
     });
     const tick = setInterval(() => this.now.set(new Date()), TICK_MS);
-    this.destroyRef.onDestroy(() => clearInterval(tick));
+    this.destroyRef.onDestroy(() => {
+      clearInterval(tick);
+      // Clear the published name so a stale incident never bleeds into the next detail crumb before its
+      // fire has loaded (the shell falls back to the static 'Incident' label until the new name arrives).
+      this.breadcrumb.set(null);
+    });
   }
 
   protected authorName(id: string): string {

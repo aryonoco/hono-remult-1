@@ -199,3 +199,64 @@
 .content--wide {
   max-width: var(--container-wide);
 }
+
+/* ── Breadcrumb trail ────────────────────────────────────────────────────── */
+/* Route-derived trail above the content column. Muted, small, and aligned to the same centred max-width
+   column as `.content` (widest measure, so the trail never sits inboard of a wide page) so it lines up
+   with the page beneath it. Rendered only for >=2 crumbs (handled in the template). */
+.breadcrumb {
+  width: 100%;
+  max-width: var(--container-wide);
+  margin-inline: auto;
+  margin-block-end: 1rem;
+}
+
+.breadcrumb__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.breadcrumb__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* Comfortable target + a token focus ring matching the app-wide :focus-visible system in styles.scss. */
+.breadcrumb__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  border-radius: var(--app-radius-card);
+  color: var(--mat-sys-on-surface-variant);
+  text-decoration: none;
+}
+
+.breadcrumb__link:hover {
+  color: var(--mat-sys-on-surface);
+  text-decoration: underline;
+}
+
+.breadcrumb__link:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+  color: var(--mat-sys-on-surface);
+}
+
+/* Separators are decorative (aria-hidden in the template); keep them faint so the labels lead. */
+.breadcrumb__sep {
+  color: var(--mat-sys-outline);
+}
+
+/* The current page reads as plain emphasised text, not a link (no href, aria-current="page"). */
+.breadcrumb__current {
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}
