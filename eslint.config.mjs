@@ -4,7 +4,14 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/*.spec.ts', '.nx/**', '.angular/**'],
+    ignores: [
+      '**/dist/**',
+      '**/out-tsc/**',
+      '**/node_modules/**',
+      '**/*.spec.ts',
+      '.nx/**',
+      '.angular/**',
+    ],
   },
   {
     files: ['apps/api/src/**/*.ts', 'apps/web/src/**/*.ts', 'libs/shared/domain/src/**/*.ts'],
