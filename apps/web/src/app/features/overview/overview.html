@@ -30,16 +30,26 @@
       </div>
 
       <div class="overview__kpis">
-        <app-kpi-tile label="Active" [value]="activeCount()" tone="accent" link="/incidents" />
+        <app-kpi-tile
+          label="Active"
+          [value]="activeCount()"
+          tone="accent"
+          [link]="activeCount() ? '/incidents' : undefined"
+          [queryParams]="{ group: 'active', fy: 'all' }"
+        />
         <app-kpi-tile
           label="Going"
           [value]="goingCount()"
           [tone]="goingCount() ? 'going' : 'neutral'"
+          [link]="goingCount() ? '/incidents' : undefined"
+          [queryParams]="{ group: 'going', fy: 'all' }"
         />
         <app-kpi-tile
           label="Major"
           [value]="majorCount()"
           [tone]="majorCount() ? 'going' : 'neutral'"
+          [link]="majorCount() ? '/incidents' : undefined"
+          [queryParams]="{ group: 'major', fy: 'all' }"
         />
         <div data-testid="kpi-overdue">
           <app-kpi-tile
@@ -47,6 +57,8 @@
             [value]="overdueCount()"
             [tone]="overdueCount() ? 'going' : 'neutral'"
             [live]="liveConnected()"
+            [link]="overdueCount() ? '/incidents' : undefined"
+            [queryParams]="{ group: 'overdue', fy: 'all' }"
           />
         </div>
         <app-kpi-tile
@@ -170,7 +182,13 @@
       </div>
 
       <div class="overview__kpis">
-        <app-kpi-tile label="Fires this season" [value]="seasonCount()" tone="accent" />
+        <app-kpi-tile
+          label="Fires this season"
+          [value]="seasonCount()"
+          tone="accent"
+          [link]="seasonCount() ? '/incidents' : undefined"
+          [queryParams]="{ fy: selectedFy(), group: 'all' }"
+        />
         <app-kpi-tile label="Area burnt" [value]="seasonAreaHa()" unit="ha" tone="accent" />
       </div>
 
@@ -189,14 +207,21 @@
           @if (regionRollup().length === 0) {
             <p class="overview__note">No incidents recorded for this season.</p>
           } @else {
-            <dl class="overview__rollup">
+            <ul class="overview__rollup" role="list">
               @for (r of regionRollup(); track r.regionId) {
-                <div class="overview__rollup-row">
-                  <dt>{{ r.regionName }}</dt>
-                  <dd class="font-mono tabular-nums">{{ r.count }}</dd>
-                </div>
+                <li>
+                  <a
+                    class="overview__rollup-row"
+                    [routerLink]="['/incidents']"
+                    [queryParams]="{ region: r.regionId, fy: selectedFy() }"
+                    [attr.aria-label]="r.regionName + ': ' + r.count + ' incidents'"
+                  >
+                    <span class="overview__rollup-name">{{ r.regionName }}</span>
+                    <span class="font-mono tabular-nums">{{ r.count }}</span>
+                  </a>
+                </li>
               }
-            </dl>
+            </ul>
           }
         </section>
       }

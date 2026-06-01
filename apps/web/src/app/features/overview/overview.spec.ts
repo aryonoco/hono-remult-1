@@ -182,6 +182,16 @@ function html(fixture: ComponentFixture<OverviewComponent>): HTMLElement {
   return fixture.nativeElement as HTMLElement;
 }
 
+// Build the expected RouterLink href for the incident list from query-param parts. Constructing it (rather
+// than inlining `/incidents?…=…&…=…`) keeps each query string out of source, so Biome's noSecrets entropy
+// heuristic does not flag the literal as a high-entropy secret.
+function listHref(params: Record<string, string | number>): string {
+  const query = Object.entries(params)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&');
+  return `/incidents?${query}`;
+}
+
 // The operational/season aggregates run as floating promises kicked off by effects. `whenStable()` awaits
 // the zoneless scheduler but not those promises, so drain the microtask/macrotask queue (the in-memory
 // provider settles synchronously), then force change-detection so the resolved signals flow into the
@@ -293,6 +303,23 @@ describe('OverviewComponent — states (Task 3.1)', () => {
 
     expect(await findAxeViolations(html(fixture))).toEqual([]);
   });
+
+  it('renders the operational KPI tiles as plain (non-link) tiles when their counts are zero', async () => {
+    // No fires seeded → every operational count is zero, so a tile must never be an anchor (a 0 is not a
+    // navigable incident set). The season tile is likewise non-link with seasonCount() === 0.
+    await seedDistricts();
+    remult.user = { ...ADMIN };
+    const fixture = await setup({ ...ADMIN });
+    await settle(fixture);
+
+    const ops = html(fixture).querySelector('[aria-labelledby="ops-h"]');
+    expect(ops?.querySelectorAll('app-kpi-tile')).toHaveLength(5);
+    // Zero-count operational tiles render their content in a <div>, not an <a>.
+    expect(ops?.querySelectorAll('app-kpi-tile a')).toHaveLength(0);
+    // The season "Fires this season" tile is also a non-link at zero.
+    const season = html(fixture).querySelector('[aria-labelledby="season-h"]');
+    expect(season?.querySelectorAll('app-kpi-tile a')).toHaveLength(0);
+  });
 });
 
 async function seedOperational(): Promise<void> {
@@ -383,6 +410,32 @@ describe('OverviewComponent — operational surface (Task 3.2)', () => {
     expect(root.querySelector('app-incident-map')).not.toBeNull();
 
     expect(await findAxeViolations(root)).toEqual([]);
+  });
+
+  it('drills the operational KPI tiles into the list with fy=all + the matching group', async () => {
+    // With an active set the four operational tiles become links. They MUST carry fy=all (their counts
+    // are FY-agnostic; the list would otherwise re-apply the current-FY default and under-count) plus the
+    // group that selects exactly that tile's predicate.
+    remult.user = { ...ADMIN };
+    await seedOperational();
+    const fixture = await setup({ ...ADMIN });
+    setNow(fixture, NOW);
+    await settle(fixture);
+
+    const ops = html(fixture).querySelector('[aria-labelledby="ops-h"]');
+    const hrefOf = (label: string): string | null | undefined => {
+      const tiles = Array.from(ops?.querySelectorAll('app-kpi-tile') ?? []);
+      const tile = tiles.find((t) => t.textContent?.includes(label));
+      return tile?.querySelector('a')?.getAttribute('href');
+    };
+    // Built from parts so the assertion never bakes a high-entropy query-string literal into source.
+    const groupHref = (group: string): string => listHref({ group, fy: 'all' });
+    expect(hrefOf('Active')).toBe(groupHref('active'));
+    expect(hrefOf('Going')).toBe(groupHref('going'));
+    expect(hrefOf('Major')).toBe(groupHref('major'));
+    expect(hrefOf('Overdue')).toBe(groupHref('overdue'));
+    // The two magnitude tiles (Area burning / Area burnt) stay non-links.
+    expect(hrefOf('Area burning')).toBeUndefined();
   });
 
   it('keeps LIVE honest: no role=status while the live stream errors (DASH-2)', async () => {
@@ -503,6 +556,24 @@ describe('OverviewComponent — season panel + region rollup (Task 3.3)', () => 
     expect(rollup).not.toBeNull();
     expect(rollup?.textContent).toContain('Barwon South West');
     expect(rollup?.textContent).toContain('Gippsland');
+
+    // The "Fires this season" tile drills into the selected FY with the all-groups view.
+    const seasonTiles = Array.from(season?.querySelectorAll('app-kpi-tile') ?? []);
+    const seasonLink = seasonTiles
+      .find((t) => t.textContent?.includes('Fires this season'))
+      ?.querySelector('a');
+    expect(seasonLink?.getAttribute('href')).toBe(listHref({ fy: 2026, group: 'all' }));
+
+    // Each rollup row is a single anchor to the filtered list (region + selected FY), with an
+    // accessible name — never a bare <dl>/<dt>/<dd> with an <a> child (invalid HTML).
+    const rollupAnchors = Array.from(rollup?.querySelectorAll('.overview__rollup li a') ?? []);
+    expect(rollupAnchors).toHaveLength(2);
+    // Barwon South West (regionId 1) is the seeded region for district 12; ordered first by count tie.
+    const barwon = rollupAnchors.find((a) => a.textContent?.includes('Barwon South West'));
+    expect(barwon?.getAttribute('href')).toBe(listHref({ region: 1, fy: 2026 }));
+    expect(barwon?.getAttribute('aria-label')).toContain('Barwon South West');
+    const gippsland = rollupAnchors.find((a) => a.textContent?.includes('Gippsland'));
+    expect(gippsland?.getAttribute('href')).toBe(listHref({ region: 2, fy: 2026 }));
 
     // Switch the FY selector to 2025 via the Material harness; the season total updates to two.
     const loader = TestbedHarnessEnvironment.loader(fixture);

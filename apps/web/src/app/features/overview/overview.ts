@@ -343,23 +343,37 @@ function toMapPoints(rows: readonly MapPointSource[]): MapPoint[] {
       gap: 0.375rem;
       margin-block: 0;
       margin-inline: 0;
+      padding-block: 0;
+      padding-inline: 0;
+      list-style: none;
     }
 
+    /* Each row is now a drill-in link to the filtered list. Mirror the .overview__row affordance: a
+       hover background, a visible focus ring, and a >=24px target (min-height + padding) so colour is
+       never the sole signal and the target is comfortably clickable. */
     .overview__rollup-row {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
       gap: 1rem;
-      padding-block: 0.25rem;
-      padding-inline: 0;
-      border-block-end: 1px solid var(--mat-sys-outline-variant);
+      min-height: 1.5rem;
+      padding-block: 0.375rem;
+      padding-inline: 0.5rem;
+      border-radius: var(--app-radius-card);
+      color: inherit;
+      text-decoration: none;
     }
 
-    .overview__rollup-row:last-child {
-      border-block-end: none;
+    .overview__rollup-row:hover {
+      background: var(--mat-sys-surface-container-high);
     }
 
-    .overview__rollup dt {
+    .overview__rollup-row:focus-visible {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: 2px;
+    }
+
+    .overview__rollup-name {
       font-weight: 500;
     }
   `,
@@ -542,19 +556,25 @@ export class OverviewComponent {
   private async refreshOps(): Promise<void> {
     const repo = remult.repo(FireIncident);
     const now = untracked(() => this.now());
+    // Bound the operational active set to `reportedAt <= now`, matching the list's buildWhere (which
+    // always applies `reportedAt <= now`). The dataset is pre-seeded with future-dated seasons, so an
+    // unbounded active filter would count fires that have not happened yet — making a tile disagree with
+    // its `fy='all'` drill-in destination. The shared ACTIVE constant stays unbounded for the
+    // needs-attention liveQuery (its rows are inherently current and re-sort against the ticking clock).
+    const bounded: EntityFilter<FireIncident> = { ...ACTIVE, reportedAt: { $lte: now } };
     const result = await ResultAsync.fromPromise(
       Promise.all([
-        repo.groupBy({ group: ['status'], where: ACTIVE }),
-        repo.aggregate({ sum: ['fireAreaHectares'], where: ACTIVE }),
-        repo.count({ ...ACTIVE, isMajor: true }),
-        repo.count({ ...ACTIVE, nextReportDue: { $lt: now } }),
-        repo.count(ACTIVE),
+        repo.groupBy({ group: ['status'], where: bounded }),
+        repo.aggregate({ sum: ['fireAreaHectares'], where: bounded }),
+        repo.count({ ...bounded, isMajor: true }),
+        repo.count({ ...bounded, nextReportDue: { $lt: now } }),
+        repo.count(bounded),
         // Bounded map fetch. Ordered most-recently-updated first, so if the active set ever exceeded
         // MAP_CAP the freshest fires are kept; the `+N more not plotted` note (mapOverflow) flags any
         // truncation. MAP_CAP comfortably exceeds the realistic active set, so truncation is effectively
         // unreachable in practice.
         repo.find({
-          where: ACTIVE,
+          where: bounded,
           orderBy: { statusAsAt: 'desc' },
           limit: MAP_CAP,
           select: MAP_SELECT,
