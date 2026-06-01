@@ -7,7 +7,7 @@
     "defaultBranch": "main"
   },
   "files": {
-    "includes": ["**", "!**/dist", "!**/out-tsc", "!**/*.html", "!.claude/workflows"]
+    "includes": ["**", "!**/dist", "!**/out-tsc", "!**/*.html", "!.claude"]
   },
   "formatter": {
     "enabled": true,
