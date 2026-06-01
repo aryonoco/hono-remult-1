@@ -1,20 +1,23 @@
 # Handoff to the next agent — Fire-incidents redesign (branch `feat/fire-incidents-tactical-redesign`)
 
-> ## ✅ SESSION 3 (2026-06-01) — CSS/SCSS modernisation DONE; NEXT = FIRE-AREA-7
-> **CSS-1..6 complete and committed** (`c3e5596`; workflow hardening `75c276e`; in-flight doc `e2e21d3`). Ran via
-> the `css-modernisation` Workflow (run `wf_45f5112f-c97`) — 14 styling files modernised (physical→logical props,
-> px→rem media queries, exact unit tidies, dropped the last Tailwind `!important`s, token-tracked card radius),
-> **proven appearance byte-identical** by the frozen-clock fingerprint gate below; 13/14 auto-approved + 1 hand-fix
-> (a false-claim comment in `dev-user-switcher.ts`). `check:ci` + 292 web tests + AA guard green. See the tracker's
-> Verified-fixed log for the full record.
-> **REMAINING, in order:** (1) **FIRE-AREA-7** — statewide fire-extent polygons on the `/overview` map (tracker has
-> the spec; scope-aware, bounded query, AA, 2D extents not 3D). (2) **Finish:** DETAIL follow-ups (move empty-state
-> CTA out of `role=status`; soon/upcoming/none cadence-chip variant tests) + final holistic browser sweep (every
-> screen × light+dark × 1320/820/390 + reduced-motion + keyboard, as admin AND district viewer) + `just ci`
-> genuinely green + `superpowers:finishing-a-development-branch` (user chose "leave the branch for my review" —
-> re-confirm).
+> ## ✅ SESSION 3 (2026-06-01) — CSS modernisation + FIRE-AREA-7 DONE; only the FINISH step remains
+> **CSS-1..6 complete** (`c3e5596`; workflow hardening `75c276e`; in-flight doc `e2e21d3`) — 14 styling files
+> modernised via the `css-modernisation` Workflow (run `wf_45f5112f-c97`), **proven appearance byte-identical** by
+> the frozen-clock fingerprint gate below. **FIRE-AREA-7 complete** (`aad6f28`) — the `/overview` map overlays the
+> 12 largest recent fires that carry a perimeter (scope-aware via the apiPrefilter, bounded, `reportedAt<=now`,
+> deduped vs the active set), heading → "Incident map" + honest caption; also fixed a latent Leaflet
+> `_clipPoints`/undefined-bounds crash (frame the view before adding vector layers). Browser-verified as admin
+> (statewide, 13 polygons) AND Otway viewer (12 district extents), light + dark, 0 console errors; detail map
+> unchanged. `check:ci` + 293 web tests + AA guard green. See the tracker's Verified-fixed log for both.
+> **REMAINING — the FINISH step (tracker open items: DASH-6 only, folded in here):**
+> (1) DETAIL follow-ups: move the empty-state CTA out of its `role="status"` region; add soon/upcoming/none
+> cadence-chip variant tests. (2) Final holistic real-browser sweep — every screen × light+dark × 1320/820/390 +
+> reduced-motion + keyboard, as admin AND a district viewer; DASH-6 (live-dot static under reduced-motion) folds in.
+> (3) `just ci` genuinely green (NOT just check:ci — the full gate adds cspell/markdownlint/test/build).
+> (4) `superpowers:finishing-a-development-branch` — the user previously chose "leave the branch for my review", so
+> **re-confirm with the user** how to finish; do not merge/PR without asking.
 >
-> **The deterministic appearance-equality gate (reuse it for FIRE-AREA-7's overview changes + the final sweep):**
+> **The deterministic appearance-equality gate (reuse it for any further appearance-preserving refactor + the sweep):**
 > - Harness: `/tmp/pwcap/` (`capture.mjs` + `diff.mjs`, using `playwright-core` + the bundled Chromium at
 >   `/ms-playwright/chromium-1223/chrome-linux/chrome`). Run with `MISE_BUN_VERSION=1.3.14 bun …` (mise has no
 >   bun pinned outside the repo). If `/tmp` was wiped, re-create: `cd /tmp/pwcap && echo '{}' > package.json &&
