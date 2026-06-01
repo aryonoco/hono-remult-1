@@ -16,6 +16,12 @@
         <h2 id="ops-h" class="overview__heading">
           Active operations<span class="overview__scope">{{ scopeSuffix() }}</span>
         </h2>
+        <a
+          class="overview__view-all"
+          routerLink="/incidents"
+          [queryParams]="{ group: 'active', fy: 'all' }"
+          >View all</a
+        >
         @if (liveConnected()) {
           <span class="overview__live" data-testid="overview-live">
             <span class="overview__live-dot" aria-hidden="true"></span>
@@ -66,6 +72,8 @@
           [value]="totalActiveAreaHa()"
           unit="ha"
           tone="accent"
+          [link]="totalActiveAreaHa() ? '/incidents' : undefined"
+          [queryParams]="{ group: 'active', fy: 'all' }"
         />
       </div>
 
@@ -74,7 +82,7 @@
           <h3 id="mix-h" class="overview__panel-heading">
             Status mix<span class="overview__scope">{{ scopeSuffix() }}</span>
           </h3>
-          <app-status-mix-bar [counts]="statusCounts()" />
+          <app-status-mix-bar [counts]="statusCounts()" [segmentLink]="opsToneLink" />
         </section>
 
         <section aria-labelledby="attention-h" class="overview__panel">
@@ -167,6 +175,12 @@
         <h2 id="season-h" class="overview__heading">
           Season FY{{ selectedFy() }}<span class="overview__scope">{{ scopeSuffix() }}</span>
         </h2>
+        <a
+          class="overview__view-all"
+          routerLink="/incidents"
+          [queryParams]="{ fy: selectedFy(), group: 'all' }"
+          >View all</a
+        >
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="overview__fy">
           <mat-label>Financial year</mat-label>
           <mat-select
@@ -189,14 +203,21 @@
           [link]="seasonCount() ? '/incidents' : undefined"
           [queryParams]="{ fy: selectedFy(), group: 'all' }"
         />
-        <app-kpi-tile label="Area burnt" [value]="seasonAreaHa()" unit="ha" tone="accent" />
+        <app-kpi-tile
+          label="Area burnt"
+          [value]="seasonAreaHa()"
+          unit="ha"
+          tone="accent"
+          [link]="seasonAreaHa() ? '/incidents' : undefined"
+          [queryParams]="{ fy: selectedFy(), group: 'all' }"
+        />
       </div>
 
       <section aria-labelledby="season-mix-h" class="overview__panel">
         <h3 id="season-mix-h" class="overview__panel-heading">
           Season status mix<span class="overview__scope">{{ scopeSuffix() }}</span>
         </h3>
-        <app-status-mix-bar [counts]="seasonStatus()" />
+        <app-status-mix-bar [counts]="seasonStatus()" [segmentLink]="seasonToneLink" />
       </section>
 
       @if (showRollup()) {

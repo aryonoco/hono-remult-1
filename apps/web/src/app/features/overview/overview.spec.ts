@@ -7,7 +7,7 @@ import {
   TestBed,
 } from '@angular/core/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import {
   type CurrentUser,
   DEV_USERS,
@@ -149,7 +149,7 @@ function seedSitrep(seed: SitrepSeed): void {
   });
 }
 
-async function setup(user: CurrentUser | undefined): Promise<ComponentFixture<OverviewComponent>> {
+function configure(user: CurrentUser | undefined): void {
   const devAuthStub = {
     currentUser: () => user,
     currentUserId: user?.id,
@@ -166,7 +166,27 @@ async function setup(user: CurrentUser | undefined): Promise<ComponentFixture<Ov
       { provide: DevAuthService, useValue: devAuthStub },
     ],
   });
+}
+
+async function setup(user: CurrentUser | undefined): Promise<ComponentFixture<OverviewComponent>> {
+  configure(user);
   await TestBed.compileComponents();
+  const fixture = TestBed.createComponent(OverviewComponent);
+  await fixture.whenStable();
+  TestBed.tick();
+  return fixture;
+}
+
+// Seed the URL with query params BEFORE the component subscribes, so its constructor reads them on the
+// first `queryParamMap` emission — the season fy deep-link path. Navigating to the current route with
+// `queryParams` is enough under `provideRouter([])`.
+async function setupWithQuery(
+  user: CurrentUser | undefined,
+  queryParams: Record<string, string | number>,
+): Promise<ComponentFixture<OverviewComponent>> {
+  configure(user);
+  await TestBed.compileComponents();
+  await TestBed.inject(Router).navigate([], { queryParams });
   const fixture = TestBed.createComponent(OverviewComponent);
   await fixture.whenStable();
   TestBed.tick();
@@ -434,8 +454,75 @@ describe('OverviewComponent — operational surface (Task 3.2)', () => {
     expect(hrefOf('Going')).toBe(groupHref('going'));
     expect(hrefOf('Major')).toBe(groupHref('major'));
     expect(hrefOf('Overdue')).toBe(groupHref('overdue'));
-    // The two magnitude tiles (Area burning / Area burnt) stay non-links.
-    expect(hrefOf('Area burning')).toBeUndefined();
+    // The "Area burning" magnitude tile drills into the same active set it sums over (fy-agnostic).
+    expect(hrefOf('Area burning')).toBe(groupHref('active'));
+  });
+
+  it('drills the area tiles into the set they sum over (active for burning, season for burnt)', async () => {
+    // The two area magnitude tiles are conditional drill-ins: "Area burning" mirrors the Active tile's
+    // destination (the active set, fy-agnostic), "Area burnt" mirrors the season-count destination (the
+    // selected FY, all groups). With a non-zero area each is a link; a 0 stays a non-link (asserted
+    // separately by the zero-count test).
+    remult.user = { ...ADMIN };
+    await seedOperational();
+    const fixture = await setup({ ...ADMIN });
+    setNow(fixture, NOW);
+    await settle(fixture);
+
+    const root = html(fixture);
+    const areaHref = (section: string, label: string): string | null | undefined => {
+      const tiles = Array.from(root.querySelector(section)?.querySelectorAll('app-kpi-tile') ?? []);
+      return tiles
+        .find((t) => t.textContent?.includes(label))
+        ?.querySelector('a')
+        ?.getAttribute('href');
+    };
+    // Active area is non-zero (1240 + 380 ha), so "Area burning" links to the active set.
+    expect(instance(fixture).totalActiveAreaHa()).toBeGreaterThan(0);
+    expect(areaHref('[aria-labelledby="ops-h"]', 'Area burning')).toBe(
+      listHref({ group: 'active', fy: 'all' }),
+    );
+    // The seeded fires are FY2026, so the season area is non-zero; "Area burnt" links to the selected FY.
+    expect(instance(fixture).seasonAreaHa()).toBeGreaterThan(0);
+    expect(areaHref('[aria-labelledby="season-h"]', 'Area burnt')).toBe(
+      listHref({ fy: 2026, group: 'all' }),
+    );
+  });
+
+  it('renders the status-mix legend as tone drill-in links (ops bar: tone + fy=all)', async () => {
+    // CLUSTER 3: the ops Status-mix bar receives `opsToneLink`, so its legend renders <li><a> rows that
+    // drill into the list by tone with fy=all (figure==destination over the active set). The seed has a
+    // going fire and a contained fire, so both tones produce a legend anchor.
+    remult.user = { ...ADMIN };
+    await seedOperational();
+    const fixture = await setup({ ...ADMIN });
+    setNow(fixture, NOW);
+    await settle(fixture);
+
+    const opsBar = html(fixture).querySelector('[aria-labelledby="mix-h"] app-status-mix-bar');
+    const legend = Array.from(opsBar?.querySelectorAll('li a') ?? []);
+    expect(legend.length).toBeGreaterThan(0);
+    const hrefFor = (tone: string): string | undefined =>
+      legend
+        .find((a) => a.getAttribute('href') === listHref({ tone, fy: 'all' }))
+        ?.getAttribute('href') ?? undefined;
+    expect(hrefFor('going')).toBe(listHref({ tone: 'going', fy: 'all' }));
+    expect(hrefFor('contained')).toBe(listHref({ tone: 'contained', fy: 'all' }));
+  });
+
+  it('adds a discrete "View all" link beside the Active operations heading (active + fy=all)', async () => {
+    remult.user = { ...ADMIN };
+    await seedOperational();
+    const fixture = await setup({ ...ADMIN });
+    setNow(fixture, NOW);
+    await settle(fixture);
+
+    const head = html(fixture).querySelector('[aria-labelledby="ops-h"] .overview__section-head');
+    const viewAll = head?.querySelector('a.overview__view-all');
+    expect(viewAll).not.toBeNull();
+    expect(viewAll?.getAttribute('href')).toBe(listHref({ group: 'active', fy: 'all' }));
+    // It is a sibling of the heading, never nested inside it (no nested heading link).
+    expect(head?.querySelector('h2 a')).toBeNull();
   });
 
   it('keeps LIVE honest: no role=status while the live stream errors (DASH-2)', async () => {
@@ -601,5 +688,90 @@ describe('OverviewComponent — season panel + region rollup (Task 3.3)', () => 
     expect(root.querySelector('[aria-labelledby="region-h"]')).toBeNull();
 
     expect(await findAxeViolations(root)).toEqual([]);
+  });
+
+  it('renders the season status-mix legend as tone links (tone + selected fy + group=all)', async () => {
+    // CLUSTER 3: the season Status-mix bar receives `seasonToneLink`, so its legend rows drill into the
+    // list by tone within the selected FY (group=all). The FY2026 seed has a going, a contained and a
+    // safe fire, so each of those tones yields a legend anchor carrying fy=2026.
+    remult.user = { ...ADMIN };
+    await seedSeason();
+    const fixture = await setup({ ...ADMIN });
+    await settle(fixture);
+
+    const seasonBar = html(fixture).querySelector(
+      '[aria-labelledby="season-mix-h"] app-status-mix-bar',
+    );
+    const legend = Array.from(seasonBar?.querySelectorAll('li a') ?? []);
+    expect(legend.length).toBeGreaterThan(0);
+    const present = legend.map((a) => a.getAttribute('href'));
+    expect(present).toContain(listHref({ tone: 'going', fy: 2026, group: 'all' }));
+    expect(present).toContain(listHref({ tone: 'contained', fy: 2026, group: 'all' }));
+    expect(present).toContain(listHref({ tone: 'safe', fy: 2026, group: 'all' }));
+  });
+
+  it('adds a discrete "View all" link beside the Season heading (selected fy + group=all)', async () => {
+    remult.user = { ...ADMIN };
+    await seedSeason();
+    const fixture = await setup({ ...ADMIN });
+    await settle(fixture);
+
+    const head = html(fixture).querySelector(
+      '[aria-labelledby="season-h"] .overview__section-head',
+    );
+    const viewAll = head?.querySelector('a.overview__view-all');
+    expect(viewAll).not.toBeNull();
+    expect(viewAll?.getAttribute('href')).toBe(listHref({ fy: 2026, group: 'all' }));
+    // Sibling of the heading, never nested inside it (no nested heading link).
+    expect(head?.querySelector('h2 a')).toBeNull();
+  });
+
+  it('seeds selectedFy from the ?fy= query param on init (the season deep-link)', async () => {
+    remult.user = { ...ADMIN };
+    await seedSeason();
+    // A prior, valid season year in the URL must seed selectedFy on init — a shareable deep link.
+    const fixture = await setupWithQuery({ ...ADMIN }, { fy: 2025 });
+    await settle(fixture);
+
+    expect(instance(fixture).selectedFy()).toBe(2025);
+    // The figures reflect the deep-linked FY (two FY2025 fires), proving the season effect ran for it.
+    expect(instance(fixture).seasonCount()).toBe(2);
+    const head = html(fixture).querySelector('[aria-labelledby="season-h"]');
+    expect(head?.textContent).toContain('Season FY2025');
+  });
+
+  it('clamps an out-of-range or invalid ?fy= to the current financial year', async () => {
+    remult.user = { ...ADMIN };
+    await seedSeason();
+    // 1999 is below FIRST_SEASON_FY → clamp to the current FY (2026), not the bogus value.
+    const fixture = await setupWithQuery({ ...ADMIN }, { fy: 1999 });
+    await settle(fixture);
+
+    expect(instance(fixture).selectedFy()).toBe(2026);
+    expect(instance(fixture).seasonCount()).toBe(3);
+  });
+
+  it('writes ?fy= on setFy for a non-default year and omits it at the current FY', async () => {
+    remult.user = { ...ADMIN };
+    await seedSeason();
+    const fixture = await setup({ ...ADMIN });
+    await settle(fixture);
+    const router = TestBed.inject(Router);
+
+    // Switching to a prior FY writes the param so the view is shareable.
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const select = await loader.getHarness(MatSelectHarness);
+    await select.open();
+    await select.clickOptions({ text: '2025' });
+    await settle(fixture);
+    expect(instance(fixture).selectedFy()).toBe(2025);
+    expect(router.url).toContain('fy=2025');
+
+    // Switching back to the current FY (the implicit default) drops the param from the URL.
+    await select.open();
+    await select.clickOptions({ text: '2026' });
+    await settle(fixture);
+    expect(instance(fixture).selectedFy()).toBe(2026);
+    expect(router.url).not.toContain('fy=');
   });
 });

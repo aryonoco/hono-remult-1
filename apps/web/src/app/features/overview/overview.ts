@@ -9,11 +9,12 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, type ParamMap, Router, RouterLink } from '@angular/router';
 import {
   computeFinancialYear,
   District,
@@ -134,9 +135,39 @@ function toMapPoints(rows: readonly MapPointSource[]): MapPoint[] {
 
     .overview__section-head {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 0.5rem 1rem;
+    }
+
+    /* A quiet, discrete drill-in to the matching filtered list — a sibling of the heading (never wrapping
+       it, so there is no nested heading link). The auto trailing margin keeps it beside the heading and
+       pushes the trailing sibling (the live pill / FY select) to the far end, preserving the space-between
+       layout. Token colour with an underline affordance (colour is never the sole signal); a hover
+       background and a focus-visible ring; padding plus min-height keep the target at least 24px. */
+    .overview__view-all {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.5rem;
+      margin-inline-end: auto;
+      padding-block: 0.125rem;
+      padding-inline: 0.375rem;
+      border-radius: var(--app-radius-card);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--mat-sys-primary);
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+
+    .overview__view-all:hover {
+      background: var(--mat-sys-surface-container-high);
+    }
+
+    .overview__view-all:focus-visible {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: 2px;
     }
 
     .overview__heading {
@@ -381,6 +412,8 @@ function toMapPoints(rows: readonly MapPointSource[]): MapPoint[] {
 export class OverviewComponent {
   private readonly devAuth = inject(DevAuthService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   protected readonly currentUser = this.devAuth.currentUser;
   protected readonly canCreate = computed(() => canCreateIncident(this.currentUser()));
   protected readonly showRollup = computed(() => canViewDistrictRollup(this.currentUser()));
@@ -427,6 +460,25 @@ export class OverviewComponent {
   protected readonly regionRollup = signal<readonly RegionRow[]>([]);
   protected readonly errorMsg = signal<string | null>(null);
 
+  // Status-mix legend drill-ins (figure==destination). Bound arrow fields so each <app-status-mix-bar>
+  // receives a stable reference and the factory runs inside the bar's own segments() computed (never
+  // repeatedly in the template). The ops bar covers the active set (FY-agnostic → fy:'all'); the season
+  // bar covers the selected FY's all-groups view (the factory reads selectedFy() so the season bar's
+  // segments() recompute tracks the FY signal). Dropping `group` lets the list re-seed group to its
+  // 'all' default, so a tone selection is never contradicted by a coarse status group.
+  protected readonly opsToneLink = (
+    tone: StatusTone,
+  ): { commands: unknown[]; queryParams: Record<string, string | number> } => ({
+    commands: ['/incidents'],
+    queryParams: { tone, fy: 'all' },
+  });
+  protected readonly seasonToneLink = (
+    tone: StatusTone,
+  ): { commands: unknown[]; queryParams: Record<string, string | number> } => ({
+    commands: ['/incidents'],
+    queryParams: { tone, fy: this.selectedFy(), group: 'all' },
+  });
+
   protected readonly viewState = computed<'anonymous' | 'loading' | 'content'>(() => {
     if (!this.currentUser()) {
       return 'anonymous';
@@ -458,6 +510,16 @@ export class OverviewComponent {
   private unsubscribeSitreps: (() => void) | null = null;
 
   constructor() {
+    // Deep-link the season view: seed selectedFy from the `fy` query param and keep it in sync as the URL
+    // changes (back/forward, a shared link). Set ONLY when it differs from the current value so writing the
+    // URL in setFy() — which re-emits the same param here — short-circuits and the refreshSeason effect
+    // does not double-fire (mirrors the incident list's read-url equality guard).
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const fy = this.parseFy(params);
+      if (fy !== this.selectedFy()) {
+        this.selectedFy.set(fy);
+      }
+    });
     const tick = setInterval(() => this.now.set(new Date()), TICK_MS);
     this.destroyRef.onDestroy(() => clearInterval(tick));
     // Live bounded subscriptions — re-subscribe on user change only.
@@ -538,6 +600,29 @@ export class OverviewComponent {
 
   protected setFy(fy: number): void {
     this.selectedFy.set(fy);
+    // Write the URL so the season view is shareable and survives a reload. The current FY is the default,
+    // so omit `fy` there (this is /overview's only query param); the queryParamMap subscription re-reads
+    // the result and short-circuits on the equality guard, leaving the refreshSeason effect to fire once.
+    const currentFy = computeFinancialYear(new Date());
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: fy === currentFy ? {} : { fy },
+    });
+  }
+
+  // Parse the `fy` query param into a season year, clamped to [FIRST_SEASON_FY, current FY]. Absent or
+  // invalid (non-integer / out of range) → the current financial year, matching the selectedFy default.
+  private parseFy(params: ParamMap): number {
+    const currentFy = computeFinancialYear(new Date());
+    const raw = params.get('fy');
+    if (raw === null) {
+      return currentFy;
+    }
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || parsed < FIRST_SEASON_FY || parsed > currentFy) {
+      return currentFy;
+    }
+    return parsed;
   }
   protected authorName(id: string): string {
     return operatorName(id);
