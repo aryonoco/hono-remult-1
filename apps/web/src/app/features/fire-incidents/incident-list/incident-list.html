@@ -164,7 +164,11 @@
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef class="col-status col-unsortable">Status</th>
               <td mat-cell *matCellDef="let incident">
-                <app-status-badge [status]="incident.status" />
+                <app-status-badge
+                  [status]="incident.status"
+                  [link]="'/incidents'"
+                  [queryParams]="{ tone: tone(incident.status), fy: filters().fy }"
+                />
               </td>
             </ng-container>
 

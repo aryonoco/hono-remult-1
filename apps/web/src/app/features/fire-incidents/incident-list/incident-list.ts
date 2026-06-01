@@ -25,8 +25,10 @@ import { ActivatedRoute, type ParamMap, Router, RouterLink } from '@angular/rout
 import {
   computeFinancialYear,
   District,
+  FIRE_STATUS_VALUES,
   FireIncident,
   FireStatus,
+  STATUS_TONE_LABELS,
   type StatusTone,
   statusTone,
   TERMINAL_STATUSES,
@@ -55,6 +57,23 @@ const STATUS_GROUPS: readonly StatusGroup[] = [
   'overdue',
   'resolved',
 ];
+// The fine-grained status-set filter: each of the six visual tones groups the FireStatus values that map
+// onto it (via `statusTone`), so a "filter by tone" is `status $in [every status whose tone is that tone]`
+// — the figure on a drill-in (a status-mix segment) equals the destination row set. Derived ONCE from the
+// canonical FireStatus list so adding a status (and its tone in STATUS_TONES) folds in here automatically.
+const STATUSES_BY_TONE: Readonly<Record<StatusTone, FireStatus[]>> = FIRE_STATUS_VALUES.reduce(
+  (acc, status) => {
+    acc[statusTone(status)].push(status);
+    return acc;
+  },
+  { going: [], contained: [], controlled: [], safe: [], neutral: [], missing: [] } as Record<
+    StatusTone,
+    FireStatus[]
+  >,
+);
+// The six StatusTone keys, for URL validation (a hand-edited `tone` param outside this set clamps to 'all').
+const TONE_VALUES = Object.keys(STATUSES_BY_TONE) as StatusTone[];
+
 type SortKey = 'name' | 'fireNumber' | 'statusAsAt' | 'districtId' | 'createdAt';
 const SORT_KEYS: readonly SortKey[] = [
   'name',
@@ -66,6 +85,9 @@ const SORT_KEYS: readonly SortKey[] = [
 interface ListFilters {
   fy: number | 'all';
   group: StatusGroup;
+  // The fine-grained status-set filter the status-mix drill-ins target. Mutually exclusive with `group`'s
+  // coarse status mapping: when tone !== 'all' it takes PRECEDENCE and the group's status branch is skipped.
+  tone: StatusTone | 'all';
   districtId: number | 'all';
   region: number | 'all';
 }
@@ -88,6 +110,7 @@ interface DistrictOption {
 interface ListQueryParams {
   fy?: number | 'all';
   group?: StatusGroup;
+  tone?: StatusTone;
   districtId?: number;
   region?: number;
   sort?: SortKey;
@@ -97,7 +120,7 @@ interface ListQueryParams {
 }
 // One removable chip per non-default, active filter. `kind` selects the reset handler so the template
 // never interpolates class names or branches on a string — it renders a fixed @for + @switch.
-type ChipKind = 'fy' | 'group' | 'district' | 'region';
+type ChipKind = 'fy' | 'group' | 'tone' | 'district' | 'region';
 interface ActiveFilterChip {
   kind: ChipKind;
   label: string;
@@ -202,6 +225,7 @@ export class IncidentListComponent {
   protected readonly filters = signal<ListFilters>({
     fy: computeFinancialYear(new Date()),
     group: 'all',
+    tone: 'all',
     districtId: 'all',
     region: 'all',
   });
@@ -244,6 +268,15 @@ export class IncidentListComponent {
     if (filters.group !== 'all') {
       const label = STATUS_GROUP_LABEL[filters.group];
       chips.push({ kind: 'group', label, ariaLabel: `Remove ${label} filter` });
+    }
+    // The fine-grained tone filter is NOT a scope filter, so its chip is not gated by `showDistrictFilter()`.
+    if (filters.tone !== 'all') {
+      const toneLabel = STATUS_TONE_LABELS[filters.tone];
+      chips.push({
+        kind: 'tone',
+        label: `Status: ${toneLabel}`,
+        ariaLabel: `Remove ${toneLabel} filter`,
+      });
     }
     // District/region are elevated-only scope widening. A mid-session elevated→viewer switch does not
     // re-emit `queryParamMap`, so `parseScopeId` never re-clamps a stale scope filter — gate the chips on
@@ -460,8 +493,20 @@ export class IncidentListComponent {
     this.writeUrl();
   }
 
+  // CONFLICT RULE: the coarse status group and the fine tone are mutually exclusive. Selecting a group
+  // clears any active tone, so the two never compose into a contradictory status constraint. (The other
+  // side is automatic: a tone drill-in arrives via a RouterLink that drops the `group` param, so the URL
+  // reader re-seeds group to its 'all' default on that side.)
   protected setStatusGroup(group: StatusGroup): void {
-    this.filters.update((filters) => ({ ...filters, group }));
+    this.filters.update((filters) => ({ ...filters, group, tone: 'all' }));
+    this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
+    this.writeUrl();
+  }
+
+  // Set the fine-grained tone filter (also the tone chip's removal target with 'all'). Resets the page and
+  // rewrites the URL like every other control. Tone is not gated by elevation — status is not a scope.
+  protected setTone(tone: StatusTone | 'all'): void {
+    this.filters.update((filters) => ({ ...filters, tone }));
     this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
     this.writeUrl();
   }
@@ -493,6 +538,9 @@ export class IncidentListComponent {
       case 'group':
         this.setStatusGroup('all');
         break;
+      case 'tone':
+        this.setTone('all');
+        break;
       case 'district':
         this.setDistrict('all');
         break;
@@ -516,7 +564,7 @@ export class IncidentListComponent {
   // written out via `writeUrl` rather than dropped — otherwise the param reader would re-seed the current
   // FY from the empty URL and undo the reset.
   protected resetFilters(): void {
-    this.filters.set({ fy: 'all', group: 'all', districtId: 'all', region: 'all' });
+    this.filters.set({ fy: 'all', group: 'all', tone: 'all', districtId: 'all', region: 'all' });
     this.pageState.update((page) => ({ ...page, pageIndex: 0 }));
     this.writeUrl();
   }
@@ -546,7 +594,13 @@ export class IncidentListComponent {
     if (filters.fy !== 'all') {
       where.financialYear = filters.fy;
     }
-    if (filters.group === 'active') {
+    // Status constraint with tone PRECEDENCE: a fine tone selection wins over the coarse status group and
+    // pins the status set to exactly the FireStatus values mapping onto that tone, so the group's status
+    // branches (and their isMajor/nextReportDue predicates) only run when no tone is selected. The coarse
+    // toggle and the fine tone are kept mutually exclusive at write time (see `setStatusGroup`/`setTone`).
+    if (filters.tone !== 'all') {
+      where.status = { $in: STATUSES_BY_TONE[filters.tone] };
+    } else if (filters.group === 'active') {
       where.status = { $nin: [...TERMINAL_STATUSES] };
     } else if (filters.group === 'going') {
       where.status = FireStatus.going;
@@ -610,6 +664,7 @@ export class IncidentListComponent {
     return {
       fy: this.parseFy(params.get('fy')),
       group: this.parseGroup(params.get('group')),
+      tone: this.parseTone(params.get('tone')),
       districtId: this.parseScopeId(params.get('districtId')),
       region: this.parseScopeId(params.get('region')),
     };
@@ -633,6 +688,12 @@ export class IncidentListComponent {
 
   private parseGroup(raw: string | null): StatusGroup {
     return STATUS_GROUPS.find((group) => group === raw) ?? 'all';
+  }
+
+  // The fine status-set filter. A valid StatusTone passes through; anything else (absent, or a hand-edited
+  // junk value) clamps to 'all'. Unlike scope, tone is not elevation-gated — status is not a scope filter.
+  private parseTone(raw: string | null): StatusTone | 'all' {
+    return TONE_VALUES.find((tone) => tone === raw) ?? 'all';
   }
 
   // District/region are elevated-only scope widening: ignore them for non-elevated users so a hand-edited
@@ -682,6 +743,9 @@ export class IncidentListComponent {
     }
     if (filters.group !== 'all') {
       queryParams.group = filters.group;
+    }
+    if (filters.tone !== 'all') {
+      queryParams.tone = filters.tone;
     }
     if (filters.districtId !== 'all') {
       queryParams.districtId = filters.districtId;

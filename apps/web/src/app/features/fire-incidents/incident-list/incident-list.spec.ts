@@ -1188,3 +1188,124 @@ describe('IncidentListComponent (district drill-in cell)', () => {
     expect(text(fixture)).toContain('Otway');
   });
 });
+
+describe('IncidentListComponent (tone status-set filter + Status drill-in)', () => {
+  function host(fixture: ComponentFixture<IncidentListComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  // Seed one fire per controlled-tone status (underControlFirst + underControlSecond) plus a going fire
+  // (going tone) and a safe fire (safe tone) so the controlled tone filter has an exact, non-trivial
+  // expansion to assert against: the two controlled fires in, the going + safe fires out.
+  async function seedToneFires(): Promise<void> {
+    await seedDistrict();
+    await seedFire({
+      id: 'ucf',
+      name: 'Under Control First',
+      status: FireStatus.underControlFirst,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    await seedFire({
+      id: 'ucs',
+      name: 'Under Control Second',
+      status: FireStatus.underControlSecond,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    await seedFire({
+      id: 'going-1',
+      name: 'Going One',
+      status: FireStatus.going,
+      nextReportDue: FUTURE_DUE,
+      financialYear: CURRENT_FY,
+    });
+    await seedFire({
+      id: 'safe-1',
+      name: 'Safe One',
+      status: FireStatus.safe,
+      financialYear: CURRENT_FY,
+    });
+  }
+
+  it('seeds the tone filter from a deep-link URL and restricts to its status set', async () => {
+    remult.user = { ...ADMIN };
+    await seedToneFires();
+    // Deep link into the controlled tone at the current FY.
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { tone: 'controlled' });
+    await settle(fixture);
+
+    // The signal seeds straight from the URL ...
+    expect(instance(fixture).filters().tone).toBe('controlled');
+    // ... and the where clause restricts to status $in [underControlFirst, underControlSecond].
+    expect(instance(fixture).total()).toBe(2);
+    const rows = instance(fixture).rows() as FireIncident[];
+    expect(rows.map((row) => row.id).sort()).toEqual(['ucf', 'ucs']);
+    for (const row of rows) {
+      expect([FireStatus.underControlFirst, FireStatus.underControlSecond]).toContain(row.status);
+    }
+  });
+
+  it('clears an active tone when the coarse status group toggle changes', async () => {
+    remult.user = { ...ADMIN };
+    await seedToneFires();
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { tone: 'controlled' });
+    await settle(fixture);
+    expect(instance(fixture).filters().tone).toBe('controlled');
+
+    // The coarse group and the fine tone are mutually exclusive: selecting a group drops the tone.
+    instance(fixture).setStatusGroup('going');
+    await settle(fixture);
+
+    expect(instance(fixture).filters().group).toBe('going');
+    expect(instance(fixture).filters().tone).toBe('all');
+    // Only the going fire remains (the two controlled fires + the safe fire drop out).
+    expect(instance(fixture).total()).toBe(1);
+    expect((instance(fixture).rows() as FireIncident[]).map((row) => row.id)).toEqual(['going-1']);
+  });
+
+  it('renders a removable tone chip that resets the tone on removal', async () => {
+    remult.user = { ...ADMIN };
+    await seedToneFires();
+    const fixture = await createComponentWithQuery({ ...ADMIN }, { tone: 'controlled' });
+    await settle(fixture);
+
+    // The tone surfaces a single status chip (not gated by the elevation scope gate).
+    const chips = instance(fixture).activeFilterChips() as { kind: string; label: string }[];
+    expect(chips.map((chip) => chip.kind)).toEqual(['tone']);
+    expect(chips[0]!.label).toBe('Status: Under control');
+
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const chipSet = await loader.getHarness(MatChipSetHarness);
+    const [toneChip] = await chipSet.getChips();
+    await toneChip!.remove();
+    await settle(fixture);
+
+    // Removing the chip resets the tone, so all four fires (current FY) become visible again.
+    expect(instance(fixture).filters().tone).toBe('all');
+    expect(instance(fixture).activeFilterChips()).toEqual([]);
+    expect(instance(fixture).total()).toBe(4);
+  });
+
+  it('renders the desktop Status cell as a tone drill-in anchor with the right query params', async () => {
+    remult.user = { ...ADMIN };
+    await seedToneFires();
+    const fixture = await createComponent({ ...ADMIN });
+    await settle(fixture);
+
+    // The Status cell badge is a link form: an <a> drilling into its own tone. The going fire's badge
+    // therefore carries `tone=going`; the FY filter rides along so the drill-in keeps the current view.
+    const root = host(fixture);
+    const statusLinks = root.querySelectorAll('table app-status-badge a');
+    expect(statusLinks.length).toBeGreaterThan(0);
+    const goingLink = [...statusLinks].find((a) =>
+      (a.getAttribute('href') ?? '').includes('going'),
+    );
+    expect(goingLink).not.toBeUndefined();
+    const href = goingLink!.getAttribute('href') ?? '';
+    expect(href).toContain('/incidents');
+    expect(href).toContain('tone=going');
+
+    expect(await findAxeViolations(root)).toEqual([]);
+  });
+});
