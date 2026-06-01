@@ -181,21 +181,21 @@ and keep `bun run check:ci` + tests + the AA contrast guard green. Same quality 
 except the reduced-motion guard, Material via `mat.*-overrides()`/density only, modern Angular). Decompose into small,
 context-safe sub-workflows per file/area (lesson from the failed FIXTURES/FORMS runs). Do NOT change behaviour or testids.
 
-- [ ] **CSS-1 (major): Full inventory** — enumerate every CSS/SCSS source + inline component style + arbitrary Tailwind
+- [x] **CSS-1 (major): Full inventory** — enumerate every CSS/SCSS source + inline component style + arbitrary Tailwind
   value; classify each declaration as modern-OK vs legacy-to-uplift, producing the work list for CSS-2..6. (read-only audit)
-- [ ] **CSS-2 (major): Units** — replace legacy `px` with `rem`/`em` (type, spacing, radii, breakpoints) or unitless
+- [x] **CSS-2 (major): Units** — replace legacy `px` with `rem`/`em` (type, spacing, radii, breakpoints) or unitless
   where idiomatic; KEEP `px` only where genuinely correct (1px hairlines/borders, sub-pixel geometry). Prefer the
   Tailwind spacing scale / canonical classes over arbitrary `[Npx]`; use `clamp()`/`min()`/`max()` for fluid type+spacing.
-- [ ] **CSS-3 (major): Logical properties** — convert physical properties to logical (`margin-inline`/`-block`,
+- [x] **CSS-3 (major): Logical properties** — convert physical properties to logical (`margin-inline`/`-block`,
   `padding-inline`/`-block`, `inset`, `border-start-*`, `text-align: start/end`) for RTL/i18n readiness; align with how
   Tailwind v4 emits logical utilities.
-- [ ] **CSS-4 (minor): Modern layout + features** — prefer grid/flex + `gap` over margins for spacing; use container
+- [x] **CSS-4 (minor): Modern layout + features** — prefer grid/flex + `gap` over margins for spacing; use container
   queries (already partly used) where a component should respond to its container not the viewport; adopt `:has()`,
   `:focus-visible`, `color-mix()`, `light-dark()`, cascade layers consistently (several already in use — make them uniform).
-- [ ] **CSS-5 (minor): Tokens + no magic numbers** — every colour through `--mat-sys-*`/`--color-*` (no hex/rgb/hsl
+- [x] **CSS-5 (minor): Tokens + no magic numbers** — every colour through `--mat-sys-*`/`--color-*` (no hex/rgb/hsl
   literals outside the `@theme` token layer); replace magic spacing/size numbers with the scale or named tokens; ensure
   the cascade-layer order (`base, material, tailwind, utilities`) and the single sanctioned `!important` are intact.
-- [ ] **CSS-6 (minor): A11y + responsiveness invariants** — confirm focus rings, target sizes (≥24px), reduced-motion
+- [x] **CSS-6 (minor): A11y + responsiveness invariants** — confirm focus rings, target sizes (≥24px), reduced-motion
   guards, and AA contrast hold after the refactor in both themes; no horizontal overflow at 390px; no visual regression.
 
 ## Verified-fixed log
@@ -216,4 +216,21 @@ context-safe sub-workflows per file/area (lesson from the failed FIXTURES/FORMS 
 - **FORMS uplift — DONE, browser-verified (all 3 forms)** (commits `6f7a2a0` DENSITY-1 service+list+wider gap, `b370987` outline fields + section cards + density scale (FU-1/2/7), `e46af15` aria-invalid (FU-5/FORM-1), `565f7ba` form density toggle (FU-4/FU-6), `4b92ab3` wider forms density distinction, `88c7e6e` row/boolean alignment + action-bar padding, `7f17929` CSS workflow + biome ignore, `58b6d24` dev-switcher outline (FU-7/FORM-4), `a991209` dialog primary-focus (FU-8/FORM-2/3), `190aa3f` ready-gating (FU-9/FORM-5), `d5f460d` app-bar handset overflow fix). **DONE+verified:** DENSITY-1 (global `DensityService`, default compact, `fire-density`, `html[data-density]`; list refactored; **wide gap** — list rows 32↔64, forms via Material density scale Compact -4 / Comfortable 0 **plus** `:host-context` section/field-gap spacing → form ~590px taller in Comfortable); FU-1 outline fields (incl. datetime); FU-2 section cards (block header + separator, fieldset/legend kept); FU-3 responsive grid; FU-4 forms density toggle (shared service, header); FU-5/FORM-1 `aria-invalid` on every control (browser-confirmed true-on-error) + required asterisks (Material) + `aria-describedby`→mat-error; FU-6 page shells (header row + sticky action bar **now padded + carded**); keyboard/tab nav verified (logical order, no traps). **Extra user requests handled:** wider density distinction; row alignment (datetime → own full-width row; boolean control box matches field height per density, description below); action-bar internal padding. **Also DONE+verified:** FU-7/FORM-4 (dev-user-switcher switched to outline; select trigger text + dropdown options + panel confirmed on-surface/surface-container in both themes); FU-8/FORM-2/3 (confirm dialogs focus their primary action via `cdkFocusInitial` — browser-confirmed "Discard changes?" focuses Discard; escalate focuses its level radio, confirm-reason its input; all dialog buttons show the 3px strong-focus ring; `restoreFocus`/`first-tabbable` are Material defaults); FU-9/FORM-5 (incident form gates `pageState` on `districtsResource` resolving — sitrep has no async options, final report already gates on its edit resource). Browser-swept all 3 forms (incident/sitrep/final): all-outline fields, density toggle, **0 misaligned rows**, padded action bar. Handset (390px) overflow fixed (app-bar wordmark hidden ≤512px; commit `d5f460d`); cells collapse to single column; dark-mode tokens hold. 292 web tests + check:ci green.
 - **SCOPE clarity (SCOPE-1..5) — DONE, browser-verified as both roles** (commit `88c9e12`). Shared `currentScope` helper + `scope-indicator` badge, derived the same way as the FireIncident apiPrefilter so the label always matches the scoped data. Badge on overview/list/detail/form headers ("Statewide" globe for elevated, "<District> district" pin otherwise); every overview section heading suffixed with its scope. Verified: Sarah Admin → "Statewide" everywhere; Saanvi Viewer (Otway) → "Otway district", list filtered to Otway (84 rows, no district filter). Real text (not colour-only), AA tokens.
 - **Future-dated fixture data no longer shown as current — DONE, browser-verified** (commit `9683d09`). The FY2027-2029 seed data is dated in the future relative to the real-clock `now`; it was leaking into the overview "Recent activity" feed (led with FY2029), the list "All years" filter (~21k incl. future), and season totals. Bounded every current/recent read to `now` (recent-activity + season aggregate filter submittedAt/reportedAt ≤ now; list always filters reportedAt ≤ now). FY selectors were already capped to the current FY; the active set is current by construction. Verified: recent activity 0 future entries; "All years" → 13,103 fires, no FY2027-29 rows/options. The dataset now reveals each season as its time arrives (evergreen).
+- **CSS/SCSS modernisation (CSS-1..6) — DONE, appearance proven byte-identical** (commit `c3e5596`; workflow
+  hardening `75c276e`). Delegated to the `css-modernisation` Workflow (run `wf_45f5112f-c97`): an Inventory →
+  Modernise → adversarial-Review pipeline over the 14 styling sources (2 of 16 already-modern), agents edit-only,
+  orchestrator verifies + commits. 13/14 auto-approved; the 1 NEEDS_WORK was a false-claim inline comment in
+  `dev-user-switcher.ts` (the 640px→40rem code was correct) — fixed by hand. Changes: physical→logical box props
+  app-wide (margin/padding-inline|block, inset-*, border-inline|block-*, inline/block-size, text-align start/end,
+  scroll-margin-block-*); px media queries→rem (32/40/48rem) + the app-bar guard to `width <= 32rem` range syntax;
+  exact unit tidies (`3px`→`0.1875rem`, square timeline dot `9999px`→`50%` while pill spines/chips keep `9999px`,
+  `text-[10.5px]`→`text-[0.65625rem]`); dropped the last Tailwind `!important` icon overrides for a scoped
+  `.badge-icon` class (layer-based override, the scope-indicator pattern); `--app-radius-card` now tracks the
+  `--radius-card` theme token. **Appearance proven preserved** by a frozen-clock (`2026-06-01T03:30:00Z`)
+  rect+paint fingerprint (`/tmp/pwcap/{capture,diff,diff2}.mjs`, baseline `/tmp/css-baseline`) captured across
+  overview/list/detail/new × light+dark × 1320/390 before and after: noise floor 0; after path-keying +
+  LTR-normalising logical keywords, **every element's geometry and paint are byte-identical** (the only computed
+  deltas are LTR-equivalent `text-align end≡right`, class renames like `left-0`→`start-0`, and the square dot's
+  clamped radius — all visually identical). `check:ci` + 292 web tests + the WCAG AA contrast guard green; zero
+  lint suppressions; no new hex/`!important`/`.mat-mdc-*`/`::ng-deep`.
 - _(append more shas as issues are fixed + browser-verified)_

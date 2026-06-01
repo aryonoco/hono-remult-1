@@ -1,14 +1,20 @@
 # Handoff to the next agent — Fire-incidents redesign (branch `feat/fire-incidents-tactical-redesign`)
 
-> ## 🔧 IN-FLIGHT (updated 2026-06-01, session 3) — CSS modernisation running; read before acting
-> HEAD was clean at **`75c276e`** when the **CSS/SCSS modernisation workflow was launched** (run
-> `wf_45f5112f-c97`, task `wuxwb1nsd`, via `Workflow({name:'css-modernisation'})`). The workflow agents
-> **EDIT styling files only — they do NOT commit.** While it runs, do NOT launch another workflow or edit/commit
-> styling files (git-index + file races). If you are resuming and it is no longer running, check
-> `git status` for its uncommitted edits and `/workflows` (run `wf_45f5112f-c97`) for results.
+> ## ✅ SESSION 3 (2026-06-01) — CSS/SCSS modernisation DONE; NEXT = FIRE-AREA-7
+> **CSS-1..6 complete and committed** (`c3e5596`; workflow hardening `75c276e`; in-flight doc `e2e21d3`). Ran via
+> the `css-modernisation` Workflow (run `wf_45f5112f-c97`) — 14 styling files modernised (physical→logical props,
+> px→rem media queries, exact unit tidies, dropped the last Tailwind `!important`s, token-tracked card radius),
+> **proven appearance byte-identical** by the frozen-clock fingerprint gate below; 13/14 auto-approved + 1 hand-fix
+> (a false-claim comment in `dev-user-switcher.ts`). `check:ci` + 292 web tests + AA guard green. See the tracker's
+> Verified-fixed log for the full record.
+> **REMAINING, in order:** (1) **FIRE-AREA-7** — statewide fire-extent polygons on the `/overview` map (tracker has
+> the spec; scope-aware, bounded query, AA, 2D extents not 3D). (2) **Finish:** DETAIL follow-ups (move empty-state
+> CTA out of `role=status`; soon/upcoming/none cadence-chip variant tests) + final holistic browser sweep (every
+> screen × light+dark × 1320/820/390 + reduced-motion + keyboard, as admin AND district viewer) + `just ci`
+> genuinely green + `superpowers:finishing-a-development-branch` (user chose "leave the branch for my review" —
+> re-confirm).
 >
-> **A deterministic appearance-equality gate is set up** (this is the proof that the refactor preserves exact
-> pixels — do NOT skip it):
+> **The deterministic appearance-equality gate (reuse it for FIRE-AREA-7's overview changes + the final sweep):**
 > - Harness: `/tmp/pwcap/` (`capture.mjs` + `diff.mjs`, using `playwright-core` + the bundled Chromium at
 >   `/ms-playwright/chromium-1223/chrome-linux/chrome`). Run with `MISE_BUN_VERSION=1.3.14 bun …` (mise has no
 >   bun pinned outside the repo). If `/tmp` was wiped, re-create: `cd /tmp/pwcap && echo '{}' > package.json &&
