@@ -140,8 +140,20 @@ over-claimed it). **Run `just ci` yourself and make it genuinely pass before any
   **"Saanvi Viewer — viewer · Otway"**) sees the **same headings**, with no indication the data is only their
   district/region. Audit ALL pages (overview, list, detail, forms) and make the scope explicit (e.g. a
   "Statewide" vs "Otway district" label/badge in headings, KPI captions, section titles, map title). Respect
-  the existing permission/role model (`Roles`, `canViewDistrictRollup`, the user's district scoping). Its own
-  campaign; same quality bar; verify in the browser as each role (use the dev-user switcher).
+  the existing permission/role model (`Roles`, `canViewDistrictRollup`, the user's district scoping). **Enumerated
+  in the tracker as SCOPE-1..5** ("## Workstream: Scope clarity"); same quality bar; verify in the browser as each
+  role (use the dev-user switcher). User explicitly scheduled this **after FIXTURES + FORMS**.
+
+### 4c. CSS/SCSS MODERNISATION campaign (user request #5) — scheduled AFTER FIXTURES + FORMS + SCOPE
+- The user noticed "a lot of legacy CSS … using pixels etc and other things which are not best practice in 2026".
+  Meticulously review EVERY CSS/SCSS directive (styles.scss, tailwind.css, every component inline style, every
+  `*.css`/`*.scss`, arbitrary Tailwind `[...]` values) and uplift to 2026 best practice: `rem`/logical units instead
+  of stray `px` (keep px only for true hairlines), logical properties (margin/padding-inline/block, inset),
+  `clamp()`/`min()`/`max()` fluid sizing, grid/flex+gap, `:has()`/`color-mix()`/`light-dark()`/container queries used
+  uniformly, token-only colour, no magic numbers. **It is a REFACTOR — preserve the exact rendered appearance**
+  (verify each screen identical before/after in both themes × 1320/820/390); no behaviour/testid changes; keep
+  check:ci + AA guard green. **Enumerated in the tracker as CSS-1..6** ("## Workstream: CSS/SCSS modernisation").
+  Decompose into small per-file sub-workflows.
 
 ### 4b. BLOG POST (user request #4) — **the VERY LAST step, after ABSOLUTELY everything else**
 - The user said: *"as the VERY VERY last step, once you are otherwise totally finished, write a comprehensive
@@ -234,12 +246,17 @@ plus the `Workflow` tool (ultracode mode) and a read-only audit workflow. MCP se
 2. **FIXTURES** (§3a) via small sub-workflows, one at a time → re-seed → browser-verify → tick DASH-3 + log.
 3. **FORMS uplift** (§3b) via small sub-workflows, one at a time → restart web → browser-verify (3 forms,
    light+dark, 390px, keyboard, density toggle, dialog focus) → tick FU-*/DENSITY-1/FORM-* + log.
-4. **SCOPE CLARITY** (§4a) → verify as each role → add+tick tracker rows.
-5. **Final holistic real-browser sweep** (every screen × light+dark × 1320/820/390 + reduced-motion +
-   keyboard) → fix → re-verify. Address the DETAIL minor follow-ups (§2).
-6. **`just ci` genuinely green**, tracker fully clear, then **`superpowers:finishing-a-development-branch`**
+4. **SCOPE CLARITY** (§4a, tracker SCOPE-1..5) → verify as each role → tick.
+5. **CSS/SCSS MODERNISATION** (§4c, tracker CSS-1..6) → refactor preserving exact appearance → browser-verify
+   identical before/after → tick.
+6. **Final holistic real-browser sweep** (every screen × light+dark × 1320/820/390 + reduced-motion +
+   keyboard, as both admin and district viewer) → fix → re-verify. Address the DETAIL minor follow-ups (§2).
+7. **`just ci` genuinely green**, tracker fully clear, then **`superpowers:finishing-a-development-branch`**
    (the user previously chose "leave the branch for my review" — re-confirm with them how to finish).
-7. **THEN, and only then, the BLOG POST** (§4b, ultrathink).
+8. **THEN, and only then, the BLOG POST** (§4b, ultrathink).
+
+> The user explicitly required: **finish each previous campaign to FULL completion before starting the next set of
+> agents.** Order is therefore strict: FIXTURES → FORMS → SCOPE → CSS → sweep → finish → blog.
 
 **Do NOT declare done until: the tracker is clear, `just ci` is genuinely green, every surface is
 browser-verified in both themes as both an admin and a district-scoped user, AND the blog post is written.**

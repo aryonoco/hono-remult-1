@@ -168,6 +168,35 @@ dev-user switcher). Decompose into small, context-safe sub-workflows (lesson fro
   alone), announced sensibly, and must match the ACTUAL server-side scoping (no claiming "statewide" when the data is
   filtered, or vice-versa). Verify the rollup/aggregate KPIs honour the same scope as the lists/maps on the page.
 
+## Workstream: CSS/SCSS modernisation (NEW — user-requested 2026-06-01; SCHEDULE AFTER FIXTURES + FORMS + SCOPE)
+
+Meticulously review **every** CSS/SCSS directive in the project — `apps/web/src/styles.scss`,
+`apps/web/src/tailwind.css`, every component's inline `styles`/`styleUrls`, every `*.css`/`*.scss`, and arbitrary
+Tailwind `[...]` values — and uplift them to full 2026 CSS / web-design best practice. The user has noticed "a lot of
+legacy CSS … using pixels etc and other things which are not best practice in 2026". **This is a REFACTOR: it must
+preserve the exact rendered appearance** (the redesign's visuals are already approved) while modernising the
+implementation — verify in the browser that each screen looks identical before/after, in **both themes × 1320/820/390**,
+and keep `bun run check:ci` + tests + the AA contrast guard green. Same quality bar (token-only colour, no `!important`
+except the reduced-motion guard, Material via `mat.*-overrides()`/density only, modern Angular). Decompose into small,
+context-safe sub-workflows per file/area (lesson from the failed FIXTURES/FORMS runs). Do NOT change behaviour or testids.
+
+- [ ] **CSS-1 (major): Full inventory** — enumerate every CSS/SCSS source + inline component style + arbitrary Tailwind
+  value; classify each declaration as modern-OK vs legacy-to-uplift, producing the work list for CSS-2..6. (read-only audit)
+- [ ] **CSS-2 (major): Units** — replace legacy `px` with `rem`/`em` (type, spacing, radii, breakpoints) or unitless
+  where idiomatic; KEEP `px` only where genuinely correct (1px hairlines/borders, sub-pixel geometry). Prefer the
+  Tailwind spacing scale / canonical classes over arbitrary `[Npx]`; use `clamp()`/`min()`/`max()` for fluid type+spacing.
+- [ ] **CSS-3 (major): Logical properties** — convert physical properties to logical (`margin-inline`/`-block`,
+  `padding-inline`/`-block`, `inset`, `border-start-*`, `text-align: start/end`) for RTL/i18n readiness; align with how
+  Tailwind v4 emits logical utilities.
+- [ ] **CSS-4 (minor): Modern layout + features** — prefer grid/flex + `gap` over margins for spacing; use container
+  queries (already partly used) where a component should respond to its container not the viewport; adopt `:has()`,
+  `:focus-visible`, `color-mix()`, `light-dark()`, cascade layers consistently (several already in use — make them uniform).
+- [ ] **CSS-5 (minor): Tokens + no magic numbers** — every colour through `--mat-sys-*`/`--color-*` (no hex/rgb/hsl
+  literals outside the `@theme` token layer); replace magic spacing/size numbers with the scale or named tokens; ensure
+  the cascade-layer order (`base, material, tailwind, utilities`) and the single sanctioned `!important` are intact.
+- [ ] **CSS-6 (minor): A11y + responsiveness invariants** — confirm focus rings, target sizes (≥24px), reduced-motion
+  guards, and AA contrast hold after the refactor in both themes; no horizontal overflow at 390px; no visual regression.
+
 ## Verified-fixed log
 
 - **LIST-1..LIST-9 — DONE, browser-verified** (Compact density tightening confirmed live; full dark/responsive/state matrix folded into the final Phase-7 sweep) (commits `2d6eb82` severity-tile 32px, `dd5086c` table density via scoped `mat.table-overrides`, `6cd9d2f` layout/columns/sort/filter-responsive/states/live-query-error). 257 web tests + `check:ci` green; zero lint suppressions. **Before ticking LIST-* above:** restart `bunx nx serve web`, verify Compact genuinely tightens rows, columns/sort/filters/area-bar/states read well in **light + dark** at **1320/820/390**, then tick.
