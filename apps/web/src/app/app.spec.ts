@@ -180,6 +180,69 @@ describe('App (route titles + focus management)', () => {
     // The incidents list has no `h1[tabindex="-1"]`, so focus lands on the `#main` landmark fallback.
     expect(document.activeElement).toBe(document.getElementById('main'));
   });
+
+  it('focuses the view heading when navigating to a view that exposes an h1[tabindex="-1"]', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    // Skip the initial-load navigation, then move to the overview (its `h1[tabindex="-1"]` is the
+    // route-change focus target, in preference to the `#main` fallback).
+    await router.navigateByUrl('/incidents');
+    await fixture.whenStable();
+    await router.navigateByUrl('/overview');
+    await fixture.whenStable();
+    const heading = (fixture.nativeElement as HTMLElement).querySelector('main h1[tabindex="-1"]');
+    expect(heading).not.toBeNull();
+    expect(document.activeElement).toBe(heading);
+  });
+
+  it('does not move focus on a query-param-only navigation on the same path', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    // Land on the incidents list (a real path change moves focus to the `#main` fallback) ...
+    await router.navigateByUrl('/overview');
+    await fixture.whenStable();
+    await router.navigateByUrl('/incidents');
+    await fixture.whenStable();
+    // ... then move focus to a control, as a list filter/sort/page interaction would.
+    const probe = document.createElement('button');
+    probe.id = 'focus-probe';
+    document.body.appendChild(probe);
+    probe.focus();
+    expect(document.activeElement).toBe(probe);
+    // A filter/sort/page write navigates to the SAME path with only query params, emitting NavigationEnd.
+    await router.navigate(['/incidents'], { queryParams: { group: 'overdue' } });
+    await fixture.whenStable();
+    // The path did not change, so focus stays on the just-used control rather than jumping to #main.
+    expect(document.activeElement).toBe(probe);
+    probe.remove();
+  });
+
+  it('does not move focus while a role=dialog overlay is open', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/overview');
+    await fixture.whenStable();
+    // Stand in for an open Material dialog: a role=dialog node inside the overlay container.
+    const overlay = document.createElement('div');
+    overlay.className = 'cdk-overlay-container';
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    const probe = document.createElement('button');
+    probe.id = 'dialog-focus-probe';
+    document.body.appendChild(probe);
+    probe.focus();
+    // A navigation that would normally move focus must be suppressed while the dialog owns focus.
+    await router.navigateByUrl('/incidents');
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(probe);
+    overlay.remove();
+    probe.remove();
+  });
 });
 
 describe('App (breadcrumb trail)', () => {

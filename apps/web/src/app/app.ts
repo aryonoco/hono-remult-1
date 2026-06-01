@@ -80,6 +80,10 @@ const ROLE_LABELS: Readonly<Record<string, string>> = {
 
 const NAME_SPLIT = /\s+/;
 
+// Splits a URL at the first query (`?`) or fragment (`#`) marker so the primary-outlet path can be
+// compared in isolation — a query/fragment-only navigation keeps the same path and must not move focus.
+const PATH_BOUNDARY = /[?#]/;
+
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -110,6 +114,11 @@ export class App {
   // Guards the very first NavigationEnd (initial page load) so route-change focus management never
   // hijacks the browser's own initial focus; flips true after the first completed navigation.
   private hasNavigated = false;
+  // The primary-outlet path of the last navigation that moved focus. The incident list now writes its
+  // own URL on every filter/sort/page/chip interaction, so a query-param-only navigation emits a
+  // NavigationEnd with the SAME path — moving focus then would yank keyboard/AT focus off the just-used
+  // control onto #main. Comparing against this lets the handler bail on query/fragment-only changes.
+  private lastFocusedPath: string | null = null;
 
   protected readonly currentUser = this.devAuth.currentUser;
 
@@ -167,11 +176,22 @@ export class App {
       if (!(event instanceof NavigationEnd)) {
         return;
       }
+      // The primary-outlet PATH only (query string + fragment stripped): a list filter/sort/page write
+      // re-emits NavigationEnd with the same path, and focus must not move on those.
+      const path = event.urlAfterRedirects.split(PATH_BOUNDARY)[0] ?? '';
       // Skip the very first navigation (initial page load) so the browser's own initial focus stands.
+      // Record the path so a subsequent query-param-only write off the same view is recognised as such.
       if (!this.hasNavigated) {
         this.hasNavigated = true;
+        this.lastFocusedPath = path;
         return;
       }
+      // Bail when the path is unchanged: only the query string / fragment moved (a filter/sort/page/chip
+      // write), so the user's focus belongs on the control they just operated, not on the view heading.
+      if (path === this.lastFocusedPath) {
+        return;
+      }
+      this.lastFocusedPath = path;
       this.focusNewView();
     });
   }
