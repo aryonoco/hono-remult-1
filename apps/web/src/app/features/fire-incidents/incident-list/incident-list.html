@@ -13,6 +13,16 @@
   }
 </header>
 
+<!-- The filter bar (and its chip row) is hoisted out of the @switch so it stays mounted across the
+     loading/empty/content transitions a filter change flips through. Rendering it inside the cases
+     destroyed and recreated it on every interaction, dropping keyboard focus off the just-used control.
+     Hidden only for the anonymous/error full-panel states, which have no filters to show. -->
+@if (viewState() !== 'anonymous' && viewState() !== 'error') {
+  <div class="filter-bar">
+    <ng-container [ngTemplateOutlet]="filterBar" />
+  </div>
+}
+
 @switch (viewState()) {
   @case ('loading') {
     <div class="loading">
@@ -54,9 +64,6 @@
     </div>
   }
   @case ('empty') {
-    <div class="filter-bar">
-      <ng-container [ngTemplateOutlet]="filterBar" />
-    </div>
     <div class="panel" role="status" aria-live="polite">
       <div class="state">
         <mat-icon class="state__icon" aria-hidden="true">search_off</mat-icon>
@@ -72,10 +79,6 @@
     </div>
   }
   @case ('content') {
-    <div class="filter-bar">
-      <ng-container [ngTemplateOutlet]="filterBar" />
-    </div>
-
     @if (!isHandset()) {
       <div class="table-panel" [attr.data-density]="density()">
         <div class="table-scroll">
