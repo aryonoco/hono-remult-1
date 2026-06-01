@@ -354,6 +354,7 @@ Powerline
 varchars
 nullability
 megafire
+jittered
 # Fixtures — ENSO / agency terms in docs
 Niña
 Niño

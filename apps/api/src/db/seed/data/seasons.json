@@ -1,21 +1,75 @@
 {
   "meta": {
-    "description": "Fire-season model FY2018-FY2026. statewide = target FireIncident count for the year (realistic DEECA/FFMVic/CFA totals), apportioned by districtShareWeights; severity in [0,1] fattens the size tail and drives escalation; clusters are the real megafires placed in their true districts and date windows. anchor is the fixed 'now' (end of the 2025-26 season). Dates are UTC."
+    "description": "Fire-season model FY2018-FY2029. statewide = target FireIncident count for the year (realistic DEECA/FFMVic/CFA totals), apportioned by districtShareWeights; severity in [0,1] fattens the size tail and drives escalation; clusters are real (FY2018-2026) or analogue (FY2027-2029) megafires placed in their districts and date windows. FY2027/28/29 mirror the character of FY2018/19/20 with a deterministic +/-15% statewide jitter (applied in seasons.ts) so recent years stay plausible without being copies. There is no fixed anchor: the reference 'now' is injected at seed time (the real wall-clock in production, a pinned date in tests). Historical report dates are sampled inside each financial year (clamped to dataHorizon); the rolling-active overlay is anchored to the injected now. Dates are UTC.",
+    "derivedFrom": {
+      "2027": 2018,
+      "2028": 2019,
+      "2029": 2020
+    },
+    "statewideJitterFraction": 0.15
   },
-  "anchor": "2026-05-31",
+  "dataHorizon": "2030-06-30",
+  "rollingActive": {
+    "description": "The deterministic, seasonally-scaled set of genuinely-active fires generated around the injected 'now'. peakCount is the active count at the busiest month; the actual count scales by that month's share of the peak monthWeight (summer-heavy), floored at 4 so even deep winter shows one fire in each interim status (going/contained/underControl). ageDaysMax bounds how long ago an active fire ignited; overdueShare is the fixed minority (round(count*share)) whose nextReportDue already passed, so overdue stays the exception at any season's size.",
+    "peakCount": 60,
+    "floorCount": 4,
+    "ageDaysMin": 0,
+    "ageDaysMax": 18,
+    "overdueShare": 0.2,
+    "overdueLagHoursMin": 1,
+    "overdueLagHoursMax": 30,
+    "upcomingLeadHoursMin": 2,
+    "upcomingLeadHoursMax": 96
+  },
   "monthWeights": [
-    { "month": 7, "weight": 1 },
-    { "month": 8, "weight": 1 },
-    { "month": 9, "weight": 2 },
-    { "month": 10, "weight": 4 },
-    { "month": 11, "weight": 8 },
-    { "month": 12, "weight": 16 },
-    { "month": 1, "weight": 24 },
-    { "month": 2, "weight": 22 },
-    { "month": 3, "weight": 14 },
-    { "month": 4, "weight": 6 },
-    { "month": 5, "weight": 2 },
-    { "month": 6, "weight": 1 }
+    {
+      "month": 7,
+      "weight": 1
+    },
+    {
+      "month": 8,
+      "weight": 1
+    },
+    {
+      "month": 9,
+      "weight": 2
+    },
+    {
+      "month": 10,
+      "weight": 4
+    },
+    {
+      "month": 11,
+      "weight": 8
+    },
+    {
+      "month": 12,
+      "weight": 16
+    },
+    {
+      "month": 1,
+      "weight": 24
+    },
+    {
+      "month": 2,
+      "weight": 22
+    },
+    {
+      "month": 3,
+      "weight": 14
+    },
+    {
+      "month": 4,
+      "weight": 6
+    },
+    {
+      "month": 5,
+      "weight": 2
+    },
+    {
+      "month": 6,
+      "weight": 1
+    }
   ],
   "districtShareWeights": {
     "41": 10,
@@ -218,7 +272,7 @@
       "fy": 2026,
       "statewide": 1150,
       "severity": 0.45,
-      "note": "In progress to 31 May 2026 - elevated risk west/central, Otways, Yarra Ranges, SW Gippsland.",
+      "note": "Elevated risk west/central, Otways, Yarra Ranges, SW Gippsland.",
       "clusters": [
         {
           "label": "Northern Otways - Otway",
@@ -246,6 +300,105 @@
           "windowEnd": "2026-03-10",
           "severity": 0.6,
           "majorShare": 0.3
+        }
+      ]
+    },
+    {
+      "fy": 2027,
+      "statewide": 1600,
+      "severity": 0.45,
+      "derivedFromFy": 2018,
+      "note": "Analogue of FY2018 (above normal, weak La Nina); south-west autumn outbreak.",
+      "clusters": [
+        {
+          "label": "Autumn south-west outbreak - Far South West",
+          "districtCode": 14,
+          "count": 26,
+          "windowStart": "2027-03-15",
+          "windowEnd": "2027-03-19",
+          "severity": 0.8,
+          "majorShare": 0.5
+        },
+        {
+          "label": "Autumn south-west outbreak - Otway fringe",
+          "districtCode": 12,
+          "count": 14,
+          "windowStart": "2027-03-15",
+          "windowEnd": "2027-03-19",
+          "severity": 0.7,
+          "majorShare": 0.35
+        }
+      ]
+    },
+    {
+      "fy": 2028,
+      "statewide": 2080,
+      "severity": 0.4,
+      "derivedFromFy": 2019,
+      "note": "Analogue of FY2019 (active, dry); Gippsland late-summer run.",
+      "clusters": [
+        {
+          "label": "Latrobe Valley run - Latrobe",
+          "districtCode": 47,
+          "count": 22,
+          "windowStart": "2028-03-01",
+          "windowEnd": "2028-03-12",
+          "severity": 0.75,
+          "majorShare": 0.4
+        },
+        {
+          "label": "Macalister headwaters - Macalister",
+          "districtCode": 44,
+          "count": 18,
+          "windowStart": "2028-02-25",
+          "windowEnd": "2028-03-15",
+          "severity": 0.8,
+          "majorShare": 0.45
+        },
+        {
+          "label": "Yarra Ranges fringe - Yarra",
+          "districtCode": 53,
+          "count": 12,
+          "windowStart": "2028-03-01",
+          "windowEnd": "2028-03-10",
+          "severity": 0.7,
+          "majorShare": 0.35
+        }
+      ]
+    },
+    {
+      "fy": 2029,
+      "statewide": 3200,
+      "severity": 0.9,
+      "derivedFromFy": 2020,
+      "note": "Analogue of FY2020 (severe, strong +IOD); East Gippsland & Upper Murray megafires.",
+      "clusters": [
+        {
+          "label": "East Gippsland megafire - Snowy",
+          "districtCode": 45,
+          "count": 120,
+          "windowStart": "2028-11-21",
+          "windowEnd": "2029-01-20",
+          "severity": 1,
+          "majorShare": 0.6
+        },
+        {
+          "label": "East Gippsland megafire - Tambo",
+          "districtCode": 41,
+          "count": 95,
+          "windowStart": "2028-11-21",
+          "windowEnd": "2029-01-20",
+          "severity": 1,
+          "majorShare": 0.55
+        },
+        {
+          "label": "Upper Murray megafire - Corryong / Walwa",
+          "districtCode": 36,
+          "count": 70,
+          "windowStart": "2028-12-28",
+          "windowEnd": "2029-01-15",
+          "severity": 0.95,
+          "majorShare": 0.5
         }
       ]
     }

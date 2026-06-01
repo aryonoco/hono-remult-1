@@ -27,9 +27,16 @@ import { DEFAULT_SEED, generateDataset, summarise } from './generate';
 import { pointInPolygon } from './geo';
 import { Rng } from './prng';
 import type { FireIncidentRow, FixtureDataset, SituationReportRow } from './rows';
-import { ANCHOR } from './seasons';
+import { DATA_HORIZON, FIRST_FY, LAST_FY } from './seasons';
 
-const data: FixtureDataset = generateDataset(new Rng(DEFAULT_SEED));
+// The seed is deterministic only for a fixed reference date AND PRNG seed. Pin
+// "now" so the rolling-active overlay (anchored to it) is byte-stable across
+// runs. 2026-06-01 is early winter, matching the app's real-clock view at the
+// time of writing — so the active set should be small and seasonally sane.
+const PINNED_NOW = new Date('2026-06-01T00:00:00.000Z');
+const PINNED_NOW_FY = 2026;
+
+const data: FixtureDataset = generateDataset(new Rng(DEFAULT_SEED), PINNED_NOW);
 
 // Index the sitreps by fire once, preserving generation order (report-number order).
 const sitrepsByFire = new Map<string, SituationReportRow[]>();
@@ -49,20 +56,70 @@ function lastSitrep(fireId: string): SituationReportRow | undefined {
 }
 
 describe('determinism', () => {
-  it('produces identical output for the same seed', () => {
-    const a = generateDataset(new Rng(DEFAULT_SEED));
-    const b = generateDataset(new Rng(DEFAULT_SEED));
+  it('produces identical output for the same seed and reference date', () => {
+    const a = generateDataset(new Rng(DEFAULT_SEED), PINNED_NOW);
+    const b = generateDataset(new Rng(DEFAULT_SEED), PINNED_NOW);
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
   it('generates a substantial, season-weighted dataset', () => {
-    const s = summarise(data);
+    const s = summarise(data, PINNED_NOW);
     expect(s.fires).toBeGreaterThan(10000);
-    // FY2020 (Black Summer) is the busiest; the triple-La-Nina years are quietest.
-    const busiest = Math.max(...s.perSeason.values());
+    // FY2020 (Black Summer) is the busiest year of the real historical record
+    // (FY2018-2026); the jittered future analogues FY2027-29 are validated
+    // separately and may, within their +/-15% band, edge above it. The
+    // triple-La-Nina FY2021 stays the quietest year overall.
+    const historicalBusiest = Math.max(
+      ...[...s.perSeason.entries()].filter(([fy]) => fy <= 2026).map(([, n]) => n),
+    );
     const quietest = Math.min(...s.perSeason.values());
-    expect(s.perSeason.get(2020)).toBe(busiest);
+    expect(s.perSeason.get(2020)).toBe(historicalBusiest);
     expect(s.perSeason.get(2021)).toBe(quietest);
+  });
+});
+
+describe('financial-year coverage', () => {
+  it('covers every financial year from FY2018 to FY2029', () => {
+    expect(FIRST_FY).toBe(2018);
+    expect(LAST_FY).toBe(2029);
+    const fys = new Set(data.fires.map((f) => f.financialYear));
+    for (let fy = FIRST_FY; fy <= LAST_FY; fy++) {
+      expect(fys, `missing FY${fy}`).toContain(fy);
+    }
+  });
+
+  it('derives FY2027/28/29 counts within +/-15% of their analogue seasons', () => {
+    const perSeason = summarise(data, PINNED_NOW).perSeason;
+    // FY2027<-FY2018, FY2028<-FY2019, FY2029<-FY2020.
+    const analogues: ReadonlyArray<readonly [number, number]> = [
+      [2027, 2018],
+      [2028, 2019],
+      [2029, 2020],
+    ];
+    for (const [derivedFy, baseFy] of analogues) {
+      const derived = perSeason.get(derivedFy) ?? 0;
+      const base = perSeason.get(baseFy) ?? 0;
+      // +/-1 row absorbs the per-district rounding when the jittered target is
+      // apportioned across the 16 districts.
+      const lower = Math.floor(base * 0.85) - ALL_DISTRICTS.length;
+      const upper = Math.ceil(base * 1.15) + ALL_DISTRICTS.length;
+      expect(derived, `FY${derivedFy} vs FY${baseFy}`).toBeGreaterThanOrEqual(lower);
+      expect(derived, `FY${derivedFy} vs FY${baseFy}`).toBeLessThanOrEqual(upper);
+    }
+  });
+});
+
+describe('seasonality', () => {
+  it('ignites far more fires in summer than in late autumn / winter', () => {
+    const byMonth = new Array<number>(12).fill(0);
+    for (const f of data.fires) {
+      byMonth[f.reportedAt.getUTCMonth()] = (byMonth[f.reportedAt.getUTCMonth()] ?? 0) + 1;
+    }
+    // UTC month indices: 0=Jan ... 11=Dec. The summer danger period (Dec-Feb)
+    // must dwarf the quiet late-autumn/winter months (May-Jun).
+    const summer = (byMonth[0] ?? 0) + (byMonth[1] ?? 0) + (byMonth[11] ?? 0);
+    const winter = (byMonth[4] ?? 0) + (byMonth[5] ?? 0);
+    expect(summer).toBeGreaterThan(winter * 3);
   });
 });
 
@@ -97,9 +154,9 @@ describe('identity & numbering', () => {
 });
 
 describe('timestamps', () => {
-  it('keeps every reportedAt at or before the anchor', () => {
+  it('keeps every reportedAt at or before the data horizon', () => {
     for (const f of data.fires) {
-      expect(f.reportedAt.getTime()).toBeLessThanOrEqual(ANCHOR.getTime());
+      expect(f.reportedAt.getTime()).toBeLessThanOrEqual(DATA_HORIZON.getTime());
     }
   });
 
@@ -323,7 +380,7 @@ describe('enum coverage — every value appears at least once', () => {
 
 describe('lifecycle-state coverage', () => {
   it('includes at least one of every special state', () => {
-    const s = summarise(data);
+    const s = summarise(data, PINNED_NOW);
     expect(s.active).toBeGreaterThan(0);
     expect(s.softDeleted).toBeGreaterThan(0);
     expect(s.signedOff).toBeGreaterThan(0);
@@ -331,6 +388,53 @@ describe('lifecycle-state coverage', () => {
     expect(s.major).toBeGreaterThan(0);
     expect(data.fires.some((f) => f.incidentLevel === 'levelTwo')).toBe(true);
     expect(data.fires.some((f) => f.incidentLevel === 'levelThree')).toBe(true);
+  });
+});
+
+describe('rolling-active overlay (DASH-3)', () => {
+  const ActiveWinterMax = 6;
+  const MinSummerActive = 10;
+  const MaxActiveAgeDays = 18;
+  const JanuaryNow = new Date('2027-01-15T00:00:00.000Z');
+  const MayNow = new Date('2027-05-15T00:00:00.000Z');
+  const isTerminalStatus = (s: string): boolean => TERMINAL_STATUSES.includes(s as never);
+  const activeFires = (set: FixtureDataset): FireIncidentRow[] =>
+    set.fires.filter((f) => !f.isDeleted && f.nextReportDue != null && !isTerminalStatus(f.status));
+
+  it('keeps the winter active set small and seasonally sane', () => {
+    const s = summarise(data, PINNED_NOW);
+    expect(s.active).toBeGreaterThan(0);
+    expect(s.active).toBeLessThanOrEqual(ActiveWinterMax);
+    expect(s.active).toBeLessThan(s.fires);
+  });
+
+  it('makes overdue the exception: most active reports fall due in the future', () => {
+    const s = summarise(data, PINNED_NOW);
+    expect(s.activeUpcoming).toBeGreaterThan(s.activeOverdue);
+  });
+
+  it('anchors every active fire to a recent ignition before now', () => {
+    for (const f of activeFires(data)) {
+      expect(f.reportedAt.getTime()).toBeLessThanOrEqual(PINNED_NOW.getTime());
+      const ageDays = (PINNED_NOW.getTime() - f.reportedAt.getTime()) / (24 * 60 * 60 * 1000);
+      expect(ageDays).toBeLessThanOrEqual(MaxActiveAgeDays);
+      expect(isTerminalStatus(f.status)).toBe(false);
+    }
+  });
+
+  it('scales the active set by season — January dwarfs May', () => {
+    const january = generateDataset(new Rng(DEFAULT_SEED), JanuaryNow);
+    const may = generateDataset(new Rng(DEFAULT_SEED), MayNow);
+    const januaryActive = summarise(january, JanuaryNow).active;
+    const mayActive = summarise(may, MayNow).active;
+    expect(januaryActive).toBeGreaterThanOrEqual(MinSummerActive);
+    expect(januaryActive).toBeGreaterThan(mayActive);
+    expect(mayActive).toBeLessThanOrEqual(ActiveWinterMax + MinSummerActive);
+  });
+
+  it('confines active fires to the financial year containing now', () => {
+    const activeSeasons = new Set(activeFires(data).map((f) => f.financialYear));
+    expect([...activeSeasons]).toEqual([PINNED_NOW_FY]);
   });
 });
 

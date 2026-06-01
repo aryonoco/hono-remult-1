@@ -11,26 +11,45 @@ import {
   FUEL_TYPE_VALUES,
   type FuelType,
   LEGAL_ACTION_STATUS_VALUES,
+  MS_PER_DAY,
+  MS_PER_HOUR,
   Roles,
   STATE_OPERATORS,
   FireStatus as Status,
 } from '@workspace/shared-domain';
 import tuning from './data/tuning.json';
 import { ALL_DISTRICTS, districtByCode } from './districts';
-import type { Rng } from './prng';
+import type { Rng, Weighted } from './prng';
 import type { FixtureDataset, SituationReportRow } from './rows';
 import {
-  ANCHOR,
+  DATA_HORIZON,
   DISTRICT_SHARE_WEIGHTS,
   type EventCluster,
+  financialYearOf,
+  monthWeightFor,
+  PEAK_MONTH_WEIGHT,
+  ROLLING_ACTIVE,
   SEASONS,
   sampleClusterDate,
   sampleSeasonDate,
 } from './seasons';
-import { type Authors, type FireSpec, simulateFire } from './simulate';
+import { type Authors, type FireResult, type FireSpec, simulateFire } from './simulate';
 
 // Default seed for the fixtures. Fixed so every build produces identical data.
 const DEFAULT_SEED = 0x46_49_52_45; // "FIRE"
+
+const HOURS_PER_DAY = 24;
+
+// The first few rolling-active fires deterministically carry each interim status
+// so the live set exercises the full going -> contained -> underControl
+// progression and covers those enum values without retargeting any historical
+// fire.
+const ACTIVE_INTERIM_STATUSES: readonly FireStatus[] = [
+  Status.going,
+  Status.contained,
+  Status.underControlFirst,
+  Status.underControlSecond,
+];
 
 interface AuthorPools {
   readonly byDistrict: ReadonlyMap<number, readonly string[]>;
@@ -43,6 +62,9 @@ interface GenEnv {
   readonly rng: Rng;
   readonly allocator: FireNumberAllocator;
   readonly pools: AuthorPools;
+  // Injected reference "now": the real wall-clock in production, a pinned date
+  // in tests. The rolling-active overlay is anchored to it.
+  readonly now: Date;
 }
 
 interface FireArgs {
@@ -50,6 +72,7 @@ interface FireArgs {
   readonly reportedAt: Date;
   readonly severity: number;
   readonly forceMajor: boolean;
+  readonly forceActive: boolean;
 }
 
 interface DatasetSummary {
@@ -57,6 +80,8 @@ interface DatasetSummary {
   readonly sitreps: number;
   readonly finalReports: number;
   readonly active: number;
+  readonly activeOverdue: number;
+  readonly activeUpcoming: number;
   readonly softDeleted: number;
   readonly signedOff: number;
   readonly signOffRemoved: number;
@@ -124,7 +149,7 @@ function authorsFor(rng: Rng, pools: AuthorPools, districtCode: number): Authors
   return { creator, district, elevated: pools.elevated };
 }
 
-function emitFire(env: GenEnv, args: FireArgs): void {
+function emitFire(env: GenEnv, args: FireArgs): FireResult {
   const { dataset, rng, allocator, pools } = env;
   const district = districtByCode(args.districtCode);
   const financialYear = computeFinancialYear(args.reportedAt);
@@ -137,6 +162,8 @@ function emitFire(env: GenEnv, args: FireArgs): void {
     reportedAt: args.reportedAt,
     severity: args.severity,
     forceMajor: args.forceMajor,
+    forceActive: args.forceActive,
+    now: env.now,
     authors: authorsFor(rng, pools, args.districtCode),
   };
   const result = simulateFire(rng, spec);
@@ -145,42 +172,50 @@ function emitFire(env: GenEnv, args: FireArgs): void {
   if (result.finalReport !== null) {
     dataset.finalReports.push(result.finalReport);
   }
+  return result;
 }
 
 function emitCluster(env: GenEnv, cluster: EventCluster): void {
   for (let i = 0; i < cluster.count; i++) {
     emitFire(env, {
       districtCode: cluster.districtCode,
-      reportedAt: sampleClusterDate(env.rng, cluster, ANCHOR),
+      reportedAt: sampleClusterDate(env.rng, cluster, DATA_HORIZON),
       severity: clamp01(
         cluster.severity +
           env.rng.float(-tuning.clusterSeverityJitter, tuning.clusterSeverityJitter),
       ),
       forceMajor: env.rng.bool(cluster.majorShare),
+      forceActive: false,
     });
   }
 }
 
-function generateDataset(rng: Rng): FixtureDataset {
+function generateDataset(rng: Rng, now: Date = new Date()): FixtureDataset {
   const env: GenEnv = {
     dataset: { fires: [], sitreps: [], finalReports: [] },
     rng,
     allocator: new FireNumberAllocator(),
     pools: buildAuthorPools(),
+    now,
   };
   const shares = normalisedShares();
 
+  // Pass 1 — the deterministic seasonal base. Every fire across FY2018-FY2029
+  // gets a complete resolved lifecycle; report dates are sampled inside their
+  // financial year (clamped to the data horizon), so no historical season holds
+  // dangling active state.
   for (const season of SEASONS) {
     for (const district of ALL_DISTRICTS) {
       const count = Math.round(season.statewide * (shares.get(district.code) ?? 0));
       for (let i = 0; i < count; i++) {
         emitFire(env, {
           districtCode: district.code,
-          reportedAt: sampleSeasonDate(rng, season.fy, ANCHOR),
+          reportedAt: sampleSeasonDate(rng, season.fy, DATA_HORIZON),
           severity: clamp01(
             season.severity + rng.float(-tuning.severityJitter, tuning.severityJitter),
           ),
           forceMajor: false,
+          forceActive: false,
         });
       }
     }
@@ -189,8 +224,99 @@ function generateDataset(rng: Rng): FixtureDataset {
     }
   }
 
+  // Pass 2 — the rolling-active overlay, anchored to `now`.
+  emitRollingActive(env);
+
   ensureEnumCoverage(env.dataset);
   return env.dataset;
+}
+
+// Deterministically generate the seasonally-scaled handful of genuinely-active
+// fires around `now`. The count tracks the reference month's fire intensity
+// (summer-peak, winter-low) with a small floor so the live view is never empty.
+// Each fire ignited in the recent past and most carry a *future* nextReportDue,
+// so an overdue report is the exception rather than the rule (the DASH-3 fix).
+function emitRollingActive(env: GenEnv): void {
+  const { rng, now } = env;
+  const currentFy = financialYearOf(now);
+  const season = SEASONS.find((s) => s.fy === currentFy);
+  if (season === undefined) {
+    return;
+  }
+  const count = rollingActiveCount(now);
+  // A fixed minority fall due in the past (rounded from overdueShare), so overdue
+  // is exercised but stays the exception however small the seasonal set is.
+  const overdueCount = Math.round(count * ROLLING_ACTIVE.overdueShare);
+  const districtPicker = activeDistrictWeights();
+  for (let i = 0; i < count; i++) {
+    const districtCode = rng.weighted(districtPicker);
+    const reportedAt = activeReportedAt(rng, now);
+    const result = emitFire(env, {
+      districtCode,
+      reportedAt,
+      severity: clamp01(season.severity + rng.float(-tuning.severityJitter, tuning.severityJitter)),
+      forceMajor: false,
+      forceActive: true,
+    });
+    // The first fires deterministically carry each interim status so the live
+    // set exercises the full going -> contained -> underControl progression and
+    // covers those enum values without retargeting any historical fire.
+    const forced = ACTIVE_INTERIM_STATUSES[i];
+    if (forced !== undefined) {
+      retargetActiveTail(result, forced);
+    }
+    result.fire.nextReportDue = activeNextReportDue(rng, now, i < overdueCount);
+  }
+}
+
+// Re-point an active fire's denormalised status to `status` (and its last sitrep,
+// when present), preserving its now-anchored timeline, so the rolling set covers
+// every interim FireStatus deterministically. Active fires always have at least
+// one sitrep (see planLifecycle), so the parent and its latest report stay
+// consistent.
+function retargetActiveTail(result: FireResult, status: FireStatus): void {
+  result.fire.status = status;
+  const last = result.sitreps[result.sitreps.length - 1];
+  if (last !== undefined) {
+    last.status = status;
+    result.fire.statusAsAt = last.submittedAt;
+  }
+}
+
+// Active count = peakCount scaled by the reference month's share of the peak
+// monthly weight, floored so deep winter still shows a handful.
+function rollingActiveCount(now: Date): number {
+  const month = now.getUTCMonth() + 1;
+  const scaled = Math.round((ROLLING_ACTIVE.peakCount * monthWeightFor(month)) / PEAK_MONTH_WEIGHT);
+  return Math.max(ROLLING_ACTIVE.floorCount, scaled);
+}
+
+// Ignition in the recent past (days before `now`), so the fire is genuinely
+// burning now rather than a stale record.
+function activeReportedAt(rng: Rng, now: Date): Date {
+  const ageDays = rng.int(ROLLING_ACTIVE.ageDaysMin, ROLLING_ACTIVE.ageDaysMax);
+  const extraHours = rng.int(0, HOURS_PER_DAY - 1);
+  return new Date(now.getTime() - ageDays * MS_PER_DAY - extraHours * MS_PER_HOUR);
+}
+
+// An `overdue` report fell due a few hours ago; otherwise the next report is due
+// a little way into the future. The caller decides which (a fixed minority are
+// overdue) so the dashboard's overdue state is exercised but stays rare.
+function activeNextReportDue(rng: Rng, now: Date, overdue: boolean): Date {
+  if (overdue) {
+    const lag = rng.int(ROLLING_ACTIVE.overdueLagHoursMin, ROLLING_ACTIVE.overdueLagHoursMax);
+    return new Date(now.getTime() - lag * MS_PER_HOUR);
+  }
+  const lead = rng.int(ROLLING_ACTIVE.upcomingLeadHoursMin, ROLLING_ACTIVE.upcomingLeadHoursMax);
+  return new Date(now.getTime() + lead * MS_PER_HOUR);
+}
+
+// Weighted district list for active fires, mirroring the statewide share split.
+function activeDistrictWeights(): readonly Weighted<number>[] {
+  return ALL_DISTRICTS.map((d) => ({
+    value: d.code,
+    weight: DISTRICT_SHARE_WEIGHTS.get(d.code) ?? 1,
+  }));
 }
 
 // A few enum values never arise from the realistic draws (spinifex/buttongrass
@@ -358,18 +484,26 @@ function isTerminal(status: string): boolean {
   );
 }
 
-function summarise(dataset: FixtureDataset): DatasetSummary {
+function isActiveFire(f: FixtureDataset['fires'][number]): boolean {
+  return !f.isDeleted && f.nextReportDue !== null && !isTerminal(f.status);
+}
+
+function summarise(dataset: FixtureDataset, now: Date = new Date()): DatasetSummary {
   const perSeason = new Map<number, number>();
   for (const f of dataset.fires) {
     perSeason.set(f.financialYear, (perSeason.get(f.financialYear) ?? 0) + 1);
   }
+  const active = dataset.fires.filter(isActiveFire);
+  const activeOverdue = active.filter(
+    (f) => f.nextReportDue !== null && f.nextReportDue.getTime() < now.getTime(),
+  ).length;
   return {
     fires: dataset.fires.length,
     sitreps: dataset.sitreps.length,
     finalReports: dataset.finalReports.length,
-    active: dataset.fires.filter(
-      (f) => !f.isDeleted && f.nextReportDue !== null && !isTerminal(f.status),
-    ).length,
+    active: active.length,
+    activeOverdue,
+    activeUpcoming: active.length - activeOverdue,
     softDeleted: dataset.fires.filter((f) => f.isDeleted).length,
     signedOff: dataset.finalReports.filter((fr) => fr.isSignedOff).length,
     signOffRemoved: dataset.finalReports.filter((fr) => fr.signOffRemovedAt !== null).length,

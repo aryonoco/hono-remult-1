@@ -2,8 +2,6 @@
   "meta": {
     "description": "Behavioural tuning for the fire lifecycle simulation: probabilities, value ranges and thresholds that shape how realistic each generated record is. Externalised so the model is inspectable and adjustable in one place. Minutes/hours/days are units; *Prob are probabilities in [0,1]; *Frac are fractions."
   },
-  "activeWindowDays": 25,
-  "activeProbability": 0.7,
   "fuelJitterDeg": 0.05,
   "initialNextDueMinutes": 30,
   "activeNextDueHours": 2,

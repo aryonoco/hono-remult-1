@@ -45,7 +45,6 @@ import {
 } from './narratives';
 import type { Rng, Weighted } from './prng';
 import type { FinalReportRow, FireIncidentRow, SituationReportRow } from './rows';
-import { ANCHOR } from './seasons';
 
 // Turns one fire into the full record trail an operator would leave behind: the
 // initial report, a sequence of situation reports that move the fire toward a
@@ -73,6 +72,13 @@ interface FireSpec {
   readonly reportedAt: Date;
   readonly severity: number;
   readonly forceMajor: boolean;
+  // When true, the fire is generated as a genuinely-active incident anchored to
+  // `now` (the rolling-active overlay), rather than resolved to a terminal
+  // state. Historical fires leave this false and always resolve.
+  readonly forceActive: boolean;
+  // The injected reference "now". Active sitrep timestamps are clamped to it so
+  // a live fire never reports into the future.
+  readonly now: Date;
   readonly authors: Authors;
 }
 
@@ -278,8 +284,10 @@ function buildClassification(
 }
 
 function planLifecycle(rng: Rng, spec: FireSpec, sizeHa: number): Plan {
-  const daysToAnchor = (ANCHOR.getTime() - spec.reportedAt.getTime()) / MS_PER_DAY;
-  const isActive = daysToAnchor < T.activeWindowDays && rng.bool(T.activeProbability);
+  // Active state is no longer inferred from a fixed anchor. Historical fires
+  // always resolve; only the rolling-active overlay sets `forceActive`, anchored
+  // to the injected `now`.
+  const isActive = spec.forceActive;
   const level = levelFor(rng, sizeHa, spec);
   const major =
     spec.forceMajor ||
@@ -298,7 +306,17 @@ function planLifecycle(rng: Rng, spec: FireSpec, sizeHa: number): Plan {
 
   const sitrepCount = sitrepCountFor(rng, level, isActive);
   if (isActive) {
-    return { outcome: 'active', terminal: Status.going, sitrepCount, level, major, sizeHa };
+    // A genuinely-active fire has always filed at least one situation report, so
+    // its denormalised status is backed by a real sitrep (and the rolling-active
+    // overlay can retarget that sitrep to span the interim statuses cleanly).
+    return {
+      outcome: 'active',
+      terminal: Status.going,
+      sitrepCount: Math.max(1, sitrepCount),
+      level,
+      major,
+      sizeHa,
+    };
   }
   const terminal = rng.bool(T.overrunProbability) ? Status.safeOverrun : Status.safe;
   return {
@@ -368,7 +386,7 @@ function buildTimeline(rng: Rng, reportedAt: Date): Timeline {
 }
 
 function buildSitreps(ctx: Ctx, fire: FireIncidentRow, plan: Plan): SituationReportRow[] {
-  const { rng, spec, detail } = ctx;
+  const { rng, spec } = ctx;
   const sitreps: SituationReportRow[] = [];
   if (plan.sitrepCount === 0) {
     return sitreps;
@@ -381,45 +399,76 @@ function buildSitreps(ctx: Ctx, fire: FireIncidentRow, plan: Plan): SituationRep
 
   for (let i = 0; i < plan.sitrepCount; i++) {
     const status = statuses[i] ?? statuses[statuses.length - 1] ?? Status.going;
-    area =
-      status === Status.going
-        ? Math.min(
-            plan.sizeHa,
-            area * rng.float(T.sitrep.areaGrowthMin, T.sitrep.areaGrowthMax) +
-              rng.float(0, T.sitrep.areaGrowthAddMax),
-          )
-        : plan.sizeHa;
-    const submittedAt = new Date(cursor);
-    const resources = resourcesFor(rng, plan.level, status);
-
-    sitreps.push({
-      id: rng.uuid(),
-      fireIncidentId: fire.id,
-      reportNumber: i + 1,
-      districtId: spec.district.code,
-      isParentDeleted: false,
-      fireName: fire.name,
-      status,
-      fireAreaHectares: status === Status.safeOverrun ? 0 : round1(area),
-      weatherConditions: weather(rng, spec.severity, detail),
-      currentStrategy: strategy(rng, status, detail),
-      significantEvents: significantEvents(rng, detail),
-      predictedBehaviour: predictedBehaviour(rng, spec.severity, detail),
-      controlProgress: controlProgress(rng, detail),
-      communityImpact: communityImpact(rng, spec.severity, detail),
-      potentialLoss: rng.bool(T.sitrep.potentialPresentProb) ? rng.pick(POTENTIALS) : null,
-      potentialSpread: rng.bool(T.sitrep.potentialPresentProb) ? rng.pick(POTENTIALS) : null,
-      personnel: resources.personnel,
-      vehicles: resources.vehicles,
-      aircraft: resources.aircraft,
-      submittedBy: pickAuthor(rng, spec.authors),
-      submittedAt,
-      createdAt: submittedAt,
-    });
-
+    area = status === Status.going ? grownArea(rng, plan.sizeHa, area) : plan.sizeHa;
+    const submittedAt = sitrepSubmittedAt(plan, spec.now, cursor, i);
+    sitreps.push(
+      buildSitrepRow(ctx, fire, plan, { status, area, submittedAt, reportNumber: i + 1 }),
+    );
     cursor += sitrepInterval(rng, status);
   }
   return sitreps;
+}
+
+// A going fire's mapped area creeps up each report, bounded by its final size.
+function grownArea(rng: Rng, sizeHa: number, area: number): number {
+  return Math.min(
+    sizeHa,
+    area * rng.float(T.sitrep.areaGrowthMin, T.sitrep.areaGrowthMax) +
+      rng.float(0, T.sitrep.areaGrowthAddMax),
+  );
+}
+
+// A genuinely-active fire must never report into the future: clamp each sitrep to
+// `now`, nudging successive reports back a minute so the sequence stays strictly
+// increasing even when clamped. Resolved fires follow the natural cursor.
+function sitrepSubmittedAt(plan: Plan, now: Date, cursor: number, index: number): Date {
+  if (plan.outcome !== 'active') {
+    return new Date(cursor);
+  }
+  const latest = now.getTime() - (plan.sitrepCount - 1 - index) * MS_PER_MINUTE;
+  return new Date(Math.min(cursor, latest));
+}
+
+interface SitrepRowArgs {
+  readonly status: FireStatus;
+  readonly area: number;
+  readonly submittedAt: Date;
+  readonly reportNumber: number;
+}
+
+function buildSitrepRow(
+  ctx: Ctx,
+  fire: FireIncidentRow,
+  plan: Plan,
+  args: SitrepRowArgs,
+): SituationReportRow {
+  const { rng, spec, detail } = ctx;
+  const { status, area, submittedAt, reportNumber } = args;
+  const resources = resourcesFor(rng, plan.level, status);
+  return {
+    id: rng.uuid(),
+    fireIncidentId: fire.id,
+    reportNumber,
+    districtId: spec.district.code,
+    isParentDeleted: false,
+    fireName: fire.name,
+    status,
+    fireAreaHectares: status === Status.safeOverrun ? 0 : round1(area),
+    weatherConditions: weather(rng, spec.severity, detail),
+    currentStrategy: strategy(rng, status, detail),
+    significantEvents: significantEvents(rng, detail),
+    predictedBehaviour: predictedBehaviour(rng, spec.severity, detail),
+    controlProgress: controlProgress(rng, detail),
+    communityImpact: communityImpact(rng, spec.severity, detail),
+    potentialLoss: rng.bool(T.sitrep.potentialPresentProb) ? rng.pick(POTENTIALS) : null,
+    potentialSpread: rng.bool(T.sitrep.potentialPresentProb) ? rng.pick(POTENTIALS) : null,
+    personnel: resources.personnel,
+    vehicles: resources.vehicles,
+    aircraft: resources.aircraft,
+    submittedBy: pickAuthor(rng, spec.authors),
+    submittedAt,
+    createdAt: submittedAt,
+  };
 }
 
 function statusSequence(plan: Plan): readonly FireStatus[] {
