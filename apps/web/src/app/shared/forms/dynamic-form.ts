@@ -15,7 +15,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { DatetimeFieldComponent } from '../components/datetime-field/datetime-field';
-import type { BuiltGroup, GridSpan, KnownValidationErrors } from './form-engine.types';
+import type { BuiltField, BuiltGroup, GridSpan, KnownValidationErrors } from './form-engine.types';
 
 const DEFAULT_TEXTAREA_ROWS = 3;
 
@@ -50,21 +50,25 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
           }
           <div class="grid">
             @for (field of group.fields; track field.key) {
-              <div class="cell {{ spanClass(field.span) }}">
+              <div class="cell {{ cellClass(field) }}">
                 @switch (field.widget) {
                   @case ('checkbox') {
-                    <div class="control-row">
-                      <mat-checkbox [formControl]="field.control">{{ field.label }}</mat-checkbox>
+                    <div class="control">
+                      <div class="control__box">
+                        <mat-checkbox [formControl]="field.control">{{ field.label }}</mat-checkbox>
+                      </div>
                       @if (field.description) {
-                        <span class="control-row__desc">{{ field.description }}</span>
+                        <span class="control__desc">{{ field.description }}</span>
                       }
                     </div>
                   }
                   @case ('slideToggle') {
-                    <div class="control-row">
-                      <mat-slide-toggle [formControl]="field.control">{{ field.label }}</mat-slide-toggle>
+                    <div class="control">
+                      <div class="control__box">
+                        <mat-slide-toggle [formControl]="field.control">{{ field.label }}</mat-slide-toggle>
+                      </div>
                       @if (field.description) {
-                        <span class="control-row__desc">{{ field.description }}</span>
+                        <span class="control__desc">{{ field.description }}</span>
                       }
                     </div>
                   }
@@ -290,23 +294,30 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
       }
     }
 
-    /* Boolean fields read as discrete toggle rows, aligned to the grid and meeting the 44px target. */
-    .control-row {
+    /* Boolean fields: the control sits in an outlined box the same height as the Material fields
+       beside it (so a checkbox/toggle lines up with the selects/inputs in its row), matching the
+       outline appearance. Its description sits BELOW the box like a field hint, so it never inflates
+       the box and break the row's alignment. */
+    .control {
       display: flex;
       flex-direction: column;
-      justify-content: center;
       gap: 0.25rem;
-      min-height: 44px;
-      padding: 0.5rem 0.75rem;
-      border: 1px solid var(--mat-sys-outline-variant);
-      border-radius: var(--app-radius-card);
-      background: var(--mat-sys-surface-container);
+      min-inline-size: 0;
     }
 
-    .control-row__desc {
-      padding-inline-start: 2rem;
+    .control__box {
+      display: flex;
+      align-items: center;
+      min-block-size: 3rem;
+      padding-inline: 0.75rem;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: var(--app-radius-card);
+    }
+
+    .control__desc {
+      padding-inline-start: 0.25rem;
       color: var(--mat-sys-on-surface-variant);
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
     }
 
     .datetime {
@@ -337,6 +348,10 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
         margin-block-start: 1.25rem;
         padding-block-start: 1.25rem;
       }
+      /* Match the taller Comfortable Material field box so booleans align with their row. */
+      .control__box {
+        min-block-size: 3.25rem;
+      }
     }
 
     :host-context([data-density='compact']) {
@@ -351,6 +366,10 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
         row-gap: 0.5rem;
         margin-block-start: 0.75rem;
         padding-block-start: 0.75rem;
+      }
+      /* Match the tighter Compact Material field box so booleans align with their row. */
+      .control__box {
+        min-block-size: 2.5rem;
       }
     }
   `,
@@ -372,6 +391,14 @@ export class DynamicFormComponent {
 
   protected spanClass(span: GridSpan): string {
     return SPAN_CLASS[span];
+  }
+
+  // A datetime group renders its label ABOVE a Date/Time pair, whereas every Material field floats
+  // its label INSIDE the box — so a datetime placed beside a Material field lands its inputs ~1 line
+  // lower and the row reads as misaligned. Give datetime groups a full row of their own; the Date and
+  // Time sub-fields still sit side by side within it, and every grid row's controls now line up.
+  protected cellClass(field: BuiltField): string {
+    return field.widget === 'datetime' ? SPAN_CLASS.full : SPAN_CLASS[field.span];
   }
 
   // Mark a control invalid for assistive tech exactly when its inline error is shown (touched +

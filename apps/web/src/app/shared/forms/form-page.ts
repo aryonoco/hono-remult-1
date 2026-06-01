@@ -142,11 +142,15 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      margin-top: 1.25rem;
-      padding: 0.75rem 0;
+      margin-block-start: 1.25rem;
+      /* Internal padding so the status text and buttons sit clear of the band's edges rather than
+         flush against them. */
+      padding-block: 0.875rem;
+      padding-inline: 1.25rem;
       scroll-margin-bottom: 5rem;
       background: var(--mat-sys-surface-container-low);
-      border-top: 1px solid var(--mat-sys-outline-variant);
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: var(--app-radius-card);
       box-shadow: var(--mat-sys-level2);
     }
 
