@@ -1,8 +1,18 @@
-import { ChangeDetectionStrategy, Component, effect, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+import { type Density, DensityService } from '../../core/density.service';
 import { DynamicFormComponent } from './dynamic-form';
 import type { BuiltForm } from './form-engine.types';
 
@@ -16,9 +26,31 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
 @Component({
   selector: 'app-form-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatProgressBarModule, MatProgressSpinnerModule, DynamicFormComponent],
+  imports: [
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    DynamicFormComponent,
+  ],
   template: `
-    <h1 class="title">{{ title() }}</h1>
+    <header class="page-head">
+      <h1 class="title">{{ title() }}</h1>
+      @if (state() === 'ready') {
+        <mat-button-toggle-group
+          class="density-toggle"
+          aria-label="Form density"
+          [value]="density()"
+          (change)="onDensityChange($event.value)"
+          hideSingleSelectionIndicator
+        >
+          <mat-button-toggle value="comfortable" aria-label="Comfortable density"
+            >Comfortable</mat-button-toggle
+          >
+          <mat-button-toggle value="compact" aria-label="Compact density">Compact</mat-button-toggle>
+        </mat-button-toggle-group>
+      }
+    </header>
     @switch (state()) {
       @case ('anonymous') {
         <p role="alert" class="notice">Select a dev user to begin.</p>
@@ -68,13 +100,27 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
       display: block;
     }
 
+    /* Heading row: title on the start edge, density toggle on the end edge; wraps on narrow widths. */
+    .page-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+      margin-block-end: 1.25rem;
+    }
+
     .title {
-      margin: 0 0 1.25rem;
+      margin: 0;
       font-family: var(--font-display);
       font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.01em;
       color: var(--mat-sys-on-surface);
+    }
+
+    .density-toggle {
+      flex-shrink: 0;
     }
 
     .notice {
@@ -141,6 +187,11 @@ export class FormPageComponent {
   readonly save = output<void>();
   readonly cancel = output<void>();
 
+  // App-wide density preference (default compact), shared with the incident list. The header toggle
+  // reads and writes the same service, so a density choice made on any surface follows the operator.
+  private readonly densityService = inject(DensityService);
+  protected readonly density = this.densityService.density;
+
   // Live "unsaved changes" flag. The form's dirty state isn't a signal, so mirror it by listening to
   // the control event stream (which emits pristine/value/status changes) into a signal.
   protected readonly formDirty = signal(false);
@@ -157,5 +208,9 @@ export class FormPageComponent {
       const sub = form.events.subscribe(() => this.formDirty.set(form.dirty));
       onCleanup(() => sub.unsubscribe());
     });
+  }
+
+  protected onDensityChange(value: Density): void {
+    this.densityService.setDensity(value);
   }
 }
