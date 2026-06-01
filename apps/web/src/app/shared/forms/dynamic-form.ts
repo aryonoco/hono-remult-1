@@ -92,7 +92,11 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                   @case ('select') {
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ field.label }}</mat-label>
-                      <mat-select [formControl]="field.control" [required]="field.required">
+                      <mat-select
+                        [formControl]="field.control"
+                        [required]="field.required"
+                        [attr.aria-invalid]="ariaInvalid(field.control)"
+                      >
                         @if (field.optionsSignal) {
                           @for (option of field.optionsSignal(); track option.value) {
                             <mat-option [value]="option.value">{{ option.label }}</mat-option>
@@ -118,6 +122,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                         matInput
                         [formControl]="field.control"
                         [required]="field.required"
+                        [attr.aria-invalid]="ariaInvalid(field.control)"
                         [rows]="field.rows ?? defaultRows"
                         [attr.maxlength]="field.maxLength ?? null"
                       ></textarea>
@@ -139,6 +144,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                         inputmode="numeric"
                         [formControl]="field.control"
                         [required]="field.required"
+                        [attr.aria-invalid]="ariaInvalid(field.control)"
                         [attr.min]="field.min ?? null"
                         [attr.max]="field.max ?? null"
                       />
@@ -160,6 +166,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                         inputmode="decimal"
                         [formControl]="field.control"
                         [required]="field.required"
+                        [attr.aria-invalid]="ariaInvalid(field.control)"
                         [attr.min]="field.min ?? null"
                         [attr.max]="field.max ?? null"
                       />
@@ -179,6 +186,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                         type="text"
                         [formControl]="field.control"
                         [required]="field.required"
+                        [attr.aria-invalid]="ariaInvalid(field.control)"
                         [attr.maxlength]="field.maxLength ?? null"
                       />
                       @if (field.hint) {
@@ -330,6 +338,14 @@ export class DynamicFormComponent {
 
   protected spanClass(span: GridSpan): string {
     return SPAN_CLASS[span];
+  }
+
+  // Mark a control invalid for assistive tech exactly when its inline error is shown (touched +
+  // erroring). Returned as the string 'true' or null so the attribute is present only when invalid
+  // (an explicit aria-invalid="false" is noise). matInput does not set this itself in M3, so the
+  // template binds it on every control to close FORM-1.
+  protected ariaInvalid(control: AbstractControl): 'true' | null {
+    return this.firstError(control) !== null ? 'true' : null;
   }
 
   protected firstError(control: AbstractControl): string | null {
