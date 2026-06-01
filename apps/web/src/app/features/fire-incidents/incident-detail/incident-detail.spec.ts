@@ -512,6 +512,41 @@ describe('IncidentDetailComponent (hero, stats, map + timeline)', () => {
     expect(chip?.querySelector('app-cadence-countdown')).not.toBeNull();
   });
 
+  // The hero cadence chip has four urgency variants; the overdue case is covered above. These pin the
+  // clock relative to nextReportDue (the soon threshold is 60 min) so each remaining variant is exercised.
+  it('renders the soon cadence-chip variant when the next report is due within the hour', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, {
+      status: FireStatus.going,
+      nextReportDue: new Date('2026-01-15T04:00:00Z'),
+    });
+    instance(fixture).now.set(new Date('2026-01-15T03:30:00Z')); // due in 30 min → soon
+    TestBed.tick();
+    const chip = el(fixture).querySelector('.detail-hero__cadence');
+    expect(chip?.classList.contains('detail-hero__cadence--soon')).toBe(true);
+  });
+
+  it('renders the upcoming cadence-chip variant when the next report is comfortably ahead', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, {
+      status: FireStatus.going,
+      nextReportDue: new Date('2026-01-15T07:30:00Z'),
+    });
+    instance(fixture).now.set(new Date('2026-01-15T03:30:00Z')); // due in 4 h → upcoming
+    TestBed.tick();
+    const chip = el(fixture).querySelector('.detail-hero__cadence');
+    expect(chip?.classList.contains('detail-hero__cadence--upcoming')).toBe(true);
+  });
+
+  it('renders the none cadence-chip variant for a terminal fire (no live reporting clock)', async () => {
+    const fixture = await setup(EDITOR);
+    await seed(fixture, { status: FireStatus.safe }); // terminal → no cadence due
+    instance(fixture).now.set(new Date('2026-01-15T03:30:00Z'));
+    TestBed.tick();
+    const chip = el(fixture).querySelector('.detail-hero__cadence');
+    expect(chip?.classList.contains('detail-hero__cadence--none')).toBe(true);
+  });
+
   it('mutes and labels zero crew/aircraft stat tiles', async () => {
     const fixture = await setup(EDITOR);
     await seed(fixture, { totalPersonnel: 0, totalVehicles: 0, totalAircraft: 0 });
@@ -535,7 +570,11 @@ describe('IncidentDetailComponent (hero, stats, map + timeline)', () => {
     await seed(fixture, { situationReports: [] });
     const empty = el(fixture).querySelector('.panel--empty');
     expect(empty).not.toBeNull();
-    expect(empty?.getAttribute('role')).toBe('status');
+    // The live region announces the empty message only; the interactive CTA must sit OUTSIDE it (an
+    // interactive control inside a role="status" region is re-announced on every update).
+    const liveRegion = empty?.querySelector('[role=status]');
+    expect(liveRegion?.textContent).toContain('No situation reports yet');
+    expect(liveRegion?.querySelector('[data-testid="action-sitrep-empty"]')).toBeNull();
     expect(shown(fixture, 'action-sitrep-empty')).toBe(true);
   });
 

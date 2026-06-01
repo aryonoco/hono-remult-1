@@ -228,9 +228,11 @@
               }
             </mat-accordion>
           } @else {
-            <div class="panel panel--empty" role="status">
+            <div class="panel panel--empty">
               <mat-icon aria-hidden="true">assignment</mat-icon>
-              <p class="panel--empty__text">No situation reports yet.</p>
+              <!-- The live region is the message alone — the CTA below is interactive and must not sit
+                   inside a role="status" region (it would be re-announced on every update). -->
+              <p class="panel--empty__text" role="status">No situation reports yet.</p>
               @if (canNewSitrep()) {
                 <a
                   matButton="outlined"
