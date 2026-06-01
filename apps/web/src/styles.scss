@@ -184,22 +184,31 @@
     );
   }
 
-  // Runtime row-density for the incident list. Material exposes table row/header height as density
-  // tokens (`--mat-table-*-container-height`); `mat.table-overrides()` emits those custom properties
-  // onto the scoped selector, and Material's own `.mat-mdc-row`/`.mat-mdc-header-row` rules read them
-  // via `var()`. Scoping the overrides under the density attribute lets the toggle switch row height
-  // at runtime with no `.mat-mdc-*` override, no `::ng-deep`, and no `!important`. The handset card
-  // view honours the same attribute through component CSS (see incident-list.css).
+  // App-wide runtime density (DENSITY-1), driven by the global DensityService reflecting
+  // `html[data-density]`. Two coordinated levers, both scoped to the attribute so the toggle
+  // re-flows at runtime with no `.mat-mdc-*` override, no `::ng-deep`, and no `!important`:
+  //
+  //   1. A Material density *scale* — `mat.theme()` with ONLY the `density` key emits just the
+  //      density tokens (no colour/typography), so the Rosé Pine overrides above are untouched.
+  //      This sizes every Material control (form fields, selects, buttons, datepicker) so the
+  //      forms' Comfortable/Compact toggle has real effect. The default theme sits at density -1;
+  //      Comfortable steps airier (0) and Compact steps denser (-3) for a clear, wide distinction.
+  //   2. Explicit table row/header heights — the list needs a wider gap than the density scale
+  //      alone gives, so these `--mat-table-*-container-height` tokens override the scale for rows.
+  //
+  // The handset card view honours the same attribute through component CSS (see incident-list.css).
   [data-density='comfortable'] {
+    @include mat.theme((density: 0));
     @include mat.table-overrides(
       (
-        header-container-height: 56px,
-        row-item-container-height: 56px,
+        header-container-height: 64px,
+        row-item-container-height: 64px,
       )
     );
   }
 
   [data-density='compact'] {
+    @include mat.theme((density: -3));
     @include mat.table-overrides(
       (
         header-container-height: 36px,

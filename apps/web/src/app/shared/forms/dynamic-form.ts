@@ -90,7 +90,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                     </div>
                   }
                   @case ('select') {
-                    <mat-form-field subscriptSizing="dynamic">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ field.label }}</mat-label>
                       <mat-select [formControl]="field.control" [required]="field.required">
                         @if (field.optionsSignal) {
@@ -112,7 +112,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                     </mat-form-field>
                   }
                   @case ('textarea') {
-                    <mat-form-field subscriptSizing="dynamic">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ field.label }}</mat-label>
                       <textarea
                         matInput
@@ -130,7 +130,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                     </mat-form-field>
                   }
                   @case ('integer') {
-                    <mat-form-field subscriptSizing="dynamic">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ field.label }}</mat-label>
                       <input
                         matInput
@@ -151,7 +151,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                     </mat-form-field>
                   }
                   @case ('number') {
-                    <mat-form-field subscriptSizing="dynamic">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ field.label }}</mat-label>
                       <input
                         matInput
@@ -172,7 +172,7 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
                     </mat-form-field>
                   }
                   @default {
-                    <mat-form-field subscriptSizing="dynamic">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ field.label }}</mat-label>
                       <input
                         matInput
@@ -208,11 +208,13 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
       gap: 1.25rem;
     }
 
-    /* Each group is an outlined panel — flat "instrument" surface rather than a floating card. */
+    /* Each group is a surface-container card with a titled header, matching the detail panels.
+       The <fieldset>/<legend> semantics are preserved; the legend is styled as a block header
+       (display:block) so it reads as a card title rather than notched into the border. */
     .section {
       margin: 0;
       min-inline-size: 0;
-      padding: 1rem 1.25rem 1.25rem;
+      padding: 1.25rem;
       border: 1px solid var(--mat-sys-outline-variant);
       border-radius: var(--app-radius-card);
       background: var(--mat-sys-surface-container-low);
@@ -222,16 +224,19 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
     }
 
     .section__legend {
-      padding-inline: 0.375rem;
+      display: block;
+      inline-size: 100%;
+      box-sizing: border-box;
+      padding: 0;
       font-family: var(--font-display);
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 1rem;
       letter-spacing: 0.01em;
       color: var(--mat-sys-on-surface);
     }
 
     .section__desc {
-      margin: 0.25rem 0 0;
+      margin-block: 0.25rem 0;
       color: var(--mat-sys-on-surface-variant);
       font-size: 0.8125rem;
     }
@@ -240,8 +245,10 @@ const SPAN_CLASS: Readonly<Record<GridSpan, string>> = {
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
       column-gap: 1rem;
-      row-gap: 0.75rem;
-      margin-top: 0.875rem;
+      row-gap: 0.875rem;
+      margin-block-start: 1rem;
+      padding-block-start: 1rem;
+      border-block-start: 1px solid var(--mat-sys-outline-variant);
       align-items: start;
     }
 

@@ -77,7 +77,7 @@ function combineDateTime(date: Date | null, time: Date | null): Date | null {
         </span>
       }
       <div class="flex flex-wrap gap-2">
-        <mat-form-field class="flex-1">
+        <mat-form-field appearance="outline" class="flex-1">
           <mat-label>Date</mat-label>
           <input
             matInput
@@ -93,7 +93,7 @@ function combineDateTime(date: Date | null, time: Date | null): Date | null {
           <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
         </mat-form-field>
-        <mat-form-field class="flex-1">
+        <mat-form-field appearance="outline" class="flex-1">
           <mat-label>Time</mat-label>
           <input
             matInput
