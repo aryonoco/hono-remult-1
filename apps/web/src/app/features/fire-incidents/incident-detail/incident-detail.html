@@ -15,7 +15,10 @@
   @default {
     @if (fire(); as f) {
       <div class="detail">
-        <h1 class="detail-title" tabindex="-1">{{ f.name }}</h1>
+        <div class="detail-head">
+          <h1 class="detail-title" tabindex="-1">{{ f.name }}</h1>
+          <app-scope-indicator />
+        </div>
 
         <header class="detail-hero" [class]="heroToneClass()">
           <div class="detail-hero__lead">

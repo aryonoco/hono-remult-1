@@ -13,6 +13,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { type Density, DensityService } from '../../core/density.service';
+import { ScopeIndicatorComponent } from '../components/scope-indicator';
 import { DynamicFormComponent } from './dynamic-form';
 import type { BuiltForm } from './form-engine.types';
 
@@ -32,10 +33,14 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
     MatProgressBarModule,
     MatProgressSpinnerModule,
     DynamicFormComponent,
+    ScopeIndicatorComponent,
   ],
   template: `
     <header class="page-head">
-      <h1 class="title">{{ title() }}</h1>
+      <div class="page-head__lead">
+        <h1 class="title">{{ title() }}</h1>
+        <app-scope-indicator />
+      </div>
       @if (state() === 'ready') {
         <mat-button-toggle-group
           class="density-toggle"
@@ -108,6 +113,15 @@ export type FormPageState = 'anonymous' | 'loading' | 'notFound' | 'ready';
       justify-content: space-between;
       gap: 0.5rem 1rem;
       margin-block-end: 1.25rem;
+    }
+
+    /* Title + scope badge stay grouped on the start edge; the density toggle sits on the end edge. */
+    .page-head__lead {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      min-inline-size: 0;
     }
 
     .title {

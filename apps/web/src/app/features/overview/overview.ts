@@ -35,8 +35,10 @@ import { ResultAsync } from 'neverthrow';
 import { type EntityFilter, type LiveQueryChangeInfo, remult } from 'remult';
 import { DevAuthService } from '../../core/dev-auth.service';
 import { canCreateIncident, canViewDistrictRollup } from '../../shared/auth/permissions';
+import { currentScope } from '../../shared/auth/scope';
 import { CadenceCountdownComponent } from '../../shared/components/cadence-countdown/cadence-countdown';
 import { KpiTileComponent } from '../../shared/components/kpi-tile/kpi-tile';
+import { ScopeIndicatorComponent } from '../../shared/components/scope-indicator';
 import { SeverityTileComponent } from '../../shared/components/severity-tile/severity-tile';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge';
 import { StatusMixBarComponent } from '../../shared/components/status-mix-bar/status-mix-bar';
@@ -99,6 +101,7 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
     CadenceCountdownComponent,
     StatusBadgeComponent,
     IncidentMapComponent,
+    ScopeIndicatorComponent,
   ],
   templateUrl: './overview.html',
   styles: `
@@ -106,8 +109,18 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       display: block;
     }
 
+    /* Heading row: title on the start edge, the data-scope badge alongside it (wraps on narrow widths)
+       so it is immediately clear whether the dashboard below is statewide or a single district. */
+    .overview__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 1rem;
+      margin-block-end: 1.25rem;
+    }
+
     .overview__title {
-      margin: 0 0 1.25rem;
+      margin: 0;
       font-family: var(--font-display);
       font-size: 1.75rem;
       font-weight: 800;
@@ -216,6 +229,17 @@ function toMapPoints(rows: readonly MapRow[]): MapPoint[] {
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: var(--mat-sys-on-surface-variant);
+    }
+
+    /* A quiet scope suffix on each section heading, so every panel states whether its figures are
+       statewide or for the viewer's district without competing with the heading itself. */
+    .overview__scope {
+      color: var(--mat-sys-on-surface-variant);
+      font-weight: 500;
+    }
+
+    .overview__heading .overview__scope {
+      font-size: 0.875rem;
     }
 
     .overview__list {
@@ -343,6 +367,12 @@ export class OverviewComponent {
   protected readonly currentUser = this.devAuth.currentUser;
   protected readonly canCreate = computed(() => canCreateIncident(this.currentUser()));
   protected readonly showRollup = computed(() => canViewDistrictRollup(this.currentUser()));
+  // The data scope shown as a suffix on every section heading so each panel states whether its figures
+  // are statewide or for the viewer's district (matches the apiPrefilter + the header scope badge).
+  protected readonly scopeSuffix = computed(() => {
+    const scope = currentScope(this.currentUser());
+    return scope ? ` · ${scope.label}` : '';
+  });
   protected readonly now = signal(new Date());
 
   // Operational (active) — SERVER-derived (count/aggregate/groupBy); never a wholesale load.

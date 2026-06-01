@@ -47,6 +47,7 @@ import {
   canViewFinalReport,
 } from '../../../shared/auth/permissions';
 import { CadenceCountdownComponent } from '../../../shared/components/cadence-countdown/cadence-countdown';
+import { ScopeIndicatorComponent } from '../../../shared/components/scope-indicator';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge';
 import {
   ConfirmDialogComponent,
@@ -101,6 +102,7 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
     FinalReportPanelComponent,
     IncidentMapComponent,
     IncidentTimelineComponent,
+    ScopeIndicatorComponent,
   ],
   templateUrl: './incident-detail.html',
   styles: `
@@ -151,6 +153,15 @@ const CADENCE_ICONS: Readonly<Record<CadenceState, string>> = {
 
     .panel--empty__text {
       margin: 0;
+    }
+
+    /* Title + scope badge share the heading row so it is clear whether the viewer reaches this incident
+       as a statewide operator or within their own district. */
+    .detail-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
     }
 
     .detail-title {

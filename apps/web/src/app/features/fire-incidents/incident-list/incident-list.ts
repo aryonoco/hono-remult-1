@@ -38,6 +38,7 @@ import { type Density, DensityService } from '../../../core/density.service';
 import { DevAuthService } from '../../../core/dev-auth.service';
 import { canCreateIncident, canViewDistrictRollup } from '../../../shared/auth/permissions';
 import { CadenceCountdownComponent } from '../../../shared/components/cadence-countdown/cadence-countdown';
+import { ScopeIndicatorComponent } from '../../../shared/components/scope-indicator';
 import { SeverityTileComponent } from '../../../shared/components/severity-tile/severity-tile';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge';
 import { SPINE_TONE } from '../../../shared/ui/tone-classes';
@@ -105,6 +106,7 @@ const SORT_LABEL: Readonly<Record<string, string>> = {
     StatusBadgeComponent,
     CadenceCountdownComponent,
     SeverityTileComponent,
+    ScopeIndicatorComponent,
   ],
   templateUrl: './incident-list.html',
   styleUrl: './incident-list.css',

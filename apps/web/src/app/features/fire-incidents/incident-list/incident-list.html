@@ -1,5 +1,6 @@
 <header class="list-head">
   <h1 class="list-head__title">Incidents</h1>
+  <app-scope-indicator />
   @if (viewState() === 'content') {
     <span class="list-head__count" aria-live="polite">{{ total() }} total</span>
   }

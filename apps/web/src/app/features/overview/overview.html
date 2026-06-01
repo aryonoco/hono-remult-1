@@ -1,4 +1,7 @@
-<h1 tabindex="-1" class="overview__title">Operations overview</h1>
+<div class="overview__head">
+  <h1 tabindex="-1" class="overview__title">Operations overview</h1>
+  <app-scope-indicator />
+</div>
 
 @switch (viewState()) {
   @case ('anonymous') {
@@ -10,7 +13,9 @@
   @case ('content') {
     <section aria-labelledby="ops-h" class="overview__section">
       <div class="overview__section-head">
-        <h2 id="ops-h" class="overview__heading">Active operations</h2>
+        <h2 id="ops-h" class="overview__heading">
+          Active operations<span class="overview__scope">{{ scopeSuffix() }}</span>
+        </h2>
         @if (liveConnected()) {
           <span class="overview__live" data-testid="overview-live">
             <span class="overview__live-dot" aria-hidden="true"></span>
@@ -54,12 +59,16 @@
 
       <div class="overview__panels">
         <section aria-labelledby="mix-h" class="overview__panel">
-          <h3 id="mix-h" class="overview__panel-heading">Status mix</h3>
+          <h3 id="mix-h" class="overview__panel-heading">
+            Status mix<span class="overview__scope">{{ scopeSuffix() }}</span>
+          </h3>
           <app-status-mix-bar [counts]="statusCounts()" />
         </section>
 
         <section aria-labelledby="attention-h" class="overview__panel">
-          <h3 id="attention-h" class="overview__panel-heading">Needs attention</h3>
+          <h3 id="attention-h" class="overview__panel-heading">
+            Needs attention<span class="overview__scope">{{ scopeSuffix() }}</span>
+          </h3>
           @if (activeCount() === 0) {
             <p class="overview__note">No active incidents right now.</p>
           } @else {
@@ -92,7 +101,9 @@
       </div>
 
       <section aria-labelledby="activity-h" class="overview__panel">
-        <h3 id="activity-h" class="overview__panel-heading">Recent activity</h3>
+        <h3 id="activity-h" class="overview__panel-heading">
+          Recent activity<span class="overview__scope">{{ scopeSuffix() }}</span>
+        </h3>
         @if (recentSitreps().length === 0) {
           <p class="overview__note">No recent situation reports.</p>
         } @else {
@@ -120,7 +131,9 @@
       </section>
 
       <section aria-labelledby="map-h" class="overview__panel">
-        <h3 id="map-h" class="overview__panel-heading">Active incident map</h3>
+        <h3 id="map-h" class="overview__panel-heading">
+          Active incident map<span class="overview__scope">{{ scopeSuffix() }}</span>
+        </h3>
         @defer (on viewport; prefetch on idle) {
           <app-incident-map [points]="mapPoints()" />
         } @placeholder {
@@ -139,7 +152,9 @@
 
     <section aria-labelledby="season-h" class="overview__section">
       <div class="overview__section-head">
-        <h2 id="season-h" class="overview__heading">Season FY{{ selectedFy() }}</h2>
+        <h2 id="season-h" class="overview__heading">
+          Season FY{{ selectedFy() }}<span class="overview__scope">{{ scopeSuffix() }}</span>
+        </h2>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="overview__fy">
           <mat-label>Financial year</mat-label>
           <mat-select
@@ -160,13 +175,17 @@
       </div>
 
       <section aria-labelledby="season-mix-h" class="overview__panel">
-        <h3 id="season-mix-h" class="overview__panel-heading">Season status mix</h3>
+        <h3 id="season-mix-h" class="overview__panel-heading">
+          Season status mix<span class="overview__scope">{{ scopeSuffix() }}</span>
+        </h3>
         <app-status-mix-bar [counts]="seasonStatus()" />
       </section>
 
       @if (showRollup()) {
         <section aria-labelledby="region-h" class="overview__panel">
-          <h3 id="region-h" class="overview__panel-heading">By region</h3>
+          <h3 id="region-h" class="overview__panel-heading">
+            By region<span class="overview__scope">{{ scopeSuffix() }}</span>
+          </h3>
           @if (regionRollup().length === 0) {
             <p class="overview__note">No incidents recorded for this season.</p>
           } @else {
