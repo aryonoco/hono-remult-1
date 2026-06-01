@@ -358,7 +358,9 @@ export class IncidentListComponent {
 
   private buildWhere(): EntityFilter<FireIncident> {
     const filters = this.filters();
-    const where: EntityFilter<FireIncident> = {};
+    // Never list fires reported after now: the dataset is pre-seeded out to FY2029, so future-dated
+    // seasons exist but have not happened yet — without this the "All years" filter would surface them.
+    const where: EntityFilter<FireIncident> = { reportedAt: { $lte: new Date() } };
     if (filters.fy !== 'all') {
       where.financialYear = filters.fy;
     }

@@ -499,9 +499,17 @@ export class OverviewComponent {
         },
         error: () => this.attentionLive.set(false),
       });
+    // Bound to "now": the dataset is pre-seeded out to FY2029, so without this the latest reports are
+    // future-dated seasons that have not happened yet — a live activity feed must only show real,
+    // already-filed reports up to the current moment.
+    const now = untracked(() => this.now());
     this.unsubscribeSitreps = remult
       .repo(SituationReport)
-      .liveQuery({ orderBy: { submittedAt: 'desc' }, limit: SITREP_LIMIT })
+      .liveQuery({
+        where: { submittedAt: { $lte: now } },
+        orderBy: { submittedAt: 'desc' },
+        limit: SITREP_LIMIT,
+      })
       .subscribe({
         next: (info: LiveQueryChangeInfo<SituationReport>) => {
           this.recentSitreps.set(info.items);
@@ -585,7 +593,13 @@ export class OverviewComponent {
 
   private async refreshSeason(): Promise<void> {
     const repo = remult.repo(FireIncident);
-    const where: EntityFilter<FireIncident> = { financialYear: this.selectedFy() };
+    // Bound to now: the current financial year is only partly elapsed (and future seasons are
+    // pre-seeded), so a season's figures must count only fires reported up to the present.
+    const now = untracked(() => this.now());
+    const where: EntityFilter<FireIncident> = {
+      financialYear: this.selectedFy(),
+      reportedAt: { $lte: now },
+    };
     const elevated = untracked(() => this.showRollup());
     const districtRowsP = elevated
       ? repo.groupBy({ group: ['districtId'], where, orderBy: { $count: 'desc' } })
