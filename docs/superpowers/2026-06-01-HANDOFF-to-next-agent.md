@@ -155,8 +155,8 @@ over-claimed it). **Run `just ci` yourself and make it genuinely pass before any
   check:ci + AA guard green. **Enumerated in the tracker as CSS-1..6** ("## Workstream: CSS/SCSS modernisation").
   Decompose into small per-file sub-workflows.
 
-### 4b. BLOG POST (user request #4) — **the VERY LAST step, after ABSOLUTELY everything else**
-- The user said: *"as the VERY VERY last step, once you are otherwise totally finished, write a comprehensive
+### 4b. BLOG POST — **CANCELLED by the user (2026-06-01). Removed from scope; do NOT write it.**
+- ~~The user said: *"as the VERY VERY last step, once you are otherwise totally finished, write a comprehensive
   blog post in markdown aimed at senior/staff engineers — a thoughtful, narratively engaging and gripping
   walkthrough of how this app was made starting from the very first commit (use the git history). It should be
   a warts-and-all narrative. And it should be fully self-contained, so if it refers to a concept like Remult,
@@ -166,8 +166,7 @@ over-claimed it). **Run `just ci` yourself and make it genuinely pass before any
   including the ones in this very campaign: the map `getBounds` crash, the Bun SSE idle-timeout, the
   density-toggle Material-override saga, the all-overdue fixtures problem, and the **context-window workflow
   failures**). Self-contained primers for Remult/Nx/Atlas/neverthrow/Tailwind v4/Angular signals/Leaflet/etc.
-  Save under `docs/`. **Do this ONLY after the tracker is clear, `just ci` is genuinely green, and the branch
-  is finished.**
+  Save under `docs/`.*~~ — **CANCELLED; no blog post.**
 
 ---
 
@@ -253,10 +252,10 @@ plus the `Workflow` tool (ultracode mode) and a read-only audit workflow. MCP se
    keyboard, as both admin and district viewer) → fix → re-verify. Address the DETAIL minor follow-ups (§2).
 7. **`just ci` genuinely green**, tracker fully clear, then **`superpowers:finishing-a-development-branch`**
    (the user previously chose "leave the branch for my review" — re-confirm with them how to finish).
-8. **THEN, and only then, the BLOG POST** (§4b, ultrathink).
+8. ~~THEN the BLOG POST~~ — **CANCELLED by the user; no blog post.**
 
 > The user explicitly required: **finish each previous campaign to FULL completion before starting the next set of
-> agents.** Order is therefore strict: FIXTURES → FORMS → SCOPE → CSS → sweep → finish → blog.
+> agents.** Order is therefore strict: FIXTURES → FORMS → SCOPE → CSS → sweep → finish. (Blog post cancelled.)
 
-**Do NOT declare done until: the tracker is clear, `just ci` is genuinely green, every surface is
-browser-verified in both themes as both an admin and a district-scoped user, AND the blog post is written.**
+**Do NOT declare done until: the tracker is clear, `just ci` is genuinely green, and every surface is
+browser-verified in both themes as both an admin and a district-scoped user.**
