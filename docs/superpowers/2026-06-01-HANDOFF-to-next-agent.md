@@ -1,5 +1,19 @@
 # Handoff to the next agent — Fire-incidents redesign (branch `feat/fire-incidents-tactical-redesign`)
 
+> ## ⚡ CURRENT STATUS (updated 2026-06-01, session 2) — read this first
+> Since this doc was first written, **FIXTURES, FORMS and SCOPE are now genuinely DONE, committed and
+> browser-verified** (see the tracker's Verified-fixed log; commits `f5d66aa`→`e65897a`). Also fixed: the
+> future-dated FY2027-2029 fixture data no longer shows as current (reads bounded to `now`, commit `9683d09`).
+> 292 web tests + `check:ci` green throughout. Blog post **cancelled** by the user.
+> **REMAINING, in order:** (1) **CSS/SCSS modernisation** (CSS-1..6) — delegated to the background workflow
+> `.claude/workflows/css-modernisation.js`; launch via `Workflow({name:'css-modernisation'})` on a clean tree,
+> then verify (check:ci + AA guard + before/after browser sweep both themes) and commit per area — the agents
+> edit only. (2) **FIRE-AREA-7** — statewide fire-extent polygons on the `/overview` map (tracker has the spec).
+> (3) **Finish:** DETAIL follow-ups + final holistic browser sweep + `just ci` genuinely green +
+> `superpowers:finishing-a-development-branch`. The tracker (`docs/superpowers/2026-05-31-fire-ui-qa-tracker.md`)
+> and the memory `fire-ui-redesign.md` are the authoritative, current state. The prose below is the ORIGINAL
+> session-1 handoff — its "FAILED/NOT done" claims about FIXTURES/FORMS are now superseded (they're done).
+>
 > **Written 2026-06-01 by the previous agent at the end of a very long session whose context became
 > degraded. READ THIS WHOLE FILE FIRST, then re-verify everything before trusting it.** The previous
 > agent made real progress but also, late in the session, **mis-reported some work as complete that was
