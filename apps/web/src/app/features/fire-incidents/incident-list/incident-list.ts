@@ -661,10 +661,15 @@ export class IncidentListComponent {
   }
 
   private parseFilters(params: ParamMap): ListFilters {
+    // tone and the coarse status group are mutually exclusive (buildWhere gives tone precedence). Enforce
+    // that invariant on the READ side too: a hand-edited `?tone=…&group=…` URL would otherwise seed both
+    // and render a no-effect group chip beside the tone chip. A present tone forces group to its default.
+    const tone = this.parseTone(params.get('tone'));
+    const group = tone !== 'all' ? 'all' : this.parseGroup(params.get('group'));
     return {
       fy: this.parseFy(params.get('fy')),
-      group: this.parseGroup(params.get('group')),
-      tone: this.parseTone(params.get('tone')),
+      group,
+      tone,
       districtId: this.parseScopeId(params.get('districtId')),
       region: this.parseScopeId(params.get('region')),
     };

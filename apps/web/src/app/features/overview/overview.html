@@ -20,6 +20,7 @@
           class="overview__view-all"
           routerLink="/incidents"
           [queryParams]="{ group: 'active', fy: 'all' }"
+          aria-label="View all active operations"
           >View all</a
         >
         @if (liveConnected()) {
@@ -179,6 +180,7 @@
           class="overview__view-all"
           routerLink="/incidents"
           [queryParams]="{ fy: selectedFy(), group: 'all' }"
+          [attr.aria-label]="'View all season FY' + selectedFy() + ' incidents'"
           >View all</a
         >
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="overview__fy">

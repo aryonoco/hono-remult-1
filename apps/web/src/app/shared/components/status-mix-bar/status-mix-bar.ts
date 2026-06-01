@@ -22,6 +22,9 @@ interface Segment {
   pct: number;
   label: string;
   class: string;
+  // Accessible name for the linked legend row, e.g. "Going: 1 incident" / "Safe: 12 incidents"
+  // (count-correct singular/plural, since the bare count is not self-describing to a screen reader).
+  ariaLabel: string;
   // Present only when `segmentLink` is supplied; the legend then renders a linked <ul>/<li>/<a> row.
   link: SegmentLink | undefined;
 }
@@ -53,7 +56,7 @@ const PERCENT: number = 100;
             <a
               [routerLink]="s.link!.commands"
               [queryParams]="s.link!.queryParams"
-              [attr.aria-label]="s.label + ': ' + s.count + ' incidents'"
+              [attr.aria-label]="s.ariaLabel"
               class="flex min-h-6 items-center gap-1.5 rounded-sm px-1 -mx-1 no-underline transition-colors hover:bg-surface-container-high hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <span class="h-3 w-3 rounded-sm" [class]="s.class" aria-hidden="true"></span>
@@ -105,6 +108,7 @@ export class StatusMixBarComponent {
         pct: (count / total) * PERCENT,
         label: STATUS_TONE_LABELS[tone],
         class: SPINE_TONE[tone],
+        ariaLabel: `${STATUS_TONE_LABELS[tone]}: ${count} ${count === 1 ? 'incident' : 'incidents'}`,
         link: linkFor ? linkFor(tone) : undefined,
       });
     }

@@ -1305,6 +1305,9 @@ describe('IncidentListComponent (tone status-set filter + Status drill-in)', () 
     const href = goingLink!.getAttribute('href') ?? '';
     expect(href).toContain('/incidents');
     expect(href).toContain('tone=going');
+    // The FY rider must be present so the drill-in keeps the active view (the badge passes
+    // `fy: filters().fy` literally, so it is on the href even at the current-FY default).
+    expect(href).toContain(`fy=${CURRENT_FY}`);
 
     expect(await findAxeViolations(root)).toEqual([]);
   });
