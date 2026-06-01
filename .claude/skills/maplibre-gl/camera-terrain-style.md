@@ -29,7 +29,9 @@ camera maths stays stable.
 
 Build the bounds from the **data**, not from a layer (a layer has no projected extent until the map has a
 view — this is the crash the Leaflet code carefully avoided, and it disappears under MapLibre's source model
-anyway). Cap `maxZoom` so a small extent does not frame to building level, and pad for any side panel.
+anyway). Cap `maxZoom` so a small extent does not frame to building level. This project's maps are embedded
+widgets with no adjacent panel, so padding is symmetric (`24` all round, matching the spec); asymmetric
+`PaddingOptions` exist for layouts that do have a side panel.
 
 ```ts
 import { LngLatBounds } from 'maplibre-gl';
@@ -37,7 +39,7 @@ const bounds = new LngLatBounds();
 for (const f of incidents) bounds.extend([f.lng, f.lat]); // extend by each [lng, lat]; rings by each vertex
 if (!bounds.isEmpty()) {
   map.fitBounds(bounds, {
-    padding: { top: 24, bottom: 24, left: 360, right: 24 }, // left gutter for the detail panel
+    padding: 24,            // symmetric — this project's maps have no side panel
     maxZoom: 13,
     bearing: 0,
     // animate defaults to honouring prefers-reduced-motion — do NOT force essential:true here
@@ -78,7 +80,7 @@ const TERRARIUM = {
 };
 map.on('load', () => {
   map.addSource('dem', TERRARIUM);
-  map.setTerrain({ source: 'dem', exaggeration: 1.3 });          // drape the basemap over the DEM
+  map.setTerrain({ source: 'dem', exaggeration: 1.4 });          // drape the basemap over the DEM (1.4 = the project's tuned constant)
   map.addSource('dem-hillshade', { ...TERRARIUM });              // separate instance for the shade layer
   map.addLayer({ id: 'hillshade', type: 'hillshade', source: 'dem-hillshade',
     paint: { 'hillshade-method': 'multidirectional', 'hillshade-exaggeration': 0.6 } }, firstSymbolId(map));
@@ -108,7 +110,9 @@ carry). `IControl`s (Attribution, Navigation, a deck.gl overlay) persist — do 
 
 ```ts
 const CUSTOM_SOURCES = ['incidents', 'dem', 'dem-hillshade'];
-const CUSTOM_LAYERS = ['perimeter-fill', 'perimeter-line', 'extent-fill', 'extent-line', 'incident-pins'];
+// 'hillshade' MUST be in this list: it is an ordinary style-spec layer, so if transformStyle does not carry
+// it, the first theme swap silently drops the hillshading (the dem-hillshade SOURCE alone renders nothing).
+const CUSTOM_LAYERS = ['hillshade', 'perimeter-fill', 'perimeter-line', 'extent-fill', 'extent-line', 'incident-pins'];
 
 function swapTheme(map: Map, nextUrl: string): void {
   map.setStyle(nextUrl, {

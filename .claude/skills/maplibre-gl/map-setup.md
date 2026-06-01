@@ -21,8 +21,9 @@ import { Map, NavigationControl, ScaleControl, AttributionControl } from 'maplib
 
 Two rules that bite:
 
-- **Code-split the bundle.** MapLibre is ~270 KB minified. In a lazy feature route, `await import('maplibre-gl')`
-  inside `afterNextRender` keeps it off the route's initial chunk.
+- **Code-split the bundle.** MapLibre is ~270 KB gzipped (~1.1 MB minified, uncompressed). In a lazy feature
+  route, a dynamic `await import('maplibre-gl')` inside the map-creation path keeps it off the route's
+  initial chunk.
 - **The CSS must be global.** `import 'maplibre-gl/dist/maplibre-gl.css'` belongs in a global stylesheet
   (`styles.scss` or `angular.json` `styles[]`), **never** a component `styles`/`styleUrls` — Angular view
   encapsulation rewrites selectors and the controls/popups render unstyled.
@@ -162,9 +163,9 @@ Full list: `llms-full.txt` → `## MapOptions` (type-aliases section).
 Per the project rule, throw only for bugs/unrecoverable failures; expected errors use `Result`. For maps:
 
 - **`new Map(...)` and `addImage` are the acceptable throwing seam.** A WebGL-unavailable failure or an
-  `addImage` duplicate-id is an unrecoverable/programmer-context failure surfaced inside `afterNextRender`.
-  Catch it and convert to a `tilesFailed` signal so the SVG/list fallback renders instead of crashing the
-  route.
+  `addImage` duplicate-id is an unrecoverable/programmer-context failure surfaced inside the creation effect
+  (or inside `afterNextRender` for an always-present host). Catch it and convert to a `tilesFailed` signal so
+  the SVG/list fallback renders instead of crashing the route.
 - **Value-returning async uses `ResultAsync`.** `map.loadImage(url)` for sprites and any Remult call feeding
   `MapPoint`s go through `ResultAsync.fromPromise(...)` and are handled with `match`/`mapErr` (the
   `must-use-result` rule). Don't let a rejected promise escape.

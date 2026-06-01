@@ -134,8 +134,10 @@ The active migration replaces Leaflet 1.9.4 with MapLibre GL JS v5. Locked decis
   `https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json`; dark = **Dark Matter**
   `https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json`. CARTO's hosted tiles are
   non-commercial — showcase-only; keep the OSM + CARTO attribution.
-- **Approach B (fully GL-native):** status pins are `symbol` layers with sprite/SDF icons + data-driven
-  expressions — no DOM `divIcon` markers.
+- **Approach B (fully GL-native):** status pins are `symbol` layers with **full-colour images** (SVG →
+  ImageBitmap → `addImage`) selected by data-driven expressions — no DOM `divIcon` markers, and **not** SDF
+  icons: multi-hue pin artwork rules out SDF, so `icon-color`/`icon-halo-*` paint cannot be used and the
+  mandatory contrast halo (2 px; 4 px for Major) is baked into the generated bitmap.
 - **Status colours** are tuned for ≥3:1 on both basemaps with a mandatory theme-aware halo; colour is never
   the sole channel (glyph + label too). Rosé Pine stays for app chrome.
 - **Angular:** the incident-map canvas sits behind `@if (hasPoints())`, so construct the `Map` in an
@@ -152,4 +154,5 @@ The active migration replaces Leaflet 1.9.4 with MapLibre GL JS v5. Locked decis
 `llms-full.txt` is assembled from the official docs by `scripts/build-llms-full.mjs`. To refresh it for a new
 release: `node scripts/build-llms-full.mjs <tag>` (e.g. `v5.25.0`). It needs `turndown`, `cheerio`, and
 `turndown-plugin-gfm` (install transiently; do **not** add them to the repo). The script is self-contained —
-it discovers the API page list and example list from the repo tree at that tag.
+it discovers the example list from the repo tree at that tag and the API page list from the rendered API
+index on maplibre.org, then fetches and converts each page.

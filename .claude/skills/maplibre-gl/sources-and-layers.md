@@ -22,7 +22,7 @@ layers can read it. Set data once and styling lives entirely on the layers.
 | ------------------------ | ------------------------------------------------------------------------------------- |
 | `geojson`                | In-memory/fetched features. Supports `promoteId`, clustering, `setData`/`updateData`. |
 | `vector`                 | MVT vector tiles (TileJSON or `tiles[]`). Layers need a `source-layer`.               |
-| `raster`                 | XYZ/WMS bitmap tiles. `tileSize` (256 default; 512 for many basemaps).                |
+| `raster`                 | XYZ/WMS bitmap tiles. `tileSize` (512 default; set 256 for OSM/XYZ 256px tiles).      |
 | `raster-dem`             | Elevation for terrain + hillshade. `encoding:'terrarium'` for AWS DEM.                |
 | `image`/`video`/`canvas` | A georeferenced still / clip / live canvas, pinned to 4 `coordinates`.                |
 

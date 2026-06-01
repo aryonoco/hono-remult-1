@@ -32,9 +32,10 @@ map.addLayer({
     'text-field': ['get', 'name'],    // colour-independent label
     'text-optional': true,
   },
-  paint: {
-    'icon-halo-color': '#0b0b0c', 'icon-halo-width': 1.5, // SDF only; the contrast halo (theme-aware)
-  },
+  // NOTE: no `icon-halo-*` paint here. Those properties are SDF-ONLY ("Icon halos can only be used with
+  // SDF icons" — style spec). This project's pins are FULL-COLOUR images (SVG → ImageBitmap), so the
+  // mandatory contrast halo (MAP_HALO_WIDTH = 2 px, theme-aware; 4 px for Major) is baked into the
+  // generated bitmap by map-symbology.ts — not applied as paint.
 });
 // Pin click → in-app navigation; cursor affordance on hover.
 map.on('click', 'incident-pins', (e) => {
@@ -64,16 +65,16 @@ cleanup to track (unlike the Leaflet `markerCleanups[]`).
 Add once with `map.addControl(control, position?)`; `ControlPosition` is `'top-left'|'top-right'|
 'bottom-left'|'bottom-right'`. Controls are `IControl`s and **persist across `setStyle`** — do not re-add them.
 
-| Control              | Notes                                                                   |
-| -------------------- | ----------------------------------------------------------------------- |
-| `NavigationControl`  | Zoom + compass; `{ visualizePitch: true }` shows the pitch.             |
-| `ScaleControl`       | `{ unit: 'metric' }` (replaces Leaflet `L.control.scale`).              |
-| `AttributionControl` | Add once; carries OSM + CARTO credit. `{ compact, customAttribution }`. |
-| `FullscreenControl`  | `{ container }` to target a wrapper.                                    |
-| `GeolocateControl`   | `{ trackUserLocation, positionOptions }`.                               |
-| `TerrainControl`     | `{ source, exaggeration }` — toggles 3D terrain.                        |
-| `GlobeControl`       | Toggles the globe projection (v5).                                      |
-| `LogoControl`        | Attribution logo.                                                       |
+| Control              | Notes                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `NavigationControl`  | Zoom + compass; `{ visualizePitch: true }` shows the pitch.                                   |
+| `ScaleControl`       | `{ unit: 'metric' }` (replaces Leaflet `L.control.scale`).                                    |
+| `AttributionControl` | Add once; carries OSM + CARTO credit. `{ compact, customAttribution }`.                       |
+| `FullscreenControl`  | `{ container }` to target a wrapper.                                                          |
+| `GeolocateControl`   | `{ trackUserLocation, positionOptions }`.                                                     |
+| `TerrainControl`     | `{ source, exaggeration }` — toggles 3D terrain.                                              |
+| `GlobeControl`       | Toggles the globe projection (v5).                                                            |
+| `LogoControl`        | MapLibre branding watermark (optional; NOT attribution — that is `AttributionControl`'s job). |
 
 A **custom control** implements `IControl` (`onAdd(map)` returns a DOM element, `onRemove()` cleans up).
 
@@ -89,16 +90,17 @@ Each is a togglable handler on the map: `scrollZoom`, `boxZoom`, `dragPan`, `dra
 `map.on(type, listener)` for map-wide events; `map.on(type, layerId, listener)` for **layer-scoped** events —
 the idiomatic way to handle pin/perimeter interaction (`e.features` is populated, hit-tested for you).
 
-| Event                                                   | Carries / use                                             |
-| ------------------------------------------------------- | --------------------------------------------------------- |
-| `load`                                                  | Style ready — do `addSource`/`addLayer` here.             |
-| `style.load`                                            | Fires on load AND after every `setStyle` — re-add images. |
-| `click`/`mousemove`/`mouseenter`/`mouseleave` + layerId | `MapMouseEvent`: `e.lngLat`, `e.point`, `e.features`.     |
-| `idle`                                                  | Rendering settled (good for screenshots/tests).           |
-| `error`                                                 | Tile/style/WebGL failure — drive the fallback signal.     |
-| `styleimagemissing`                                     | Lazily generate a missing `icon-image`.                   |
-| `data`/`sourcedata`/`styledata`                         | Lifecycle (e.g. wait for a source to finish loading).     |
-| `move`/`moveend`/`zoom`/`pitch`/`rotate`                | Camera changes — sync the accessibility DOM-mirror here.  |
+| Event                                      | Carries / use                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| `load`                                     | Style ready — do `addSource`/`addLayer` here.                                  |
+| `style.load`                               | Fires on load AND after every `setStyle` — re-add images.                      |
+| `click`/`mousemove`/`mouseenter` + layerId | `MapLayerMouseEvent`: `e.lngLat`, `e.point`, `e.features`.                     |
+| `mouseleave` + layerId                     | `MapLayerMouseEvent` — but `e.features` is empty (pointer has left the layer). |
+| `idle`                                     | Rendering settled (good for screenshots/tests).                                |
+| `error`                                    | Tile/style/WebGL failure — drive the fallback signal.                          |
+| `styleimagemissing`                        | Lazily generate a missing `icon-image`.                                        |
+| `data`/`sourcedata`/`styledata`            | Lifecycle (e.g. wait for a source to finish loading).                          |
+| `move`/`moveend`/`zoom`/`pitch`/`rotate`   | Camera changes — sync the accessibility DOM-mirror here.                       |
 
 `map.on(...)` returns a `Subscription` in v5; capture it to `.unsubscribe()` if needed, but `map.remove()`
 disposes everything. Events **do not chain** in v5.
@@ -121,10 +123,12 @@ MapLibre gives the canvas `tabindex`, `role="region"`, an `aria-label`, and a `K
 per-feature focus on the roadmap. A DOM-mirror is therefore a **permanent part of the architecture**, not a
 stopgap:
 
-1. One transparent, **≥24×24 CSS px**, focusable `<button>` per fire, absolutely positioned over
-   `map.getCanvasContainer()`.
-2. Sync each button's position on `move`/`render` using `map.project([lng, lat])` → screen pixels.
-3. Focus/activate a button → set the camera (`easeTo`, **without** `essential:true`) and drive a
+1. One transparent, **≥24×24 CSS px**, focusable element per fire (`role="link"`, `tabindex="0"`),
+   absolutely positioned over `map.getCanvasContainer()`. Avoid a native `<button>`: buttons activate on
+   Space as well as Enter, contradicting the link semantics this project's pins carry (Enter navigates;
+   Space scrolls).
+2. Sync each element's position on `move`/`render` using `map.project([lng, lat])` → screen pixels.
+3. Focus/activate an element → set the camera (`easeTo`, **without** `essential:true`) and drive a
    `feature-state` `focus` highlight layer (paint expression), and navigate on Enter/click (the `role="link"`
    semantics that the Leaflet pins used to carry on their DOM).
 4. Announce the focused incident via an `aria-live="polite"` region (never combined with `role="alert"`).
@@ -132,13 +136,17 @@ stopgap:
    alternative; the current component already carries name+status+level+area `aria-label`s to preserve.
 
 ```ts
-// Reposition the focusable overlay buttons each frame the camera moves.
-map.on('move', () => {
-  for (const { id, lngLat, el } of overlayButtons) {
+// Reposition the focusable overlay elements each frame the camera changes. Bind BOTH 'move' and
+// 'render': 'move' alone misses frames during inertial pans, flyTo/easeTo animation and terrain
+// morphs, so overlays would visibly lag the canvas.
+const sync = (): void => {
+  for (const { id, lngLat, el } of overlayElements) {
     const p = map.project(lngLat);          // LngLat → {x, y} screen pixels
     el.style.transform = `translate(${p.x}px, ${p.y}px)`;
   }
-});
+};
+map.on('move', sync);
+map.on('render', sync);
 ```
 
 ## Leaflet → MapLibre interaction mapping

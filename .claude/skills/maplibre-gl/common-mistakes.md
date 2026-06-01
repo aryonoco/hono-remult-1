@@ -35,9 +35,10 @@ real thing a capable agent gets wrong by default (confirmed in baseline testing)
 
 - **Wrong:** `center: [-37.81, 144.96]` (Leaflet habit), `new LngLat(lat, lng)`.
 - **Right:** `[lng, lat]` everywhere — `center: [144.96, -37.81]`. GeoJSON RFC order.
-- **Why:** MapLibre/GeoJSON are longitude-first; Leaflet is latitude-first. Flipped coordinates land in the
-  ocean off Africa (0,0-ish) with no error. Existing GeoJSON perimeters are already `[lng, lat]` and port
-  unchanged; flip every hand-written center/marker/bounds.
+- **Why:** MapLibre/GeoJSON are longitude-first; Leaflet is latitude-first. Flipped coordinates either land
+  far from the intended spot or get clamped at the latitude limit — silently, with no error (flipping
+  Melbourne gives latitude 144.96, which is out of range and gets clamped). Existing GeoJSON perimeters are
+  already `[lng, lat]` and port unchanged; flip every hand-written center/marker/bounds.
 
 ## 3. A `circle` layer for a metre radius
 
@@ -55,8 +56,8 @@ real thing a capable agent gets wrong by default (confirmed in baseline testing)
   `promoteId`.
 - **Right:** set `promoteId: 'id'` on the source once; then string/UUID ids work. Do **not** also set
   `generateId`.
-- **Why:** without `promoteId`, a feature id must be an integer — string/UUID keys silently no-op. `promoteId`
-  maps a property to the id. `generateId` overwrites the id with the array index, destroying the stable join.
+- **Why:** without `promoteId`, a feature id must be an integer (or a string castable to one, e.g. `'5'`) —
+  UUID/non-numeric string keys silently no-op. `promoteId` maps a property to the id. `generateId` overwrites the id with the array index, destroying the stable join.
   `setData()` clears all feature-state — re-apply after a rebuild.
 
 ## 5. Assuming setStyle keeps your layers
